@@ -1198,3 +1198,232 @@ button.softkey:active {
 .credit-list a {
   color: var(--c-value-hi);
 }
+
+/* ---------- Flight.Traj durante el ascenso guionado ---------- */
+.ascent-note {
+  padding: 1px 4px;
+  font-size: 9.5px;
+  color: var(--c-screen);
+  background: var(--c-caution);
+  text-align: center;
+}
+.ascent-table {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  text-transform: none;
+}
+.asc-row {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) 62px 48px 48px;
+  gap: 6px;
+  color: var(--c-label-dim);
+  white-space: nowrap;
+}
+.asc-row .asc-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.asc-row .asc-t,
+.asc-row .asc-v,
+.asc-row .asc-h {
+  text-align: right;
+}
+.asc-row.done {
+  color: var(--c-value-hi);
+}
+.asc-row .tick {
+  color: var(--c-value-hi);
+}
+
+/* ---------- Mission.Tl ---------- */
+.tl-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-key-lo) transparent;
+}
+.tl-row {
+  display: grid;
+  grid-template-columns: 12px 18px minmax(0, 1fr) 34px auto;
+  gap: 5px;
+  padding: 0 3px;
+  color: var(--c-label);
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 1.28;
+}
+.tl-row .tick {
+  color: var(--c-value-hi);
+}
+.tl-row .tl-n {
+  text-align: right;
+  color: var(--c-label-dim);
+}
+.tl-row .tl-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-row .tl-who {
+  font-size: 9.5px;
+  color: var(--c-label-dim);
+}
+.tl-row .tl-t {
+  white-space: pre;
+  color: var(--c-label-dim);
+}
+.tl-row.done .tl-name,
+.tl-row.done .tl-t {
+  color: var(--c-value-hi);
+}
+.tl-row .tl-t.pred {
+  color: var(--c-label);
+}
+.tl-row.next {
+  background: var(--c-command);
+}
+.tl-row.next span {
+  color: var(--c-label);
+}
+.tl-foot {
+  display: flex;
+  gap: 12px;
+  border-top: 1px solid var(--c-label-faint);
+  padding-top: 2px;
+  font-size: 9.5px;
+  color: var(--c-label-dim);
+}
+
+/* ---------- Barra de estado: próximo evento ---------- */
+.st-value.cmd {
+  color: var(--c-command-hi);
+}
+.st-label {
+  white-space: nowrap;
+}
+
+/* ---------- Vista: puntos de los cuerpos, destello y tooltips ---------- */
+.body-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.body-dot.earth {
+  background: color-mix(in srgb, var(--c-body-earth) 60%, white);
+}
+.body-dot.moon {
+  background: color-mix(in srgb, var(--c-body-moon) 70%, white);
+}
+.event-marker {
+  pointer-events: auto;
+  cursor: help;
+}
+.burn-flash {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--c-trail-prox);
+  opacity: 0;
+}
+.burn-flash.on {
+  animation: burn-flash 1.6s ease-out 1;
+}
+@keyframes burn-flash {
+  0% {
+    opacity: 1;
+    width: 10px;
+    height: 10px;
+    background: var(--c-caution);
+    box-shadow: 0 0 18px 6px var(--c-trail-prox);
+  }
+  25% {
+    background: transparent;
+  }
+  100% {
+    opacity: 0;
+    width: 110px;
+    height: 110px;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* ---------- Guarda de los interruptores: tapa sobre la palanca ---------- */
+.guard-frame {
+  position: relative;
+}
+.sw.guarded:not(.armed) .fire::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  top: 22px;
+  bottom: 4px;
+  border: 1px solid var(--c-warning);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--c-warning) 38%, transparent);
+  pointer-events: none;
+}
+.sw.guarded:not(.armed) .fire:disabled {
+  opacity: 1;
+}
+.sw.guarded:not(.armed) .fire .lever {
+  opacity: 0.55;
+}
+.sw.guarded.armed .guard-frame {
+  box-shadow: 0 0 0 1px var(--c-caution), 0 0 8px var(--c-caution);
+}
+
+/* ---------- Pantalla de inicio ---------- */
+.modal.intro {
+  background: color-mix(in srgb, var(--c-screen) 82%, transparent);
+  text-transform: none;
+  align-items: flex-start;
+}
+.intro-card {
+  width: min(600px, 100%);
+  margin: auto;
+  border-top-color: var(--c-value);
+}
+.intro-card h2 {
+  font-size: 28px;
+  letter-spacing: 0.14em;
+}
+.intro-card h3 {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--c-label-dim);
+}
+.intro-steps {
+  margin: 0 0 10px;
+  padding-left: 20px;
+  color: var(--c-label);
+  line-height: 1.45;
+}
+.intro-steps li {
+  margin-bottom: 4px;
+}
+.intro-steps b,
+.intro-card p b {
+  color: var(--c-value-hi);
+  font-weight: 500;
+}
+.intro-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--c-label);
+  cursor: pointer;
+}
+.intro-check input {
+  accent-color: var(--c-value);
+}
+.intro-card .end-actions {
+  flex-wrap: wrap;
+}
+.intro-foot {
+  margin: 12px 0 0 !important;
+}

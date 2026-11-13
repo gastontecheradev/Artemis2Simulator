@@ -1,8 +1,6 @@
-import { reset } from '../sim/commands';
 import { formatDuration, formatMet, formatNumber } from '../sim/format';
-import { MISSION_PARAMS } from '../sim/mission/params';
 import { OutcomeKind, SimState } from '../sim/state';
-import { act } from './store';
+import { showIntro } from './store';
 
 const TITLE: Readonly<Record<OutcomeKind, string>> = {
   success: 'AMERIZAJE',
@@ -33,8 +31,8 @@ export function EndScreen({ s, onCredits }: { s: SimState; onCredits: () => void
         <dl className="end-stats">
           <dt>MET FINAL</dt>
           <dd>{formatMet(o.t)}</dd>
-          <dt>DURACIÓN DESDE E3</dt>
-          <dd>{formatDuration(o.t - s.params.insertion.met)}</dd>
+          <dt>DURACIÓN DE LA MISIÓN</dt>
+          <dd>{formatDuration(o.t)}</dd>
           <dt>SOBREVUELO LUNAR</dt>
           <dd>{r.perilune ? `${formatNumber(r.perilune.altitude, 0)} km` : 'NO REALIZADO'}</dd>
           <dt>ÁNGULO EN EI</dt>
@@ -46,7 +44,7 @@ export function EndScreen({ s, onCredits }: { s: SimState; onCredits: () => void
         </dl>
         {ok && <p className="end-note">El descenso con paracaídas y el amerizaje no se simulan: la física termina en la interfaz de entrada.</p>}
         <div className="end-actions">
-          <button className="tb-btn on" onClick={() => act(() => reset(MISSION_PARAMS))}>
+          <button className="tb-btn on" onClick={showIntro}>
             REINICIAR MISIÓN
           </button>
           <button className="tb-btn" onClick={onCredits}>

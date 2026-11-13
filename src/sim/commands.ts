@@ -33,7 +33,8 @@ export const togglePlay = (s: SimState): SimState => (s.clock.running ? pause(s)
 
 export function setWarp(s: SimState, warp: number): SimState {
   const w = WARP_LEVELS.includes(warp as (typeof WARP_LEVELS)[number]) ? warp : 1;
-  return w === s.clock.warp ? s : { ...s, clock: { ...s.clock, warp: w } };
+  // Un cambio manual cancela la restauración automática pendiente.
+  return w === s.clock.warp ? s : { ...s, clock: { ...s.clock, warp: w }, warpRestore: null };
 }
 
 export const reset = (params: MissionParams, opts: InitOptions = {}): SimState =>

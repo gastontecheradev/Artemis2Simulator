@@ -46,6 +46,10 @@ const SWATCHES: Swatch[] = [
   // Cuerpos sin textura (1.png), hasta que haya texturas de NASA elegidas
   { name: 'body-earth', image: '1.png', box: [0.12, 0.25, 0.2, 0.4], pick: 'blue', top: 0.3, note: 'océano de la Tierra' },
   { name: 'body-moon', image: '1.png', box: [0.705, 0.56, 0.74, 0.61], pick: 'median', note: 'superficie de la Luna' },
+  // Modelo 3D de Orion (4.png)
+  { name: 'ship-hull', image: '4.png', box: [0.6, 0.38, 0.65, 0.43], pick: 'bright', top: 0.1, note: 'casco blanco' },
+  { name: 'ship-dark', image: '4.png', box: [0.665, 0.755, 0.69, 0.785], pick: 'dark', top: 0.3, note: 'tobera y escudo' },
+  { name: 'ship-solar', image: '4.png', box: [0.72, 0.55, 0.82, 0.67], pick: 'blue', top: 0.1, note: 'celdas de los paneles solares' },
   // Trazo por red (2.png)
   { name: 'net-nsn', image: '2.png', box: [0.123, 0.585, 0.17, 0.655], pick: 'green', note: 'Near Space Network' },
   { name: 'net-dsn', image: '2.png', box: [0.43, 0.585, 0.478, 0.655], pick: 'red', note: 'Deep Space Network' },

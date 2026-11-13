@@ -65,10 +65,12 @@ export const FLYBY_ALTITUDE_TARGET = 6513; // km
 export const HEO_CHECKOUT_DURATION = 23.5 * 3600;
 
 /**
- * Corredor de entrada: ángulo de trayectoria en EI (grados, negativo = descendiendo).
- * VALOR A VERIFICAR con fuentes de NASA: se usa −6° ± 1° como orden de magnitud.
+ * Corredor de entrada: ángulo de trayectoria inercial en EI (grados, negativo = descendiendo).
+ * Objetivo: −5,66°, el valor volado por Artemis I a 400.000 ft (NASA, AAS 24‑174,
+ * "Orion Artemis I Entry Performance"). No hay dato público equivalente de Artemis II.
+ * El ancho de ±1° es un supuesto: SIN VERIFICAR.
  */
-export const ENTRY_CORRIDOR = { min: -7.0, target: -6.0, max: -5.0 } as const;
+export const ENTRY_CORRIDOR = { min: -6.66, target: -5.66, max: -4.66 } as const;
 
 /**
  * Límite NSN/DSN por altitud. 2.png es esquemático y no da el valor. Se usa la
@@ -79,9 +81,10 @@ export const NSN_MAX_ALTITUDE = 35786; // km
 
 /**
  * Presupuesto de Δv de Orion (motor principal + auxiliares comparten tanques).
- * VALOR A VERIFICAR con fuentes de NASA/ESA. Configurable acá.
+ * 1.050 m/s según Wikipedia, "Orion (spacecraft)", sección Performance. Falta
+ * contrastarlo con una fuente primaria de NASA o ESA. Configurable acá.
  */
-export const ORION_DV_BUDGET = 1.2; // km/s
+export const ORION_DV_BUDGET = 1.05; // km/s
 /** Umbral de CAUTION por Δv bajo (fracción restante). */
 export const DV_LOW_FRACTION = 0.1;
 

@@ -3,7 +3,7 @@ import { formatMet } from '../../sim/format';
 import { SimState } from '../../sim/state';
 import { PAGES, PageId, SoftAction } from './pages';
 
-const MENU: readonly PageId[] = ['TRAJ', 'PROCS', 'PROP', 'COMM'];
+const MENU: readonly PageId[] = ['TRAJ', 'PROCS', 'PROP', 'COMM', 'TL'];
 const TOP_KEYS = 6;
 const SIDE_KEYS = 5;
 

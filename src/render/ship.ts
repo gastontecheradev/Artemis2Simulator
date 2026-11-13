@@ -32,12 +32,13 @@ export interface ShipModel {
 /**
  * Modelo 3D procedural de Orion con primitivas (referencia: 4.png). El eje largo es +x
  * (la cápsula apunta hacia donde se orienta el grupo). Tamaño normalizado: ~1 de largo.
+ * Los colores salen de la paleta extraída de 4.png.
  */
-export function createShipModel(): ShipModel {
+export function createShipModel(colors: { hull: string; dark: string; solar: string }): ShipModel {
   const group = new THREE.Group();
-  const white = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.6, metalness: 0.1 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x2a2d33, roughness: 0.5, metalness: 0.4 });
-  const solar = new THREE.MeshStandardMaterial({ color: 0x1f2f55, roughness: 0.4, metalness: 0.3, side: THREE.DoubleSide });
+  const white = new THREE.MeshStandardMaterial({ color: colors.hull, roughness: 0.6, metalness: 0.1 });
+  const dark = new THREE.MeshStandardMaterial({ color: colors.dark, roughness: 0.5, metalness: 0.4 });
+  const solar = new THREE.MeshStandardMaterial({ color: colors.solar, roughness: 0.4, metalness: 0.3, side: THREE.DoubleSide });
   const disposables: { dispose(): void }[] = [white, dark, solar];
   const along = (geometry: THREE.BufferGeometry): THREE.BufferGeometry => {
     geometry.rotateZ(-Math.PI / 2); // el eje y de los cilindros de Three pasa a +x
