@@ -21,9 +21,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          # Misma versión que en local: npm 10 (Node 22) no acepta el lockfile de npm 11.
           node-version: 24
           cache: npm
+      # Misma versión de npm que generó el lockfile: las anteriores a 11.6 lo rechazan
+      # ("Missing: @emnapi/runtime ... from lock file", deps opcionales WASM de rolldown).
+      - run: npm install -g npm@11.6.2
       - run: npm ci
       - run: npm test
       - run: npm run build
