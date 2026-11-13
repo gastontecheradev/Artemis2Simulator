@@ -242,7 +242,8 @@ function breakpoints(d: Draft): Breakpoint[] {
     const ab = d.autoBurns[id];
     if (ab.status !== 'pending') continue;
     once(`warp:${id}`, ab.met - 30, (x) => {
-      if (!x.headless && x.clock.warp > 10) x.clock = { ...x.clock, warp: 10 };
+      // Con tripulación automática (modo demostración) no se frena: nadie tiene que mirar el encendido.
+      if (!x.headless && !x.switches.autoCrew && x.clock.warp > 10) x.clock = { ...x.clock, warp: 10 };
     });
     once(`burn:${id}`, ab.met, (x) => {
       const title = id === 'E4' ? 'Elevación del perigeo' : 'Elevación del apogeo a órbita alta';
