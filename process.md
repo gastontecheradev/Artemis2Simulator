@@ -8,7 +8,8 @@
   - Panel, vista 2D/3D, pantalla de inicio y de fin: capturas en Chrome headless a 700, 1500 y 1920 px.
   - `npm run build` compila sin errores de tipos.
 - **Sin verificar:** la interacción a mano. Nadie hizo clic todavía en un navegador real: interruptores, soft keys, atajos de teclado, rueda, pellizco, arrastre de la vista 3D y tooltips de los marcadores solo están cubiertos a nivel de comandos o de captura estática.
-- **Sin hacer:** texturas y fotos de NASA (ver `ASSETS.md`), push y deploy (el workflow está escrito), y los opcionales listados en `CLAUDE.md`.
+- **Publicado** en https://gastontecheradev.github.io/Artemis2Simulator/ (deploy por GitHub Actions en cada push a `main`; verificado: workflow en verde y la página responde 200).
+- **Sin hacer:** texturas y fotos de NASA (ver `ASSETS.md`) y los opcionales listados en `CLAUDE.md`.
 - **Próximo paso:** `npm run dev`, volar la misión completa a mano siguiendo Procs y anotar acá lo que falle o resulte incómodo.
 
 ## Decisiones vigentes
@@ -45,6 +46,7 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - Duración total 8,55 d contra los ~10 d de 1.png.
 - Ancho del corredor y presupuesto de Δv sin fuente primaria. No se encontró dato público del ángulo de entrada de Artemis II; algunas notas hablan de una entrada más empinada que la de Artemis I.
 - Referencias de la misión real encontradas en prensa (sin fuente primaria): TLI de 5 min 50 s y apogeo de la órbita alta de ~74.000 km. El modelo da 69.000 km.
+- El lockfile solo lo acepta npm ≥ 11.6 (con versiones anteriores, `npm ci` da "Missing: @emnapi/runtime … from lock file", por las dependencias opcionales WASM de rolldown). El workflow fija `npm@11.6.2`. Si se cambia de npm en local, revisar que `npm ci` siga pasando en CI.
 - Vitest falla desde Git Bash por las mayúsculas de la ruta; desde PowerShell funciona.
 - El bundle pesa ~800 kB (215 kB gzip) por Three.js; sin code‑splitting.
 - El color de los paneles solares del modelo 3D sale gris azulado de 4.png (`#9398a5`): la muestra agarra el dorso de los paneles, no las celdas.
