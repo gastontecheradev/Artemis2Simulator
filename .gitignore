@@ -1,0 +1,6 @@
+CLAUDE.md
+node_modules/
+dist/
+assets-src/
+*.log
+.vite/

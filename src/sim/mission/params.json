@@ -1,0 +1,63 @@
+{
+  "insertion": {
+    "met": 498,
+    "altitude": 162.93510720000003,
+    "speed": 8.163641328301086,
+    "fpaDeg": 4.046472299314106
+  },
+  "moonAngle0Deg": 69.2226526579569,
+  "burns": {
+    "E4": {
+      "met": 2992,
+      "system": "ICPS",
+      "dv": {
+        "prograde": 0.380732144775393,
+        "normal": 0,
+        "radial": 0
+      }
+    },
+    "E5": {
+      "met": 6528,
+      "system": "ICPS",
+      "dv": {
+        "prograde": 2.4170822911477217,
+        "normal": 0,
+        "radial": 0
+      }
+    },
+    "E7": {
+      "met": 18600,
+      "system": "AUX",
+      "dv": {
+        "prograde": 0.001,
+        "normal": 0,
+        "radial": 0
+      }
+    },
+    "E8": {
+      "met": 48763.876174888115,
+      "system": "MAIN",
+      "dv": {
+        "prograde": 0.01,
+        "normal": 0,
+        "radial": 0
+      }
+    },
+    "E9": {
+      "met": 91128,
+      "system": "MAIN",
+      "dv": {
+        "prograde": 0.4005863306994053,
+        "normal": 0,
+        "radial": 0
+      }
+    }
+  },
+  "nominal": {
+    "flybyAltitude": 6512.999994391757,
+    "flybyMet": 409758.89698493405,
+    "eiMet": 738911.9973908988,
+    "eiFpaDeg": -5.999999866520391,
+    "eiSpeed": 10.990275209744166
+  }
+}
