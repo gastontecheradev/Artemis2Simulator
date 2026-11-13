@@ -8,12 +8,18 @@ import { SimState, createStore } from '../sim/state';
 const query = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
 
 /**
- * Estado inicial. Con `?met=<segundos>` en la URL la misión arranca adelantada hasta
- * ese MET, volada por la tripulación automática (sirve para ir directo a un momento:
- * `?met=406000` es poco antes del sobrevuelo lunar).
+ * Parámetros de URL para pruebas y demostraciones:
+ * - `?met=<segundos>`: la misión arranca adelantada hasta ese MET, volada por la
+ *   tripulación automática (`?met=406000` es poco antes del sobrevuelo lunar).
+ * - `?auto`: deja activada la tripulación automática.
+ * - `?warp=<n>`: arranca corriendo con esa velocidad de simulación.
+ * - `?e3`: arranca en E3, sin el ascenso guionado.
+ * Cualquiera de ellos saltea la pantalla de inicio.
  */
+const skipIntro = ['met', 'auto', 'warp', 'e3'].some((k) => query.has(k));
+
 function initialState(): SimState {
-  let s = reset(MISSION_PARAMS);
+  let s = reset(MISSION_PARAMS, { fromLaunch: !query.has('e3') && !query.has('met') });
   const met = Number(query.get('met'));
   if (met > s.t) {
     let f = play(setSwitch(s, 'autoCrew', true));
@@ -26,7 +32,6 @@ function initialState(): SimState {
     if (f.outcome) return f;
     s = pause(setSwitch(f, 'autoCrew', false));
   }
-  // Modo demostración: ?auto deja la tripulación automática y ?warp=1000 arranca corriendo.
   if (query.has('auto')) s = setSwitch(s, 'autoCrew', true);
   const warp = Number(query.get('warp'));
   if (warp > 0) s = play(setWarp(s, warp));
@@ -72,35 +77,58 @@ export function act(command: (s: SimState) => SimState): void {
   flush();
 }
 
-// --- Ajustes de la vista de trayectoria (estado de UI, no de simulación) ---
+// --- Estado de UI que no es de la simulación ---
+
+function createValue<T>(initial: T): { get(): T; set(next: T): void; use(): T } {
+  let value = initial;
+  const listeners = new Set<() => void>();
+  const subscribe = (l: () => void): (() => void) => {
+    listeners.add(l);
+    return () => listeners.delete(l);
+  };
+  return {
+    get: () => value,
+    set(next) {
+      value = next;
+      listeners.forEach((l) => l());
+    },
+    use: () => useSyncExternalStore(subscribe, () => value),
+  };
+}
 
 const pick = <T extends string>(key: string, options: readonly T[], fallback: T): T => {
   const v = query.get(key);
   return options.includes(v as T) ? (v as T) : fallback;
 };
 
-// También se pueden fijar por URL: ?cam=overview&frame=rotating&color=network&dim=3d
-let view: ViewSettings = {
-  cameraMode: pick('cam', ['overview', 'ship', 'earth', 'moon'] as const, 'earth'),
+// Ajustes de la vista. También por URL: ?cam=overview&frame=rotating&color=network&dim=3d&big
+const view = createValue<ViewSettings>({
+  cameraMode: pick('cam', ['auto', 'overview', 'ship', 'earth', 'moon'] as const, 'auto'),
   frame: pick('frame', ['inertial', 'rotating'] as const, 'inertial'),
   colorMode: pick('color', ['phase', 'network'] as const, 'phase'),
   exaggerate: query.has('big'),
   dim: pick('dim', ['2d', '3d'] as const, '2d'),
-};
-const viewListeners = new Set<() => void>();
+});
 
-export const getViewSettings = (): ViewSettings => view;
+export const getViewSettings = view.get;
+export const useViewSettings = view.use;
+export const setViewSettings = (patch: Partial<ViewSettings>): void => view.set({ ...view.get(), ...patch });
 
-export function setViewSettings(patch: Partial<ViewSettings>): void {
-  view = { ...view, ...patch };
-  viewListeners.forEach((l) => l());
+// Pantalla de inicio: visible hasta que se elige cómo empezar.
+const intro = createValue(!skipIntro);
+export const useIntro = intro.use;
+
+/** Vuelve a la pantalla de inicio con la misión lista en la plataforma. */
+export function showIntro(): void {
+  act(() => reset(MISSION_PARAMS, { fromLaunch: true }));
+  intro.set(true);
 }
 
-export const useViewSettings = (): ViewSettings =>
-  useSyncExternalStore(
-    (l) => {
-      viewListeners.add(l);
-      return () => viewListeners.delete(l);
-    },
-    () => view,
-  );
+/** Empieza una misión nueva desde el lanzamiento (ascenso guionado) o desde E3. */
+export function startMission(opts: { fromLaunch: boolean; autoCrew: boolean }): void {
+  act(() => {
+    const s = reset(MISSION_PARAMS, { fromLaunch: opts.fromLaunch, autoCrew: opts.autoCrew });
+    return play(opts.autoCrew ? setWarp(s, opts.fromLaunch ? 10 : 100) : s);
+  });
+  intro.set(false);
+}

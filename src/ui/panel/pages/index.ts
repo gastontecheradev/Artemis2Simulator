@@ -4,8 +4,9 @@ import { CommSum } from './CommSum';
 import { FlightTraj } from './FlightTraj';
 import { Procs, procsActions } from './Procs';
 import { PropSys } from './PropSys';
+import { Timeline } from './Timeline';
 
-export type PageId = 'TRAJ' | 'PROCS' | 'PROP' | 'COMM';
+export type PageId = 'TRAJ' | 'PROCS' | 'PROP' | 'COMM' | 'TL';
 
 /** Acción de una tecla lateral del Display Unit. */
 export interface SoftAction {
@@ -35,4 +36,5 @@ export const PAGES: Readonly<Record<PageId, PageDef>> = {
   PROCS: { title: 'Procs', menu: 'PROCS', Body: Procs, actions: procsActions },
   PROP: { title: 'Prop.Sys', menu: 'PROP', Body: PropSys, actions: none },
   COMM: { title: 'Comm.Sum', menu: 'COMM', Body: CommSum, actions: none },
+  TL: { title: 'Mission.Tl', menu: 'TL', Body: Timeline, actions: none },
 };

@@ -4,6 +4,7 @@ import { CommsStatus, commsStatus, networkForAltitude } from './comms';
 import { R_EARTH } from './constants';
 import { ShipState } from './integrator';
 import { Vec3, add, distance, vec3 } from './math/vec3';
+import { ascentState } from './mission/ascent';
 import { MissionParams } from './mission/params';
 import { Phase } from './mission/phases';
 import { EventId } from './mission/timeline';
@@ -149,6 +150,8 @@ export interface SimState {
   readonly hNext: number;
   readonly phase: Phase;
   readonly clock: { readonly running: boolean; readonly warp: number };
+  /** Warp a restaurar después de una bajada automática (null si no hay ninguna en curso). */
+  readonly warpRestore: number | null;
   readonly vehicle: VehicleConfig;
   readonly propulsion: PropulsionState;
   readonly switches: Switches;
@@ -202,6 +205,8 @@ function maneuver(
 export interface InitOptions {
   headless?: boolean;
   autoCrew?: boolean;
+  /** Arranca en el lanzamiento (E1) con el ascenso guionado, en vez de en E3. */
+  fromLaunch?: boolean;
 }
 
 /**
@@ -209,6 +214,30 @@ export interface InitOptions {
  * respecto de la Tierra y se mueve en sentido antihorario, igual que la Luna.
  */
 export function createInitialState(params: MissionParams, opts: InitOptions = {}): SimState {
+  const atE3 = stateAtE3(params, opts);
+  if (!opts.fromLaunch) return atE3;
+  const ship = ascentState(0, ephemerisOf({ params }));
+  return {
+    ...atE3,
+    t: 0,
+    ship,
+    phase: 'ASCENSO',
+    log: [
+      {
+        t: 0,
+        level: 'EVENT',
+        text: 'E1 · Lanzamiento desde LC‑39B. Ascenso guionado con los datos de 3.png (no es física).',
+        eventId: 'E1',
+      },
+    ],
+    markers: [{ eventId: 'E1', n: 1, t: 0, r: ship.r }],
+    trail: [{ t: 0, r: ship.r, alt: 0, phase: 'ASCENSO', net: 'NSN', prox: false }],
+    trailNextT: 0,
+    predictionDirty: false,
+  };
+}
+
+function stateAtE3(params: MissionParams, opts: InitOptions): SimState {
   const eph = ephemerisOf({ params });
   const ins = params.insertion;
   const t = ins.met;
@@ -235,6 +264,7 @@ export function createInitialState(params: MissionParams, opts: InitOptions = {}
     hNext: 1,
     phase: 'INSERCION',
     clock: { running: false, warp: 1 },
+    warpRestore: null,
     vehicle: { icpsSeparated: false, cmSeparated: false },
     propulsion: INITIAL_PROPULSION,
     switches: {

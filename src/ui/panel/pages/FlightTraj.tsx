@@ -1,6 +1,7 @@
-import { ENTRY_CORRIDOR, MOON_SOI, R_EARTH, R_MOON } from '../../../sim/constants';
-import { formatDuration, formatNumber } from '../../../sim/format';
+import { ASCENT_TABLE, ENTRY_CORRIDOR, MOON_SOI, R_EARTH, R_MOON } from '../../../sim/constants';
+import { formatDuration, formatMet, formatNumber } from '../../../sim/format';
 import { distance } from '../../../sim/math/vec3';
+import { ascentSample } from '../../../sim/mission/ascent';
 import { earthElements, moonElements } from '../../../sim/orbit';
 import { SimState, ephemerisOf } from '../../../sim/state';
 
@@ -61,8 +62,38 @@ function AltitudeGraph({ s }: { s: SimState }): JSX.Element {
   );
 }
 
+/**
+ * Durante el ascenso no hay física: se muestran los valores de la tabla de 3.png,
+ * marcados como guionados. La velocidad es relativa a la Tierra, no inercial.
+ */
+function AscentView({ s }: { s: SimState }): JSX.Element {
+  const a = ascentSample(s.t);
+  return (
+    <div className="page traj">
+      <div className="pfd-top">
+        <Box label="V" value={formatNumber(a.speed, 3)} unit="km/s" />
+        <Box label="H" value={formatNumber(a.altitude, 1)} unit="km" />
+        <Box label="Ḣ" value={formatNumber(a.verticalSpeed, 3)} unit="km/s" />
+      </div>
+      <div className="ascent-note">ASCENSO GUIONADO · TABLA PUBLICADA · V RELATIVA A TIERRA</div>
+      <div className="ascent-table">
+        {ASCENT_TABLE.map((p) => (
+          <div key={p.label} className={s.t >= p.met ? 'asc-row done' : 'asc-row'}>
+            <span className="tick">{s.t >= p.met ? '✓' : ''}</span>
+            <span className="asc-name">{p.label}</span>
+            <span className="asc-t">{formatMet(p.met).slice(4)}</span>
+            <span className="asc-v">{formatNumber(p.speed, 3)}</span>
+            <span className="asc-h">{formatNumber(p.altitude, 1)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Flight.Traj: datos de vuelo (inspirada en la PFD de 10.png, sin bola de actitud). */
 export function FlightTraj({ s }: { s: SimState }): JSX.Element {
+  if (s.phase === 'ASCENSO') return <AscentView s={s} />;
   const eph = ephemerisOf(s);
   const el = earthElements(s.ship, s.t, eph);
   const dMoon = distance(s.ship.r, eph.moon(s.t).r);

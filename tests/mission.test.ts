@@ -11,10 +11,13 @@ import {
   R_EARTH,
 } from '../src/sim/constants';
 import { solveCorrection } from '../src/sim/guidance';
+import { distance } from '../src/sim/math/vec3';
+import { ascentSample, ascentState } from '../src/sim/mission/ascent';
 import { MISSION_PARAMS } from '../src/sim/mission/params';
 import { procedureView } from '../src/sim/mission/procedures';
+import { nextEvent, timelineStatus } from '../src/sim/mission/timeline';
 import { orionDvRemaining } from '../src/sim/propulsion';
-import { SimState, createInitialState } from '../src/sim/state';
+import { SimState, createInitialState, ephemerisOf } from '../src/sim/state';
 
 const P = MISSION_PARAMS;
 const DAY = 86400;
@@ -215,5 +218,73 @@ describe('guiado de correcciones', () => {
     while (!s.outcome) s = advance(s, DAY, Infinity);
     expect(s.outcome.kind).toBe('success');
     expect(s.record.ei!.fpaDeg).toBeCloseTo(ENTRY_CORRIDOR.target, 1);
+  });
+});
+
+describe('ascenso guionado (E1–E3)', () => {
+  const launch = (): SimState => cmd.play(createInitialState(P, { headless: true, autoCrew: true, fromLaunch: true }));
+
+  it('sigue la tabla de 3.png y deja los eventos E1 y E2', () => {
+    let s = launch();
+    expect(s.phase).toBe('ASCENSO');
+    expect(s.t).toBe(0);
+    s = advance(s, 128, Infinity);
+    expect(s.t).toBe(128);
+    expect(ascentSample(128).altitude).toBeCloseTo(45.23, 2);
+    expect(ascentSample(128).speed).toBeCloseTo(1.344, 3);
+    expect(s.markers.map((m) => m.eventId)).toEqual(['E1', 'E2']);
+    expect(s.prediction).toBeNull();
+  });
+
+  it('empalma en E3 con el estado inicial calibrado de la física', () => {
+    const eph = ephemerisOf({ params: P });
+    const e3 = createInitialState(P).ship;
+    // La posición guionada llega al punto de inserción sin salto.
+    expect(distance(ascentState(P.insertion.met, eph).r, e3.r)).toBeLessThan(1e-6);
+    expect(distance(ascentState(P.insertion.met - 1, eph).r, e3.r)).toBeLessThan(10);
+    let s = launch();
+    s = advance(s, P.insertion.met, Infinity);
+    expect(s.phase).toBe('INSERCION');
+    expect(s.ship).toEqual(e3);
+    expect(s.markers.some((m) => m.eventId === 'E3')).toBe(true);
+  });
+
+  it('la misión desde el lanzamiento termina igual que desde E3', () => {
+    let s = launch();
+    while (!s.outcome) s = advance(s, 40 * DAY, Infinity);
+    const ref = fly(P);
+    expect(s.outcome.kind).toBe('success');
+    expect(s.record.ei!.fpaDeg).toBeCloseTo(ref.record.ei!.fpaDeg, 6);
+    expect(s.record.perilune!.altitude).toBeCloseTo(ref.record.perilune!.altitude, 3);
+  });
+});
+
+describe('línea de tiempo y warp', () => {
+  it('el próximo evento sale del plan y, tras el TLI, de la predicción', () => {
+    const start = cmd.reset(P);
+    expect(nextEvent(start)).toMatchObject({ id: 'E4', t: MET_E4_PERIGEE_RAISE });
+    let s = cmd.play(createInitialState(P, { autoCrew: true }));
+    while (s.record.tliAt === null) s = advance(s, 600, Infinity);
+    const next = nextEvent(s)!;
+    expect(next.id).toBe('E11');
+    expect(next.t).toBeCloseTo(P.nominal.flybyMet, -2);
+  });
+
+  it('al terminar la misión todos los eventos figuran como hechos', () => {
+    const rows = timelineStatus(fly(P));
+    expect(rows.length).toBe(15);
+    expect(rows.every((r) => r.done)).toBe(true);
+  });
+
+  it('el warp baja a ×10 antes de E4 y vuelve solo al valor anterior', () => {
+    let s = cmd.setWarp(cmd.play(cmd.reset(P)), 1000);
+    let min = Infinity;
+    for (let i = 0; i < 100000 && s.t < MET_E4_PERIGEE_RAISE + 60; i++) {
+      s = cmd.tick(s, 1 / 60);
+      min = Math.min(min, s.clock.warp);
+    }
+    expect(min).toBe(10);
+    expect(s.clock.warp).toBe(1000);
+    expect(s.warpRestore).toBeNull();
   });
 });

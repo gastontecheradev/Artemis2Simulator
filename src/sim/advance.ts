@@ -17,13 +17,14 @@ import { SimEvent, integrateWithEvents } from './events';
 import { formatDvMs, formatNumber } from './format';
 import { ShipState } from './integrator';
 import { Vec3, distance } from './math/vec3';
+import { ASCENT_EVENTS, ascentSample, ascentState } from './mission/ascent';
 import { isPostTli } from './mission/phases';
 import { MANEUVER_TITLE, firstIncompleteProcedure, procedureComplete } from './mission/procedures';
 import { EventId, eventNumber } from './mission/timeline';
 import { earthElements } from './orbit';
 import { Prediction, entryInterfaceOf, periluneOf, propagate, sampleInterval } from './propagate';
 import { PropSystem, burnBlocker, consume } from './propulsion';
-import { Alarm, LogLevel, Maneuver, ManeuverId, Outcome, SimState, ephemerisOf } from './state';
+import { Alarm, LogLevel, Maneuver, ManeuverId, Outcome, SimState, createInitialState, ephemerisOf } from './state';
 
 /** Copia de trabajo de un estado: se muta localmente y se devuelve como estado nuevo. */
 export type Draft = { -readonly [K in keyof SimState]: SimState[K] };
@@ -240,10 +241,17 @@ function breakpoints(d: Draft): Breakpoint[] {
   };
   for (const id of ['E4', 'E5'] as const) {
     const ab = d.autoBurns[id];
+    // Pasado el encendido se vuelve solo al warp que había, salvo que la tripulación lo haya cambiado.
+    once(`unwarp:${id}`, ab.met + 20, (x) => {
+      if (x.warpRestore !== null && x.clock.warp === 10) x.clock = { ...x.clock, warp: x.warpRestore };
+      x.warpRestore = null;
+    });
     if (ab.status !== 'pending') continue;
     once(`warp:${id}`, ab.met - 30, (x) => {
       // Con tripulación automática (modo demostración) no se frena: nadie tiene que mirar el encendido.
-      if (!x.headless && !x.switches.autoCrew && x.clock.warp > 10) x.clock = { ...x.clock, warp: 10 };
+      if (x.headless || x.switches.autoCrew || x.clock.warp <= 10) return;
+      x.warpRestore = x.clock.warp;
+      x.clock = { ...x.clock, warp: 10 };
     });
     once(`burn:${id}`, ab.met, (x) => {
       const title = id === 'E4' ? 'Elevación del perigeo' : 'Elevación del apogeo a órbita alta';
@@ -329,6 +337,43 @@ function maxChunk(d: Draft): number {
   return el.radialSpeed < 0 && el.r < 80000 ? 120 : 1800;
 }
 
+/**
+ * Ascenso guionado: avanza por la tabla de 3.png hasta `target` o hasta E3. Al llegar
+ * a E3 pone la nave en el estado inicial calibrado y a partir de ahí manda la física.
+ */
+function runAscent(d: Draft, target: number): void {
+  const eph = ephemerisOf(d);
+  const tE3 = d.params.insertion.met;
+  const end = Math.min(target, tE3);
+  while (d.t < end) {
+    const next = Math.min(end, Math.floor(d.t) + 1);
+    for (const ev of ASCENT_EVENTS) {
+      if (ev.met > d.t && ev.met <= next) {
+        const at = ascentSample(ev.met);
+        d.t = ev.met;
+        if (ev.eventId) mark(d, ev.eventId, ascentState(ev.met, eph).r, ev.met);
+        const data = `V ${formatNumber(at.speed, 3)} km/s, H ${formatNumber(at.altitude, 1)} km.`;
+        logTo(d, 'EVENT', `${ev.text} ${data}`, ev.eventId);
+      }
+    }
+    d.t = next;
+    d.ship = ascentState(next, eph);
+    if (next >= d.trailNextT) {
+      d.trail.push({ t: next, r: d.ship.r, alt: ascentSample(next).altitude, phase: 'ASCENSO', net: 'NSN', prox: false });
+      d.trailNextT = next + 4;
+    }
+  }
+  if (d.t >= tE3) {
+    d.ship = createInitialState(d.params).ship;
+    d.phase = 'INSERCION';
+    d.hNext = 1;
+    pushTrail(d, d.t, d.ship);
+    mark(d, 'E3', d.ship.r, d.t);
+    logTo(d, 'EVENT', 'E3 · Separación de la etapa central. Fin del ascenso guionado: arranca la física.', 'E3');
+    d.predictionDirty = true;
+  }
+}
+
 /** Calcula la trayectoria predicha (sin encendidos futuros) desde el estado actual. */
 export function predict(d: SimState): Prediction {
   const eph = ephemerisOf(d);
@@ -368,7 +413,7 @@ export function finalize(d: Draft, prev: SimState): SimState {
   const eph = ephemerisOf(d);
   d.comms = commsStatus(d.ship.r, d.t, eph);
   if (!d.headless) {
-    if (!d.outcome && (d.predictionDirty || predictionStale(d))) {
+    if (!d.outcome && d.phase !== 'ASCENSO' && (d.predictionDirty || predictionStale(d))) {
       d.prediction = predict(d);
       d.predictionDirty = false;
     }
@@ -399,6 +444,7 @@ export function advance(state: SimState, dtSim: number, maxSteps = DEFAULT_MAX_S
     const eph = ephemerisOf(d);
     const target = d.t + dtSim;
     let budget = maxSteps;
+    if (d.phase === 'ASCENSO') runAscent(d, target);
     while (d.t < target && budget > 0 && d.clock.running && !d.outcome) {
       const bp = breakpoints(d).reduce<Breakpoint | null>((a, b) => (!a || b.t < a.t ? b : a), null);
       if (bp && bp.t <= d.t) {

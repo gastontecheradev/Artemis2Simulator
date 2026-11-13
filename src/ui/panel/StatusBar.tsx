@@ -1,6 +1,7 @@
 import { ackAlarms } from '../../sim/commands';
-import { formatMet } from '../../sim/format';
+import { formatDuration, formatMet } from '../../sim/format';
 import { PHASE_LABEL } from '../../sim/mission/phases';
+import { nextEvent } from '../../sim/mission/timeline';
 import { SimState } from '../../sim/state';
 import { act } from '../store';
 
@@ -10,6 +11,7 @@ export function StatusBar({ s }: { s: SimState }): JSX.Element {
   const pending = s.alarms.filter((a) => !a.acked);
   const level = pending.some((a) => a.level === 'WARNING') ? 'warning' : pending.length > 0 ? 'caution' : 'off';
   const run = s.outcome ? 'FIN' : s.clock.running ? 'RUN' : 'PAUSA';
+  const next = nextEvent(s);
   return (
     <header className="status">
       <div className="status-row">
@@ -31,6 +33,12 @@ export function StatusBar({ s }: { s: SimState }): JSX.Element {
             ×{s.clock.warp} {run}
           </span>
         </div>
+        {next && (
+          <div className="st-cell">
+            <span className="st-label">PRÓX · {next.id} {next.short}</span>
+            <span className="st-value cmd">T−{formatDuration(next.t - s.t)}</span>
+          </div>
+        )}
         <button
           className={`master-alarm ${level}`}
           onClick={() => act(ackAlarms)}

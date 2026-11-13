@@ -1,8 +1,7 @@
-import { reset, setWarp, togglePlay } from '../../sim/commands';
+import { setWarp, togglePlay } from '../../sim/commands';
 import { WARP_LEVELS } from '../../sim/constants';
-import { MISSION_PARAMS } from '../../sim/mission/params';
 import { SimState } from '../../sim/state';
-import { act } from '../store';
+import { act, showIntro } from '../store';
 
 /** Controles de tiempo: play/pausa, velocidad de simulación y reinicio. */
 export function TimeControls({ s }: { s: SimState }): JSX.Element {
@@ -19,7 +18,7 @@ export function TimeControls({ s }: { s: SimState }): JSX.Element {
           </button>
         ))}
       </div>
-      <button className="tc-btn tc-reset" onClick={() => act(() => reset(MISSION_PARAMS))} title="Volver a E3">
+      <button className="tc-btn tc-reset" onClick={showIntro} title="Volver a la pantalla de inicio">
         REINICIAR
       </button>
     </section>

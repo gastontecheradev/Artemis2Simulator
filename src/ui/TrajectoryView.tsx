@@ -3,7 +3,8 @@ import { CameraMode, createTrajectoryView } from '../render/scene';
 import { tick } from '../sim/commands';
 import { getViewSettings, setViewSettings, simStore, useViewSettings } from './store';
 
-const CAMERA_MODES: readonly { id: CameraMode; label: string }[] = [
+export const CAMERA_MODES: readonly { id: CameraMode; label: string }[] = [
+  { id: 'auto', label: 'AUTO' },
   { id: 'overview', label: 'GENERAL' },
   { id: 'ship', label: 'NAVE' },
   { id: 'earth', label: 'TIERRA' },
