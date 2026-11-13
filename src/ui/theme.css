@@ -1,0 +1,71 @@
+/* palette:start (generado por scripts/extract-palette.ts, no editar a mano) */
+:root {
+  --c-panel: #646b67; /* metal del panel · 9.png */
+  --c-bezel: #0f0f0f; /* marco del display · 9.png */
+  --c-key: #a2a8ac; /* tecla de función · 9.png */
+  --c-switch-plate: #030303; /* placa de interruptores · 9.png */
+  --c-title-bar: #006800; /* barra de título de página · 9.png */
+  --c-hazard: #f0ea0d; /* franjas de la guarda · 9.png */
+  --c-screen: #000000; /* fondo de pantalla · 10.png */
+  --c-value: #08990d; /* valores actuales · 10.png */
+  --c-label: #dcdcdf; /* etiquetas y escalas (cinta de velocidad) · 10.png */
+  --c-caution: #f7eb00; /* precaución · 10.png */
+  --c-warning: #f40d00; /* límites y alarmas · 10.png */
+  --c-command: #b023ad; /* objetivos y valores comandados · 10.png */
+  --c-trail-out: #87bd3e; /* órbita e ida · 1.png */
+  --c-trail-return: #21a8df; /* regreso (marcador 12) · 1.png */
+  --c-trail-prox: #f7931d; /* operaciones de proximidad · 1.png */
+  --c-body-earth: #213466; /* océano de la Tierra · 1.png */
+  --c-body-moon: #787875; /* superficie de la Luna · 1.png */
+  --c-net-nsn: #008a66; /* Near Space Network · 2.png */
+  --c-net-dsn: #c7330b; /* Deep Space Network · 2.png */
+}
+/* palette:end */
+
+/*
+ * Tonos derivados: solo mezclas de los colores extraídos con negro o blanco,
+ * para sombras, relieves y texto atenuado. No se agregan matices nuevos.
+ */
+:root {
+  --c-panel-hi: color-mix(in srgb, var(--c-panel) 78%, white);
+  --c-panel-lo: color-mix(in srgb, var(--c-panel) 62%, black);
+  --c-frame: color-mix(in srgb, var(--c-panel) 32%, black);
+  --c-key-hi: color-mix(in srgb, var(--c-key) 80%, white);
+  --c-key-lo: color-mix(in srgb, var(--c-key) 55%, black);
+  --c-label-dim: color-mix(in srgb, var(--c-label) 55%, black);
+  --c-label-faint: color-mix(in srgb, var(--c-label) 22%, black);
+  --c-value-hi: color-mix(in srgb, var(--c-value) 72%, white);
+  --c-value-dim: color-mix(in srgb, var(--c-value) 45%, black);
+  --c-title-bar-hi: color-mix(in srgb, var(--c-title-bar) 70%, white);
+  --c-command-hi: color-mix(in srgb, var(--c-command) 65%, white);
+  --c-warning-dim: color-mix(in srgb, var(--c-warning) 28%, black);
+  --c-caution-dim: color-mix(in srgb, var(--c-caution) 26%, black);
+
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--c-screen);
+  color: var(--c-label);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}

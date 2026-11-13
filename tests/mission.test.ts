@@ -180,6 +180,23 @@ describe('H8 · la misión se vuela desde el panel', () => {
 });
 
 describe('guiado de correcciones', () => {
+  it('una OTC recupera la altitud de sobrevuelo con el TLI desviado', () => {
+    const off = withBurn(P, 'E9', { prograde: P.burns.E9.dv.prograde + 0.0003 });
+    expect(Math.abs(fly(off, P.nominal.flybyMet + DAY).record.perilune!.altitude - FLYBY_ALTITUDE_TARGET)).toBeGreaterThan(50);
+    let s = fly(off, P.burns.E9.met + DAY);
+    expect(s.phase).toBe('TRANSITO_IDA');
+    const res = solveCorrection(s, 'flyby', 'radial');
+    expect(res.ok).toBe(true);
+    expect(Math.abs(res.dv)).toBeLessThan(0.05);
+    s = produce(s, (d) => {
+      setManeuver(d, 'E10', { dv: { prograde: 0, normal: 0, radial: res.dv } });
+      executeManeuver(d, 'E10');
+    });
+    while (!s.record.perilune && !s.outcome) s = advance(s, DAY, Infinity);
+    expect(Math.abs(s.record.perilune!.altitude - FLYBY_ALTITUDE_TARGET)).toBeLessThan(2);
+    expect(s.propulsion.auxBurns).toBe(2);
+  });
+
   it('una RTC devuelve al corredor una trayectoria con el TLI desviado', () => {
     const off = withBurn(P, 'E9', { prograde: P.burns.E9.dv.prograde + 0.0002 });
     // Sin corrección la entrada queda fuera del corredor.
