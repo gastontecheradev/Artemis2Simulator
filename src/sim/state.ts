@@ -1,15 +1,16 @@
+import { airVelocity } from './atmosphere';
 import { Ephemeris, createCircularEphemeris } from './bodies';
 import { DeltaV, ZERO_DV } from './burns';
-import { CommsStatus, commsStatus, networkForAltitude } from './comms';
+import { CommsStatus, commsStatus } from './comms';
 import { R_EARTH } from './constants';
 import { ShipState } from './integrator';
 import { Vec3, add, distance, vec3 } from './math/vec3';
-import { ascentState } from './mission/ascent';
 import { MissionParams } from './mission/params';
 import { Phase } from './mission/phases';
 import { EventId } from './mission/timeline';
 import { EntryInterface, Perilune, Prediction } from './propagate';
-import { INITIAL_PROPULSION, PropSystem, PropulsionState, VehicleConfig } from './propulsion';
+import { INITIAL_PROPULSION, PropSystem, PropulsionState } from './propulsion';
+import { CONFIG_AT_LIFTOFF, EngineId, VehicleConfig } from './vehicle';
 
 export type LogLevel = 'INFO' | 'EVENT' | 'CAUTION' | 'WARNING';
 
@@ -43,13 +44,13 @@ export interface TrailPoint {
 
 export type ManeuverId = 'E7' | 'E8' | 'E9' | 'E10' | 'E12' | 'MAN';
 export type ProcedureId = 'SEP_ICPS' | ManeuverId | 'SEP_CM';
-export type ManeuverStatus = 'pending' | 'committed' | 'done' | 'missed';
+export type ManeuverStatus = 'pending' | 'committed' | 'burning' | 'done' | 'missed';
 
 export interface Maneuver {
   readonly id: ManeuverId;
   readonly eventId: EventId | null;
   readonly system: PropSystem;
-  /** Instante de encendido. null = se ejecuta al accionar. */
+  /** Instante de ignición. null = enciende al accionar. */
   readonly tig: number | null;
   /** Δv planeado (editable en modo avanzado). */
   readonly dv: DeltaV;
@@ -68,7 +69,20 @@ export interface AutoBurn {
   readonly id: 'E4' | 'E5';
   readonly met: number;
   readonly dv: DeltaV;
-  readonly status: 'pending' | 'done' | 'cancelled';
+  readonly status: 'pending' | 'burning' | 'done' | 'cancelled';
+}
+
+/** Encendido en curso: el motor empuja hasta `tEnd` (o hasta que se corte o se quede sin propelente). */
+export interface ActiveBurn {
+  readonly id: 'E4' | 'E5' | ManeuverId;
+  readonly system: PropSystem;
+  readonly tStart: number;
+  readonly tEnd: number;
+  /** Δv ideal pedido (km/s) y su reparto en el marco local: fija la dirección del empuje. */
+  readonly dv: DeltaV;
+  /** Masa y propelente del tanque al encender (kg), para medir el Δv entregado. */
+  readonly massStart: number;
+  readonly propStart: number;
 }
 
 export interface Switches {
@@ -82,6 +96,22 @@ export interface Switches {
   readonly autoPause: boolean;
 }
 export type SwitchName = keyof Switches;
+
+/**
+ * Piloto automático digital (DAP):
+ * - AUTO: el guiado orienta la nave (prograde en crucero, actitud de encendido en las maniobras).
+ * - INRTL: mantiene la actitud inercial actual.
+ * - MAN: la tripulación rota la nave con el controlador de rotación (RHC).
+ */
+export type DapMode = 'AUTO' | 'INRTL' | 'MAN';
+
+export interface Attitude {
+  /** Eje longitudinal de la nave (unitario, marco inercial): hacia donde empujan los motores. */
+  readonly dir: Vec3;
+  readonly mode: DapMode;
+  /** Deflexión del controlador de rotación en cabeceo: −1, 0 o +1. */
+  readonly rhc: number;
+}
 
 export interface ProcState {
   readonly activeId: ProcedureId;
@@ -123,6 +153,7 @@ export type OutcomeKind =
   | 'entry-steep'
   | 'entry-no-sep'
   | 'reentry-early'
+  | 'crash'
   | 'moon-impact'
   | 'lost';
 
@@ -139,6 +170,36 @@ export interface MissionRecord {
   readonly tliAt: number | null;
   readonly icpsSepAt: number | null;
   readonly cmSepAt: number | null;
+  /** Estado en E3 (separación de la etapa central): velocidad inercial y ángulo de trayectoria. */
+  readonly insertion: {
+    readonly t: number;
+    readonly altitude: number;
+    /** Velocidad inercial (km/s). */
+    readonly speed: number;
+    /** Velocidad relativa a la Tierra en rotación (km/s): la que publican las tablas de ascenso. */
+    readonly speedRel: number;
+    readonly fpaDeg: number;
+  } | null;
+  /** Presión dinámica máxima del ascenso (Pa) y cuándo ocurrió. */
+  readonly maxQ: { readonly t: number; readonly q: number; readonly logged: boolean } | null;
+}
+
+export type DebrisKind = 'SRB' | 'LAS' | 'FAIRING' | 'CORE' | 'ICPS' | 'SM';
+
+/** Parte desprendida de la nave: sigue su propia trayectoria (gravedad y arrastre). */
+export interface Debris {
+  readonly id: string;
+  readonly kind: DebrisKind;
+  readonly ship: ShipState;
+  /** Instante hasta el que está propagada. */
+  readonly t: number;
+  readonly hNext: number;
+  /** Coeficiente balístico inverso Cd·A/m (m²/kg). */
+  readonly ballistic: number;
+  /** MET del desprendimiento. */
+  readonly since: number;
+  /** Eje longitudinal que tenía al desprenderse (para dibujarla). */
+  readonly dir: Vec3;
 }
 
 export interface SimState {
@@ -154,6 +215,15 @@ export interface SimState {
   readonly warpRestore: number | null;
   readonly vehicle: VehicleConfig;
   readonly propulsion: PropulsionState;
+  /** Motores del cohete encendidos durante el ascenso. */
+  readonly ascentEngines: readonly EngineId[];
+  /** Tangente del cabeceo al empezar el guiado de tangente lineal (null antes de eso). */
+  readonly ascentTan: number | null;
+  /** Encendido en curso en el espacio. */
+  readonly burn: ActiveBurn | null;
+  readonly attitude: Attitude;
+  /** Controlador de traslación (THC) sobre el eje de la nave: −1, 0 o +1. */
+  readonly thc: number;
   readonly switches: Switches;
   readonly maneuvers: Readonly<Record<ManeuverId, Maneuver>>;
   readonly autoBurns: Readonly<Record<'E4' | 'E5', AutoBurn>>;
@@ -169,9 +239,10 @@ export interface SimState {
   /** Trazo recorrido. Solo se le agregan puntos (buffer compartido entre estados). */
   readonly trail: TrailPoint[];
   readonly trailNextT: number;
+  readonly debris: readonly Debris[];
   readonly record: MissionRecord;
   readonly outcome: Outcome | null;
-  /** Sin predicción ni alarmas: para scripts y tests. */
+  /** Sin predicción, alarmas ni partes desprendidas: para scripts y tests. */
   readonly headless: boolean;
 }
 
@@ -205,68 +276,36 @@ function maneuver(
 export interface InitOptions {
   headless?: boolean;
   autoCrew?: boolean;
-  /** Arranca en el lanzamiento (E1) con el ascenso guionado, en vez de en E3. */
-  fromLaunch?: boolean;
 }
 
 /**
- * Estado inicial en E3 (separación de la etapa central): la nave está sobre el eje +x
- * respecto de la Tierra y se mueve en sentido antihorario, igual que la Luna.
+ * Estado inicial: el cohete completo en la plataforma, en MET 0. La plataforma está
+ * sobre el eje +y respecto de la Tierra (arriba en el mapa, así el cohete sube hacia
+ * arriba en pantalla) y ya se mueve hacia el este con la rotación terrestre. Al dar
+ * play encienden los motores y despega.
  */
 export function createInitialState(params: MissionParams, opts: InitOptions = {}): SimState {
-  const atE3 = stateAtE3(params, opts);
-  if (!opts.fromLaunch) return atE3;
-  const ship = ascentState(0, ephemerisOf({ params }));
-  return {
-    ...atE3,
-    t: 0,
-    ship,
-    phase: 'ASCENSO',
-    log: [
-      {
-        t: 0,
-        level: 'EVENT',
-        text: 'E1 · Lanzamiento desde LC‑39B. Ascenso guionado con los datos de 3.png (no es física).',
-        eventId: 'E1',
-      },
-    ],
-    markers: [{ eventId: 'E1', n: 1, t: 0, r: ship.r }],
-    trail: [{ t: 0, r: ship.r, alt: 0, phase: 'ASCENSO', net: 'NSN', prox: false }],
-    trailNextT: 0,
-    predictionDirty: false,
-  };
-}
-
-function stateAtE3(params: MissionParams, opts: InitOptions): SimState {
   const eph = ephemerisOf({ params });
-  const ins = params.insertion;
-  const t = ins.met;
-  const earth = eph.earth(t);
-  const r0 = R_EARTH + ins.altitude;
-  const g = (ins.fpaDeg * Math.PI) / 180;
-  const ship: ShipState = {
-    r: add(earth.r, vec3(r0, 0, 0)),
-    v: add(earth.v, vec3(ins.speed * Math.sin(g), ins.speed * Math.cos(g), 0)),
-  };
+  const earth = eph.earth(0);
+  const r = add(earth.r, vec3(0, R_EARTH, 0));
+  const ship: ShipState = { r, v: airVelocity(r, earth) };
   const b = params.burns;
-  const first: TrailPoint = {
-    t,
-    r: ship.r,
-    alt: ins.altitude,
-    phase: 'INSERCION',
-    net: networkForAltitude(ins.altitude),
-    prox: false,
-  };
   return {
     params,
-    t,
+    t: 0,
     ship,
-    hNext: 1,
-    phase: 'INSERCION',
+    hNext: 0.05,
+    phase: 'ASCENSO',
     clock: { running: false, warp: 1 },
     warpRestore: null,
-    vehicle: { icpsSeparated: false, cmSeparated: false },
+    vehicle: CONFIG_AT_LIFTOFF,
     propulsion: INITIAL_PROPULSION,
+    ascentEngines: ['SRB', 'RS25'],
+    ascentTan: null,
+    burn: null,
+    // En la plataforma el cohete apunta hacia arriba.
+    attitude: { dir: vec3(0, 1, 0), mode: 'AUTO', rhc: 0 },
+    thc: 0,
     switches: {
       mainArm: false,
       auxArm: false,
@@ -289,22 +328,16 @@ function stateAtE3(params: MissionParams, opts: InitOptions): SimState {
     },
     proc: { activeId: 'SEP_ICPS', cursor: null, skipped: [], advanced: false },
     oneShots: [],
-    comms: commsStatus(ship.r, t, eph),
+    comms: commsStatus(ship.r, 0, eph),
     prediction: null,
-    predictionDirty: true,
+    predictionDirty: false,
     alarms: [],
-    log: [
-      {
-        t,
-        level: 'EVENT',
-        text: 'E3 · MECO y separación de la etapa central. Arranca la física.',
-        eventId: 'E3',
-      },
-    ],
-    markers: [{ eventId: 'E3', n: 3, t, r: ship.r }],
-    trail: [first],
-    trailNextT: t,
-    record: { apsides: [], perilune: null, ei: null, tliAt: null, icpsSepAt: null, cmSepAt: null },
+    log: [{ t: 0, level: 'EVENT', text: 'E1 · Cohete en la plataforma LC‑39B. Listo para el lanzamiento.', eventId: 'E1' }],
+    markers: [{ eventId: 'E1', n: 1, t: 0, r: ship.r }],
+    trail: [{ t: 0, r: ship.r, alt: 0, phase: 'ASCENSO', net: 'NSN', prox: false }],
+    trailNextT: 0,
+    debris: [],
+    record: { apsides: [], perilune: null, ei: null, tliAt: null, icpsSepAt: null, cmSepAt: null, insertion: null, maxQ: null },
     outcome: null,
     headless: opts.headless ?? false,
   };

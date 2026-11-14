@@ -1,4 +1,4 @@
-import { Draft, advance, executeManeuver, logTo, produce, separateCm, separateIcps, setManeuver } from './advance';
+import { Draft, advance, endBurn, executeManeuver, logTo, produce, separateCm, separateIcps, setManeuver } from './advance';
 import { dvMagnitude } from './burns';
 import { BURN_LEAD_TIME, WARP_LEVELS } from './constants';
 import { formatDvMs, formatMet } from './format';
@@ -13,7 +13,7 @@ import {
   procedureView,
 } from './mission/procedures';
 import { burnBlocker } from './propulsion';
-import { InitOptions, ProcedureId, SimState, SwitchName, createInitialState } from './state';
+import { DapMode, InitOptions, ProcedureId, SimState, SwitchName, createInitialState } from './state';
 
 /**
  * API de comandos: todo lo que la UI puede hacerle a la simulación pasa por acá.
@@ -53,6 +53,8 @@ export function setSwitch(s: SimState, name: SwitchName, value: boolean): SimSta
     d.switches = { ...d.switches, [name]: value };
     if (!value && (name === 'mainArm' || name === 'auxArm')) {
       const system = name === 'mainArm' ? 'MAIN' : 'AUX';
+      // Con el motor encendido, bajar la guarda lo corta.
+      if (d.burn && d.burn.system === system) endBurn(d, 'cutoff');
       for (const m of Object.values(d.maneuvers)) {
         if (m.system === system && m.status === 'committed') {
           setManeuver(d, m.id, { status: 'pending' });
@@ -83,7 +85,7 @@ export function fireEngine(s: SimState, system: 'MAIN' | 'AUX'): SimState {
       logTo(d, 'INFO', `${sw}: no hay una maniobra de este sistema cargada en Procs.`);
       return;
     }
-    if (m.status === 'done' || m.status === 'committed') return;
+    if (m.status === 'done' || m.status === 'committed' || m.status === 'burning') return;
     if (!m.confirmed) {
       logTo(d, 'CAUTION', `${id} · Δv sin confirmar: confirmar en Procs antes de ejecutar.`);
       return;
@@ -168,7 +170,7 @@ export function adjustDv(s: SimState, delta: number): SimState {
   const id = activeManeuverId(s);
   if (!id || !s.proc.advanced) return s;
   const m = s.maneuvers[id];
-  if (m.status === 'done' || m.status === 'committed') return s;
+  if (m.status === 'done' || m.status === 'committed' || m.status === 'burning') return s;
   return produce(s, (d) => {
     const value = Math.round((m.dv[m.axis] + delta) * 1e7) / 1e7;
     setManeuver(d, id, { dv: { ...m.dv, [m.axis]: value }, confirmed: false });
@@ -194,5 +196,45 @@ export function computeCorrection(s: SimState): SimState {
     } else {
       logTo(d, 'CAUTION', `${id} · Guiado: ${res.message}.`);
     }
+  });
+}
+
+// --- Actitud y controladores manuales ---
+
+/** Cambia el modo del piloto automático (DAP). Durante el ascenso manda el guiado del cohete. */
+export function setDapMode(s: SimState, mode: DapMode): SimState {
+  if (s.outcome || s.attitude.mode === mode) return s;
+  return produce(s, (d) => {
+    if (d.phase === 'ASCENSO') {
+      logTo(d, 'INFO', 'DAP: durante el ascenso la actitud la controla el guiado del cohete.');
+      return;
+    }
+    d.attitude = { ...d.attitude, mode, rhc: 0 };
+    logTo(d, 'INFO', `DAP: modo ${mode}.`);
+  });
+}
+
+/** Controlador de rotación (RHC), eje de cabeceo: −1, 0 o +1. Solo actúa con el DAP en MAN. */
+export function setRhc(s: SimState, value: number): SimState {
+  const v = Math.sign(value);
+  if (s.outcome || s.attitude.rhc === v || s.attitude.mode !== 'MAN') return s;
+  return { ...s, attitude: { ...s.attitude, rhc: v } };
+}
+
+/**
+ * Controlador de traslación (THC) sobre el eje de la nave: +1 empuja hacia adelante,
+ * −1 hacia atrás, con los propulsores de control de reacción. Necesita Orion ya
+ * separado del ICPS y con el módulo de servicio.
+ */
+export function setThc(s: SimState, value: number): SimState {
+  const v = Math.sign(value);
+  if (s.outcome || s.thc === v) return s;
+  if (v !== 0 && (!s.vehicle.icpsSeparated || s.vehicle.cmSeparated)) {
+    return produce(s, (d) => logTo(d, 'INFO', 'THC: el RCS de traslación solo está disponible con Orion separado del ICPS y con el módulo de servicio.'));
+  }
+  return produce(s, (d) => {
+    d.thc = v;
+    d.hNext = Math.min(d.hNext, 1);
+    if (v === 0) d.predictionDirty = true;
   });
 }

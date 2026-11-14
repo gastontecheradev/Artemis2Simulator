@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { formatMet } from '../sim/format';
 import { Vec3 } from '../sim/math/vec3';
-import { Marker } from '../sim/state';
+import { Debris, Marker } from '../sim/state';
+import { debrisIconSvg } from './vehicle';
 import { ViewFrame, worldToScene } from './worldToScene';
 
 export interface OverlayAnchors {
@@ -9,25 +10,28 @@ export interface OverlayAnchors {
   readonly moon: Vec3;
   readonly ship: Vec3;
   readonly t: number;
-  /** Rumbo de la nave en pantalla (rad, antihorario). */
+  /** Rumbo del eje de la nave en pantalla (rad, antihorario). */
   readonly shipAngle: number;
-  readonly showShipIcon: boolean;
+  /** Íconos 2D de la nave y de las partes desprendidas (en 3D se dibujan como modelos). */
+  readonly showIcons: boolean;
   /** Radio en pantalla de cada cuerpo (px). */
   readonly radiusPx: { readonly earth: number; readonly moon: number };
+  /** Partes desprendidas, con el rumbo en pantalla de cada una. */
+  readonly debris: readonly { readonly item: Debris; readonly angle: number }[];
 }
 
 /**
  * Capa HTML sobre el canvas: marcadores numerados de eventos (como los de 1.png),
- * etiquetas y puntos de los cuerpos, ícono 2D de la nave y destello de encendido.
- * Cada elemento se ubica proyectando su posición con la cámara activa, así sirve
- * igual en 2D y en 3D.
+ * etiquetas y puntos de los cuerpos, íconos 2D de la nave y de las partes
+ * desprendidas, y destello de encendido. Cada elemento se ubica proyectando su
+ * posición con la cámara activa, así sirve igual en 2D y en 3D.
  */
 export interface Overlay {
   /** `names` da el texto del tooltip de cada evento. */
   setMarkers(markers: readonly Marker[], names: ReadonlyMap<string, string>): void;
   update(camera: THREE.Camera, width: number, height: number, frame: ViewFrame, anchors: OverlayAnchors): void;
   setShipIcon(svg: string): void;
-  /** Destello en la posición de la nave: se dispara con cada encendido. */
+  /** Destello en la posición de la nave: se dispara con cada ignición. */
   flash(): void;
   dispose(): void;
 }
@@ -57,6 +61,7 @@ export function createOverlay(root: HTMLElement): Overlay {
 
   let markers: readonly Marker[] = [];
   const markerEls = new Map<string, HTMLDivElement>();
+  const debrisEls = new Map<string, HTMLDivElement>();
   const v = new THREE.Vector3();
 
   const project = (camera: THREE.Camera, w: number, h: number): { x: number; y: number; visible: boolean } => {
@@ -67,6 +72,8 @@ export function createOverlay(root: HTMLElement): Overlay {
     el.style.display = p.visible && show ? '' : 'none';
     el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) ${extra}`;
   };
+  // En pantalla el eje y va hacia abajo: el ángulo se invierte.
+  const spin = (angle: number): string => `translate(-50%, -50%) rotate(${(-angle).toFixed(4)}rad)`;
 
   return {
     setMarkers(next, names) {
@@ -97,17 +104,35 @@ export function createOverlay(root: HTMLElement): Overlay {
         const p = project(camera, w, h);
         const small = radiusPx < MIN_VISIBLE_RADIUS_PX;
         put(dot, p, 'translate(-50%, -50%)', small);
-        const offset = Math.min(h, small ? MIN_VISIBLE_RADIUS_PX : radiusPx) + 6;
-        put(label, p, `translate(-50%, ${offset.toFixed(1)}px)`);
+        // Con el cuerpo más grande que la vista la etiqueta quedaría fuera: se oculta.
+        const offset = (small ? MIN_VISIBLE_RADIUS_PX : radiusPx) + 6;
+        put(label, p, `translate(-50%, ${offset.toFixed(1)}px)`, radiusPx < Math.max(w, h));
       };
       body(a.earth, a.radiusPx.earth, earthDot, earthLabel);
       body(a.moon, a.radiusPx.moon, moonDot, moonLabel);
 
+      // Partes desprendidas.
+      for (const { item, angle } of a.debris) {
+        let el = debrisEls.get(item.id);
+        if (!el) {
+          el = make('debris-marker');
+          el.innerHTML = debrisIconSvg(item.kind);
+          debrisEls.set(item.id, el);
+        }
+        worldToScene(item.ship.r, item.t, frame, v);
+        put(el, project(camera, w, h), spin(angle), a.showIcons);
+      }
+      for (const [id, el] of debrisEls) {
+        if (!a.debris.some((x) => x.item.id === id)) {
+          el.remove();
+          debrisEls.delete(id);
+        }
+      }
+
       worldToScene(a.ship, a.t, frame, v);
       const p = project(camera, w, h);
       put(burnFlash, p, 'translate(-50%, -50%)');
-      // En pantalla el eje y va hacia abajo: el ángulo se invierte.
-      put(ship, p, `translate(-50%, -50%) rotate(${(-a.shipAngle).toFixed(4)}rad)`, a.showShipIcon);
+      put(ship, p, spin(a.shipAngle), a.showIcons);
     },
     setShipIcon(svg) {
       ship.innerHTML = svg;

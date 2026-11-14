@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { ViewSettings } from '../render/scene';
+import type { CameraMode, ViewDim, ViewSettings } from '../render/scene';
 import { advance } from '../sim/advance';
 import { pause, play, reset, setSwitch, setWarp } from '../sim/commands';
 import { MISSION_PARAMS } from '../sim/mission/params';
@@ -13,19 +13,19 @@ const query = new URLSearchParams(typeof location === 'undefined' ? '' : locatio
  *   tripulación automática (`?met=406000` es poco antes del sobrevuelo lunar).
  * - `?auto`: deja activada la tripulación automática.
  * - `?warp=<n>`: arranca corriendo con esa velocidad de simulación.
- * - `?e3`: arranca en E3, sin el ascenso guionado.
+ * - `?tour=<n>`: abre el tutorial en el paso n (desde 0).
  * Cualquiera de ellos saltea la pantalla de inicio.
  */
-const skipIntro = ['met', 'auto', 'warp', 'e3'].some((k) => query.has(k));
+const skipIntro = ['met', 'auto', 'warp', 'tour'].some((k) => query.has(k));
 
 function initialState(): SimState {
-  let s = reset(MISSION_PARAMS, { fromLaunch: !query.has('e3') && !query.has('met') });
+  let s = reset(MISSION_PARAMS);
   const met = Number(query.get('met'));
   if (met > s.t) {
     let f = play(setSwitch(s, 'autoCrew', true));
     while (f.t < met && !f.outcome) {
-      // Por tramos de una hora, para que el procedimiento activo vaya avanzando.
-      const next = advance(f, Math.min(3600, met - f.t), Infinity);
+      // Por tramos cortos, para que el procedimiento activo y las partes desprendidas vayan avanzando.
+      const next = advance(f, Math.min(600, met - f.t), Infinity);
       if (next === f) break;
       f = next;
     }
@@ -101,34 +101,63 @@ const pick = <T extends string>(key: string, options: readonly T[], fallback: T)
   return options.includes(v as T) ? (v as T) : fallback;
 };
 
-// Ajustes de la vista. También por URL: ?cam=overview&frame=rotating&color=network&dim=3d&big
-const view = createValue<ViewSettings>({
-  cameraMode: pick('cam', ['auto', 'overview', 'ship', 'earth', 'moon'] as const, 'auto'),
+const CAMERAS = ['auto', 'overview', 'ship', 'earth', 'moon'] as const;
+
+/** Ajustes compartidos por las dos vistas, más la cámara de cada una. */
+export interface ViewState {
+  readonly frame: ViewSettings['frame'];
+  readonly colorMode: ViewSettings['colorMode'];
+  readonly exaggerate: boolean;
+  readonly camera: Readonly<Record<ViewDim, CameraMode>>;
+}
+
+// También por URL: ?cam=overview (2D), ?cam3d=earth, ?frame=rotating, ?color=network, ?big
+const view = createValue<ViewState>({
   frame: pick('frame', ['inertial', 'rotating'] as const, 'inertial'),
   colorMode: pick('color', ['phase', 'network'] as const, 'phase'),
   exaggerate: query.has('big'),
-  dim: pick('dim', ['2d', '3d'] as const, '2d'),
+  camera: { '2d': pick('cam', CAMERAS, 'auto'), '3d': pick('cam3d', CAMERAS, 'auto') },
 });
 
-export const getViewSettings = view.get;
-export const useViewSettings = view.use;
-export const setViewSettings = (patch: Partial<ViewSettings>): void => view.set({ ...view.get(), ...patch });
+export const useViewState = view.use;
+export const setViewState = (patch: Partial<ViewState>): void => view.set({ ...view.get(), ...patch });
+export const setCamera = (dim: ViewDim, mode: CameraMode): void =>
+  view.set({ ...view.get(), camera: { ...view.get().camera, [dim]: mode } });
+
+// La escena compara por identidad para saber si algo cambió: se devuelve el mismo objeto mientras no cambie nada.
+const settingsCache: { [K in ViewDim]?: { from: ViewState; value: ViewSettings } } = {};
+export function getViewSettings(dim: ViewDim): ViewSettings {
+  const v = view.get();
+  const hit = settingsCache[dim];
+  if (hit && hit.from === v) return hit.value;
+  const value: ViewSettings = { cameraMode: v.camera[dim], frame: v.frame, colorMode: v.colorMode, exaggerate: v.exaggerate };
+  settingsCache[dim] = { from: v, value };
+  return value;
+}
 
 // Pantalla de inicio: visible hasta que se elige cómo empezar.
 const intro = createValue(!skipIntro);
 export const useIntro = intro.use;
 
-/** Vuelve a la pantalla de inicio con la misión lista en la plataforma. */
+// Tutorial guiado: índice del paso actual, o null si no está en curso.
+const tour = createValue<number | null>(query.has('tour') ? Number(query.get('tour')) || 0 : null);
+export const useTour = tour.use;
+export const setTour = tour.set;
+
+/** Vuelve a la pantalla de inicio con el cohete en la plataforma. */
 export function showIntro(): void {
-  act(() => reset(MISSION_PARAMS, { fromLaunch: true }));
+  act(() => reset(MISSION_PARAMS));
+  tour.set(null);
   intro.set(true);
 }
 
-/** Empieza una misión nueva desde el lanzamiento (ascenso guionado) o desde E3. */
-export function startMission(opts: { fromLaunch: boolean; autoCrew: boolean }): void {
+/** Empieza una misión nueva. Con `tutorial` arranca en pausa y con el recorrido guiado. */
+export function startMission(opts: { autoCrew: boolean; tutorial: boolean }): void {
   act(() => {
-    const s = reset(MISSION_PARAMS, { fromLaunch: opts.fromLaunch, autoCrew: opts.autoCrew });
-    return play(opts.autoCrew ? setWarp(s, opts.fromLaunch ? 10 : 100) : s);
+    const s = reset(MISSION_PARAMS, { autoCrew: opts.autoCrew });
+    if (opts.tutorial) return s;
+    return play(opts.autoCrew ? setWarp(s, 10) : s);
   });
+  tour.set(opts.tutorial ? 0 : null);
   intro.set(false);
 }

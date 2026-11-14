@@ -50,6 +50,7 @@ const SWATCHES: Swatch[] = [
   { name: 'ship-hull', image: '4.png', box: [0.6, 0.38, 0.65, 0.43], pick: 'bright', top: 0.1, note: 'casco blanco' },
   { name: 'ship-dark', image: '4.png', box: [0.665, 0.755, 0.69, 0.785], pick: 'dark', top: 0.3, note: 'tobera y escudo' },
   { name: 'ship-solar', image: '4.png', box: [0.72, 0.55, 0.82, 0.67], pick: 'blue', top: 0.1, note: 'celdas de los paneles solares' },
+  { name: 'ship-core', image: '3.png', box: [0.3, 0.3, 0.42, 0.45], pick: 'orange', top: 0.05, note: 'etapa central del cohete' },
   // Trazo por red (2.png)
   { name: 'net-nsn', image: '2.png', box: [0.123, 0.585, 0.17, 0.655], pick: 'green', note: 'Near Space Network' },
   { name: 'net-dsn', image: '2.png', box: [0.43, 0.585, 0.478, 0.655], pick: 'red', note: 'Deep Space Network' },

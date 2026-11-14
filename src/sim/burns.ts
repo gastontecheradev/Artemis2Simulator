@@ -50,3 +50,18 @@ export function applyBurn(ship: ShipState, dv: DeltaV, body: BodyState): ShipSta
   const d = add(add(scale(f.prograde, dv.prograde), scale(f.normal, dv.normal)), scale(f.radial, dv.radial));
   return { r: ship.r, v: add(ship.v, d) };
 }
+
+/**
+ * Dirección del empuje de un encendido: la combinación de ejes del marco local que
+ * pide el Δv, recalculada en cada instante (la nave sigue, por ejemplo, el prograde
+ * mientras dura el encendido).
+ */
+export function burnDirection(dv: DeltaV, eph: Ephemeris): (t: number, r: Vec3, v: Vec3) => Vec3 {
+  return (t, r, v) => {
+    const ship = { r, v };
+    const f = localFrame(ship, referenceBody(ship, t, eph));
+    return normalize(
+      add(add(scale(f.prograde, dv.prograde), scale(f.normal, dv.normal)), scale(f.radial, dv.radial)),
+    );
+  };
+}

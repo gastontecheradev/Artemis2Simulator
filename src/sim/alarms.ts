@@ -27,7 +27,8 @@ export function evaluateAlarms(s: SimState): AlarmCondition[] {
     out.push({ id: 'moon-impact', level: 'WARNING', text: 'IMPACTO LUNAR PREDICHO' });
   }
   // En la órbita de inserción el perigeo bajo es nominal mientras E4 siga programado.
-  const insertionNominal = s.phase === 'INSERCION' && s.autoBurns.E4.status === 'pending';
+  const e4 = s.autoBurns.E4.status;
+  const insertionNominal = s.phase === 'INSERCION' && (e4 === 'pending' || e4 === 'burning');
   if (p?.end === 'ei' && !postTli && !insertionNominal) {
     out.push({ id: 'reentry', level: 'WARNING', text: 'REENTRADA PREDICHA' });
   }
@@ -45,13 +46,14 @@ export function evaluateAlarms(s: SimState): AlarmCondition[] {
       out.push({ id: 'no-return', level: 'CAUTION', text: 'SIN RETORNO PREDICHO' });
     }
   }
-  if (isDvLow(s.propulsion) && !s.vehicle.cmSeparated) {
-    out.push({ id: 'dv-low', level: 'CAUTION', text: 'ΔV BAJO' });
+  if (isDvLow(s.propulsion) && s.vehicle.icpsSeparated && !s.vehicle.cmSeparated) {
+    out.push({ id: 'dv-low', level: 'CAUTION', text: 'PROPELENTE BAJO' });
   }
   if (s.comms.los) {
     out.push({ id: 'los', level: 'CAUTION', text: 'LOS · SIN ENLACE CON TIERRA' });
   }
-  if (postTli && !s.vehicle.cmSeparated) {
+  // Con tripulación automática la separación ocurre sola más abajo: no hace falta avisar.
+  if (postTli && !s.vehicle.cmSeparated && !s.switches.autoCrew) {
     const el = earthElements(s.ship, s.t, ephemerisOf(s));
     if (el.radialSpeed < 0 && el.r - R_EARTH < CM_SEP_PROMPT_ALTITUDE) {
       out.push({ id: 'cm-sep', level: 'CAUTION', text: 'SEPARACIÓN CM/SM PENDIENTE' });

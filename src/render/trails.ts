@@ -5,7 +5,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { Vec3 } from '../sim/math/vec3';
 import { TrajectoryPoint } from '../sim/propagate';
 import { TrailPoint } from '../sim/state';
-import { ViewFrame, anchored, worldToScene } from './worldToScene';
+import { KM_TO_SCENE, ViewFrame, worldToScene } from './worldToScene';
 
 export type TrailColorMode = 'phase' | 'network';
 
@@ -25,7 +25,7 @@ export interface Trails {
   setTraveled(points: readonly TrailPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame, mode: TrailColorMode): void;
   /** Trayectoria predicha (punteada), desde la nave hacia adelante. */
   setPredicted(points: readonly TrajectoryPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame): void;
-  /** Reubica las geometrías (ancladas al baricentro) según el origen flotante. */
+  /** Reubica las geometrías según el origen flotante actual. */
   place(frame: ViewFrame): void;
   setResolution(width: number, height: number): void;
   /** Largo de guion constante en pantalla: recibe el semialto visible en unidades de escena. */
@@ -48,6 +48,10 @@ export function createTrails(colors: TrailColors): Trails {
   });
   let traveled: Line2 | null = null;
   let predicted: Line2 | null = null;
+  // Cada geometría se construye relativa al origen flotante del momento: así los vértices
+  // (float32) son números chicos cerca de la nave y el trazo no tiembla en los primeros planos.
+  let traveledAnchor: Vec3 = { x: 0, y: 0, z: 0 };
+  let predictedAnchor: Vec3 = { x: 0, y: 0, z: 0 };
 
   const c = {
     out: new THREE.Color(colors.out),
@@ -83,7 +87,8 @@ export function createTrails(colors: TrailColors): Trails {
   return {
     group,
     setTraveled(points, tip, frame, mode) {
-      const f = anchored(frame);
+      const f = frame;
+      traveledAnchor = frame.origin;
       const positions: number[] = [];
       const cols: number[] = [];
       let last = c.out;
@@ -99,7 +104,8 @@ export function createTrails(colors: TrailColors): Trails {
       traveled = replace(traveled, positions, cols, traveledMaterial);
     },
     setPredicted(points, tip, frame) {
-      const f = anchored(frame);
+      const f = frame;
+      predictedAnchor = frame.origin;
       const positions: number[] = [];
       worldToScene(tip.r, tip.t, f, v);
       positions.push(v.x, v.y, v.z);
@@ -111,10 +117,9 @@ export function createTrails(colors: TrailColors): Trails {
       predicted = replace(predicted, positions, null, predictedMaterial);
     },
     place(frame) {
-      // El origen del baricentro en la escena: lo mismo para cualquier t porque rota sobre sí mismo.
-      worldToScene({ x: 0, y: 0, z: 0 }, 0, frame, v);
-      traveled?.position.copy(v);
-      predicted?.position.copy(v);
+      const o = frame.origin;
+      traveled?.position.set((traveledAnchor.x - o.x) * KM_TO_SCENE, (traveledAnchor.y - o.y) * KM_TO_SCENE, (traveledAnchor.z - o.z) * KM_TO_SCENE);
+      predicted?.position.set((predictedAnchor.x - o.x) * KM_TO_SCENE, (predictedAnchor.y - o.y) * KM_TO_SCENE, (predictedAnchor.z - o.z) * KM_TO_SCENE);
     },
     setResolution(width, height) {
       traveledMaterial.resolution.set(width, height);

@@ -20,6 +20,7 @@
   --c-ship-hull: #bcbcbc; /* casco blanco · 4.png */
   --c-ship-dark: #0f0f0f; /* tobera y escudo · 4.png */
   --c-ship-solar: #9398a5; /* celdas de los paneles solares · 4.png */
+  --c-ship-core: #fa9f49; /* etapa central del cohete · 3.png */
   --c-net-nsn: #008a66; /* Near Space Network · 2.png */
   --c-net-dsn: #c7330b; /* Deep Space Network · 2.png */
 }

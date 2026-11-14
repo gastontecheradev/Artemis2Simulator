@@ -12,6 +12,7 @@ export type SimEventType =
   | 'soi-exit'
   | 'ei'
   | 'moon-impact'
+  | 'surface'
   | 'los'
   | 'aos'
   | 'net-dsn'
@@ -21,9 +22,11 @@ export interface SimEvent {
   readonly type: SimEventType;
   readonly t: number;
   readonly state: ShipState;
+  /** Propelente por tanque en ese instante (vacío si el tramo no era propulsado). */
+  readonly prop: readonly number[];
 }
 
-const TERMINAL: ReadonlySet<SimEventType> = new Set<SimEventType>(['ei', 'moon-impact']);
+const TERMINAL: ReadonlySet<SimEventType> = new Set<SimEventType>(['ei', 'moon-impact', 'surface']);
 export const isTerminal = (type: SimEventType): boolean => TERMINAL.has(type);
 
 type G = (s: ShipState, t: number, eph: Ephemeris) => number;
@@ -60,6 +63,8 @@ const MONITORS: readonly Monitor[] = [
   { g: (s, t, eph) => moonDist(s, t, eph) - MOON_SOI, rising: 'soi-exit', falling: 'soi-enter' },
   { g: (s, t, eph) => earthDist(s, t, eph) - (R_EARTH + EI_ALTITUDE), falling: 'ei' },
   { g: (s, t, eph) => moonDist(s, t, eph) - R_MOON, falling: 'moon-impact' },
+  // Choque contra la superficie terrestre (solo se llega acá sin haber cruzado EI bajando: ascenso fallido, etapas que caen).
+  { g: (s, t, eph) => earthDist(s, t, eph) - R_EARTH, falling: 'surface' },
   { g: (s, t, eph) => losClearance(s.r, eph.earth(t).r, eph.moon(t).r), rising: 'aos', falling: 'los' },
   {
     g: (s, t, eph) => earthDist(s, t, eph) - R_EARTH - NSN_MAX_ALTITUDE,
@@ -78,20 +83,23 @@ function refine(
   gB: number,
   eph: Ephemeris,
   opts: StepperOptions,
-): { t: number; state: ShipState } {
-  const at = (tx: number): ShipState =>
-    tx <= tA ? sA : integrate(sA, tA, tx, eph, { ...opts, hInit: tx - tA }).state;
+  propA: readonly number[],
+): { t: number; state: ShipState; prop: readonly number[] } {
+  const at = (tx: number): { state: ShipState; prop: readonly number[] } =>
+    tx <= tA ? { state: sA, prop: propA } : integrate(sA, tA, tx, eph, { ...opts, hInit: tx - tA, prop: propA });
   let a = tA;
   let fa = gA;
   let b = tB;
   let fb = gB;
   let tx = tB;
-  let sx = at(tB);
+  let px = at(tB);
+  let sx = px.state;
   let side = 0;
   for (let i = 0; i < 60 && b - a > 1e-7; i++) {
     tx = (a * fb - b * fa) / (fb - fa);
     if (!(tx > a && tx < b)) tx = 0.5 * (a + b);
-    sx = at(tx);
+    px = at(tx);
+    sx = px.state;
     const fx = g(sx, tx, eph);
     if (fx === 0) break;
     if (fx > 0 === fa > 0) {
@@ -106,7 +114,7 @@ function refine(
       side = 1;
     }
   }
-  return { t: tx, state: sx };
+  return { t: tx, state: sx, prop: px.prop };
 }
 
 export interface EventIntegrateOptions extends StepperOptions {
@@ -114,16 +122,19 @@ export interface EventIntegrateOptions extends StepperOptions {
   maxSteps?: number;
   /** Se llama en cada paso aceptado (para registrar el trazo). */
   onSample?: (t: number, state: ShipState) => void;
+  /** Propelente inicial por tanque (solo con `power`). */
+  prop?: readonly number[];
 }
 
 export interface EventIntegrateResult {
   readonly state: ShipState;
+  readonly prop: readonly number[];
   readonly t: number;
   readonly hNext: number;
   readonly steps: number;
   /** Eventos detectados, en orden cronológico. */
   readonly events: readonly SimEvent[];
-  /** Evento terminal (EI o impacto lunar): la integración se cortó ahí. */
+  /** Evento terminal (EI, impacto lunar o choque contra la superficie): la integración se cortó ahí. */
   readonly terminal: SimEvent | null;
   /** true si llegó a t1; false si cortó por evento terminal o por `maxSteps`. */
   readonly complete: boolean;
@@ -141,6 +152,7 @@ export function integrateWithEvents(
   opts: EventIntegrateOptions = {},
 ): EventIntegrateResult {
   let s = state;
+  let prop: readonly number[] = opts.prop ?? [];
   let t = t0;
   let h = opts.hInit ?? initialStep(state, t0, eph);
   let steps = 0;
@@ -148,7 +160,7 @@ export function integrateWithEvents(
   const events: SimEvent[] = [];
   let gPrev = MONITORS.map((m) => m.g(s, t, eph));
   while (t < t1 && steps < maxSteps) {
-    const res = dp45Step(s, t, h, t1, eph, opts);
+    const res = dp45Step(s, t, h, t1, eph, opts, prop);
     steps++;
     const gNew = MONITORS.map((m) => m.g(res.state, res.t, eph));
     const found: SimEvent[] = [];
@@ -159,24 +171,25 @@ export function integrateWithEvents(
       if (g0 < 0 && g1 >= 0) type = MONITORS[i].rising;
       else if (g0 >= 0 && g1 < 0) type = MONITORS[i].falling;
       if (!type) continue;
-      const hit = refine(MONITORS[i].g, s, t, g0, res.t, g1, eph, opts);
+      const hit = refine(MONITORS[i].g, s, t, g0, res.t, g1, eph, opts, prop);
       // El máximo acercamiento a la Luna solo cuenta dentro de su esfera de influencia.
       if (type === 'perilune' && moonDist(hit.state, hit.t, eph) > MOON_SOI) continue;
-      found.push({ type, t: hit.t, state: hit.state });
+      found.push({ type, t: hit.t, state: hit.state, prop: hit.prop });
     }
     found.sort((p, q) => p.t - q.t);
     const term = found.find((e) => isTerminal(e.type));
     if (term) {
       for (const e of found) if (e.t <= term.t) events.push(e);
       opts.onSample?.(term.t, term.state);
-      return { state: term.state, t: term.t, hNext: res.hNext, steps, events, terminal: term, complete: false };
+      return { state: term.state, prop: term.prop, t: term.t, hNext: res.hNext, steps, events, terminal: term, complete: false };
     }
     events.push(...found);
     s = res.state;
+    prop = res.prop;
     t = res.t;
     h = res.hNext;
     gPrev = gNew;
     opts.onSample?.(t, s);
   }
-  return { state: s, t, hNext: h, steps, events, terminal: null, complete: t >= t1 };
+  return { state: s, prop, t, hNext: h, steps, events, terminal: null, complete: t >= t1 };
 }

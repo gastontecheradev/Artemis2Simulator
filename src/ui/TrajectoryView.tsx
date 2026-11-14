@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import { CameraMode, createTrajectoryView } from '../render/scene';
+import { CameraMode, ViewDim, createTrajectoryView } from '../render/scene';
 import { tick } from '../sim/commands';
-import { getViewSettings, setViewSettings, simStore, useViewSettings } from './store';
+import { getViewSettings, setCamera, setViewState, simStore, useViewState } from './store';
 
 export const CAMERA_MODES: readonly { id: CameraMode; label: string }[] = [
   { id: 'auto', label: 'AUTO' },
@@ -31,27 +31,46 @@ function Group<T extends string>({ title, options, value, onChange }: GroupProps
   );
 }
 
-/** Vista de la trayectoria (Three.js) con su barra de herramientas y leyenda. */
-export function TrajectoryView({ onCredits }: { onCredits: () => void }): JSX.Element {
+/** Una de las dos vistas: su lienzo, su título y su selector de cámara. */
+function Pane({ dim, title, children }: { dim: ViewDim; title: string; children?: React.ReactNode }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
-  const view = useViewSettings();
+  const view = useViewState();
 
   useEffect(() => {
     if (!ref.current) return;
-    const handle = createTrajectoryView(ref.current, {
+    const handle = createTrajectoryView(ref.current, dim, {
       getState: simStore.getState,
-      getSettings: getViewSettings,
-      // El loop de dibujo marca el paso del tiempo; el avance pasa por sim/commands.
-      onFrame: (dt) => simStore.dispatch((s) => tick(s, dt)),
+      getSettings: () => getViewSettings(dim),
+      // Una sola vista marca el paso del tiempo; el avance pasa por sim/commands.
+      onFrame: dim === '2d' ? (dt) => simStore.dispatch((s) => tick(s, dt)) : undefined,
     });
     return () => handle.dispose();
-  }, []);
+  }, [dim]);
 
   return (
-    <>
+    <section className={`pane pane-${dim}`} data-tour={`view-${dim}`}>
       <div className="view-canvas-host" ref={ref} />
       <div className="toolbar">
-        <Group title="CÁMARA" options={CAMERA_MODES} value={view.cameraMode} onChange={(cameraMode) => setViewSettings({ cameraMode })} />
+        <span className="pane-title">{title}</span>
+        <Group title="CÁMARA" options={CAMERA_MODES} value={view.camera[dim]} onChange={(mode) => setCamera(dim, mode)} />
+        {children}
+      </div>
+      <div className="legend">
+        <span className="hint">{dim === '2d' ? 'RUEDA / PELLIZCO: ZOOM' : 'ARRASTRAR: ORBITAR · RUEDA: ZOOM'}</span>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Área de la derecha, dividida en dos: arriba el mapa 2D de la trayectoria y abajo la
+ * vista 3D, que por defecto sigue a la nave de cerca y a escala real.
+ */
+export function TrajectoryView({ onCredits, onTutorial }: { onCredits: () => void; onTutorial: () => void }): JSX.Element {
+  const view = useViewState();
+  return (
+    <>
+      <Pane dim="2d" title="MAPA 2D">
         <Group
           title="MARCO"
           options={[
@@ -59,7 +78,7 @@ export function TrajectoryView({ onCredits }: { onCredits: () => void }): JSX.El
             { id: 'rotating', label: 'ROTANTE' },
           ]}
           value={view.frame}
-          onChange={(frame) => setViewSettings({ frame })}
+          onChange={(frame) => setViewState({ frame })}
         />
         <Group
           title="TRAZO"
@@ -68,27 +87,22 @@ export function TrajectoryView({ onCredits }: { onCredits: () => void }): JSX.El
             { id: 'network', label: 'RED' },
           ]}
           value={view.colorMode}
-          onChange={(colorMode) => setViewSettings({ colorMode })}
-        />
-        <Group
-          title="VISTA"
-          options={[
-            { id: '2d', label: '2D' },
-            { id: '3d', label: '3D' },
-          ]}
-          value={view.dim}
-          onChange={(dim) => setViewSettings({ dim })}
+          onChange={(colorMode) => setViewState({ colorMode })}
         />
         <div className="tb-group">
-          <button className={view.exaggerate ? 'tb-btn on' : 'tb-btn'} onClick={() => setViewSettings({ exaggerate: !view.exaggerate })}>
+          <button className={view.exaggerate ? 'tb-btn on' : 'tb-btn'} onClick={() => setViewState({ exaggerate: !view.exaggerate })}>
             CUERPOS ×6
+          </button>
+          <button className="tb-btn" onClick={onTutorial}>
+            TUTORIAL
           </button>
           <button className="tb-btn" onClick={onCredits}>
             CRÉDITOS
           </button>
         </div>
-      </div>
-      <div className="legend">
+      </Pane>
+      <Pane dim="3d" title="VISTA 3D" />
+      <div className="legend legend-colors">
         {view.colorMode === 'phase' ? (
           <>
             <span><i className="swatch out" /> ÓRBITA E IDA</span>
@@ -103,7 +117,6 @@ export function TrajectoryView({ onCredits }: { onCredits: () => void }): JSX.El
           </>
         )}
         <span><i className="swatch pred" /> PREDICHA</span>
-        <span className="hint">{view.dim === '2d' ? 'RUEDA / PELLIZCO: ZOOM' : 'ARRASTRAR: ORBITAR · RUEDA: ZOOM'}</span>
       </div>
     </>
   );

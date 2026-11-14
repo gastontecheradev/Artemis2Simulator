@@ -1,4 +1,6 @@
+import { burnDirection, dvMagnitude } from '../burns';
 import {
+  ATTITUDE_TOLERANCE,
   BURN_LEAD_TIME,
   CM_SEP_PROMPT_ALTITUDE,
   MET_E6_PROX_OPS_END,
@@ -6,7 +8,7 @@ import {
   R_EARTH,
 } from '../constants';
 import { formatMet, formatNumber } from '../format';
-import { distance } from '../math/vec3';
+import { angleBetween, distance } from '../math/vec3';
 import { PropSystem } from '../propulsion';
 import { ManeuverId, ProcedureId, SimState, ephemerisOf } from '../state';
 import { phaseIndex } from './phases';
@@ -66,23 +68,28 @@ function maneuverSteps(s: SimState, id: ManeuverId): ProcStep[] {
   const m = s.maneuvers[id];
   const sw = SYSTEM_SWITCH[m.system];
   const armed = m.system === 'MAIN' ? s.switches.mainArm : s.switches.auxArm;
-  const fired = m.status === 'committed' || m.status === 'done';
+  const fired = m.status === 'committed' || m.status === 'burning' || m.status === 'done';
+  // La nave está orientada cuando su eje apunta en la dirección del encendido.
+  const aligned =
+    dvMagnitude(m.dv) > 0 &&
+    angleBetween(s.attitude.dir, burnDirection(m.dv, ephemerisOf(s))(s.t, s.ship.r, s.ship.v)) < ATTITUDE_TOLERANCE;
   const dv = `${formatNumber(m.dv[m.axis] * 1000, 1)} m/s ${m.axis === 'radial' ? 'radial' : 'prograde'}`;
   const steps: ProcStep[] = [];
   if (m.tig !== null) {
     const open = s.t >= m.tig - BURN_LEAD_TIME || fired;
     steps.push({ text: `Verificar ventana: TIG ${formatMet(m.tig)}`, kind: 'AUTO', done: open });
-    steps.push({ text: 'Orientar la nave para el encendido', kind: 'AUTO', done: open });
+    steps.push({ text: 'Orientar la nave para el encendido (DAP AUTO)', kind: 'AUTO', done: (open && aligned) || fired });
   } else if (id !== 'MAN') {
     const target = id === 'E10' ? 'sobrevuelo a 6.513 km' : 'corredor de entrada';
     steps.push({ text: `Calcular corrección (tecla CALC): ${target}`, kind: 'CREW', done: m.computed });
   } else {
     steps.push({ text: 'Cargar Δv con las teclas ΔV (modo ADV)', kind: 'CREW', done: m.dv[m.axis] !== 0 });
   }
+  if (m.tig === null) steps.push({ text: 'Orientar la nave para el encendido (DAP AUTO)', kind: 'AUTO', done: aligned || fired });
   steps.push({ text: `Armar ${sw}: levantar la guarda`, kind: 'CREW', done: armed || fired });
   steps.push({ text: `Confirmar Δv planeado: ${dv}`, kind: 'CREW', done: m.confirmed || fired });
   steps.push({ text: `Ejecutar: accionar ${sw}`, kind: 'CREW', done: fired });
-  if (m.tig !== null) steps.push({ text: 'Encendido en TIG', kind: 'AUTO', done: m.status === 'done' });
+  if (m.tig !== null) steps.push({ text: 'Ignición en TIG y corte automático', kind: 'AUTO', done: m.status === 'done' });
   return steps;
 }
 

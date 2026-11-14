@@ -20,7 +20,8 @@ export interface CameraRig {
   dispose(): void;
 }
 
-const MIN_RADIUS = 30; // km
+/** Encuadre mínimo: unos metros, para ver la nave a escala real. */
+const MIN_RADIUS = 0.004; // km
 const MAX_RADIUS = 3e6;
 const clampRadius = (km: number): number => Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, km));
 
@@ -115,7 +116,7 @@ const distanceFor = (radiusKm: number): number =>
 
 /** Cámara en perspectiva con OrbitControls. El plano orbital es xy; z es "arriba". */
 export function createPerspectiveRig(dom: HTMLElement): CameraRig {
-  const camera = new THREE.PerspectiveCamera(FOV, 1, 1e-4, 1e5);
+  const camera = new THREE.PerspectiveCamera(FOV, 1, 1e-7, 1e5);
   camera.up.set(0, 0, 1);
   const d0 = distanceFor(300000);
   camera.position.set(0, -d0 * 0.75, d0 * 0.66);
@@ -145,6 +146,9 @@ export function createPerspectiveRig(dom: HTMLElement): CameraRig {
     },
     update: () => {
       controls.update();
+      // El plano cercano acompaña al zoom: de metros (nave a escala real) a cientos de miles de km.
+      camera.near = Math.max(1e-9, camera.position.length() * 0.02);
+      camera.updateProjectionMatrix();
     },
     dispose: () => controls.dispose(),
   };

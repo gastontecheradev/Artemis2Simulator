@@ -3,7 +3,7 @@ import { formatMet } from '../../sim/format';
 import { SimState } from '../../sim/state';
 import { PAGES, PageId, SoftAction } from './pages';
 
-const MENU: readonly PageId[] = ['TRAJ', 'PROCS', 'PROP', 'COMM', 'TL'];
+const MENU: readonly PageId[] = ['TRAJ', 'PFD', 'PROCS', 'PROP', 'COMM', 'TL'];
 const TOP_KEYS = 6;
 const SIDE_KEYS = 5;
 
@@ -95,7 +95,7 @@ export function DisplayUnit({ s, initial }: { s: SimState; initial: [PageId, Pag
     });
 
   return (
-    <section className="du">
+    <section className="du" data-tour="du">
       <div className="du-keys top">{pageKeys(setUpper)}</div>
       <div className="du-keys left">
         <SideKeys actions={upperActions} side="L" />

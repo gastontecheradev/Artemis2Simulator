@@ -3,7 +3,7 @@ import { formatDuration } from '../sim/format';
 import { MISSION_PARAMS } from '../sim/mission/params';
 import { startMission } from './store';
 
-/** Pantalla de inicio: qué es, cómo se vuela y desde dónde empezar. */
+/** Pantalla de inicio: qué es, cómo se vuela y cómo empezar. */
 export function StartScreen({ onCredits }: { onCredits: () => void }): JSX.Element {
   const [autoCrew, setAutoCrew] = useState(false);
   const n = MISSION_PARAMS.nominal;
@@ -13,8 +13,9 @@ export function StartScreen({ onCredits }: { onCredits: () => void }): JSX.Eleme
         <span className="end-kicker">SIMULADOR DE MISIÓN</span>
         <h2>ARTEMIS II</h2>
         <p>
-          Vuelo tripulado alrededor de la Luna con retorno libre. La trayectoria no está dibujada: la calcula la física (gravedad de
-          la Tierra y de la Luna) a partir de los encendidos que hagas.
+          Vuelo tripulado alrededor de la Luna con retorno libre, desde la plataforma hasta la entrada a la atmósfera. Nada está dibujado
+          de antemano: el cohete sube con el empuje y la masa de sus motores, y la trayectoria la decide la gravedad de la Tierra y de la
+          Luna.
         </p>
         <dl className="end-stats">
           <dt>SOBREVUELO LUNAR NOMINAL</dt>
@@ -25,41 +26,41 @@ export function StartScreen({ onCredits }: { onCredits: () => void }): JSX.Eleme
         <h3>CÓMO SE VUELA</h3>
         <ol className="intro-steps">
           <li>
-            La página <b>Procs</b> del display indica el próximo procedimiento y su paso actual, resaltado en magenta.
+            El ascenso y los dos primeros encendidos son automáticos, como en el vuelo real. Después, la página <b>Procs</b> indica cada
+            procedimiento y su paso actual, resaltado en magenta.
           </li>
           <li>
             La simulación se <b>pausa sola</b> antes de cada acción de la tripulación. Usá el warp para no esperar.
           </li>
           <li>
-            Para un encendido: levantar la <b>guarda</b> del motor, confirmar el Δv con la tecla <b>CONF ΔV</b> y accionar la palanca.
-            El motor enciende solo en el instante planeado (TIG).
+            Para un encendido: confirmar el Δv con la tecla <b>CONF ΔV</b>, levantar la <b>guarda</b> del motor y accionar la palanca. El
+            motor enciende solo en el instante planeado y se apaga cuando entregó el Δv.
           </li>
           <li>
-            Si llegás tarde, te equivocás de Δv o no encendés, la física decide: podés quedar en órbita, errarle a la Luna o entrar
-            fuera del corredor.
+            Si llegás tarde, cambiás el Δv, apuntás mal la nave o no encendés, la física decide: podés quedar en órbita, errarle a la Luna
+            o entrar fuera del corredor.
           </li>
         </ol>
         <p className="dim">
-          Teclado: <b>Espacio</b> play/pausa · <b>+</b> y <b>−</b> warp · <b>A</b> reconocer alarmas · <b>1–5</b> cámara.
+          Teclado: <b>Espacio</b> play/pausa · <b>+</b> y <b>−</b> warp · <b>A</b> reconocer alarmas · <b>1–5</b> cámara del mapa ·{' '}
+          <b>← →</b> rotar la nave (DAP en MAN) · <b>↑ ↓</b> traslación.
         </p>
         <label className="intro-check">
           <input type="checkbox" checked={autoCrew} onChange={(e) => setAutoCrew(e.target.checked)} />
           Modo demostración: la tripulación automática vuela la misión completa
         </label>
         <div className="end-actions">
-          <button className="tb-btn on" onClick={() => startMission({ fromLaunch: true, autoCrew })}>
-            DESDE EL LANZAMIENTO
+          <button className="tb-btn on" onClick={() => startMission({ autoCrew, tutorial: false })}>
+            INICIAR MISIÓN
           </button>
-          <button className="tb-btn" onClick={() => startMission({ fromLaunch: false, autoCrew })}>
-            DESDE LA ÓRBITA (E3)
+          <button className="tb-btn" onClick={() => startMission({ autoCrew: false, tutorial: true })}>
+            TUTORIAL GUIADO
           </button>
           <button className="tb-btn" onClick={onCredits}>
             CRÉDITOS
           </button>
         </div>
-        <p className="dim intro-foot">
-          El ascenso hasta E3 es guionado con datos publicados, no simulado. Proyecto educativo, no afiliado ni avalado por NASA.
-        </p>
+        <p className="dim intro-foot">Proyecto educativo, no afiliado ni avalado por NASA.</p>
       </div>
     </div>
   );

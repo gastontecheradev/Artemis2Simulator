@@ -1,29 +1,31 @@
 import * as THREE from 'three';
+import { runningEngines } from '../sim/advance';
 import { BodyState } from '../sim/bodies';
 import { R_EARTH, R_MOON } from '../sim/constants';
-import { Vec3, ZERO, add, dot, length, scale, sub } from '../sim/math/vec3';
+import { Vec3, ZERO, add, cross, dot, length, normalize, rotateZ, scale, sub } from '../sim/math/vec3';
 import { MissionParams } from '../sim/mission/params';
 import { timeline } from '../sim/mission/timeline';
 import { Prediction } from '../sim/propagate';
 import { SimState, TrailPoint, ephemerisOf } from '../sim/state';
+import { VehicleConfig } from '../sim/vehicle';
 import { EXAGGERATION, createBodies } from './bodies';
 import { CameraRig, createOrthoRig, createPerspectiveRig } from './camera';
 import { createOverlay } from './markers';
-import { createShipModel, shipIconSvg } from './ship';
 import { createStars } from './stars';
 import { TrailColorMode, createTrails } from './trails';
+import { createDebrisModels, createVehicleModel, debrisLength, vehicleExtent, vehicleIconSvg } from './vehicle';
 import { KM_TO_SCENE, ViewFrame, toDisplayFrame, worldToScene } from './worldToScene';
 
-/** 'auto' elige el encuadre según la fase de la misión. */
+/** 'auto' elige el encuadre según la fase de la misión (2D) o sigue a la nave de cerca (3D). */
 export type CameraMode = 'auto' | 'overview' | 'ship' | 'earth' | 'moon';
 type FixedMode = Exclude<CameraMode, 'auto'>;
+export type ViewDim = '2d' | '3d';
 
 export interface ViewSettings {
   readonly cameraMode: CameraMode;
   readonly frame: 'inertial' | 'rotating';
   readonly colorMode: TrailColorMode;
   readonly exaggerate: boolean;
-  readonly dim: '2d' | '3d';
 }
 
 export interface TrajectoryViewDeps {
@@ -31,16 +33,25 @@ export interface TrajectoryViewDeps {
   getState(): SimState;
   getSettings(): ViewSettings;
   /** Se llama una vez por frame, antes de dibujar, con el dt real en segundos. */
-  onFrame(dt: number): void;
+  onFrame?(dt: number): void;
 }
 
+const Z: Vec3 = { x: 0, y: 0, z: 1 };
+/** 1 m en unidades de escena. */
+const M_TO_SCENE = KM_TO_SCENE / 1000;
+/** Tamaño mínimo aparente de la nave: fracción del semialto de la vista. */
+const MIN_APPARENT = 0.28;
+
+/** Primer plano de la nave en 3D: entra completa a escala real. */
+const closeRadius = (cfg: VehicleConfig): number => Math.max(0.006, (vehicleExtent(cfg).length * 0.72) / 1000);
+
 /** Semialto visible por defecto (km) para cada modo de cámara. */
-function defaultRadius(mode: FixedMode, rotating: boolean): number {
+function defaultRadius(mode: FixedMode, rotating: boolean, dim: ViewDim, cfg: VehicleConfig): number {
   switch (mode) {
     case 'overview':
       return rotating ? 290000 : 470000;
     case 'ship':
-      return 25000;
+      return dim === '3d' ? closeRadius(cfg) : 25000;
     case 'earth':
       return 95000;
     case 'moon':
@@ -48,11 +59,11 @@ function defaultRadius(mode: FixedMode, rotating: boolean): number {
   }
 }
 
-/** Encuadre de la cámara automática: sigue lo que importa en cada fase. */
+/** Encuadre automático de la vista 2D: sigue lo que importa en cada fase. */
 function autoCamera(s: SimState, earth: BodyState): { mode: FixedMode; radius?: number } {
   switch (s.phase) {
     case 'ASCENSO':
-      return { mode: 'ship', radius: 1100 };
+      return { mode: 'ship', radius: s.t < 140 ? 160 : 1100 };
     case 'INSERCION':
     case 'ORBITA_BAJA':
       return { mode: 'earth', radius: 13000 };
@@ -74,8 +85,9 @@ function autoCamera(s: SimState, earth: BodyState): { mode: FixedMode; radius?: 
 
 const cssVar = (el: Element, name: string): string => getComputedStyle(el).getPropertyValue(name).trim() || '#888888';
 
-/** Crea la vista de trayectoria dentro de `container` y arranca el loop de dibujo. */
-export function createTrajectoryView(container: HTMLElement, deps: TrajectoryViewDeps): { dispose(): void } {
+/** Crea una vista de trayectoria (2D cenital o 3D en perspectiva) dentro de `container` y arranca su loop de dibujo. */
+export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps: TrajectoryViewDeps): { dispose(): void } {
+  const is3d = dim === '3d';
   const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(cssVar(container, '--c-screen'));
@@ -85,9 +97,17 @@ export function createTrajectoryView(container: HTMLElement, deps: TrajectoryVie
 
   const scene = new THREE.Scene();
   const sun = new THREE.DirectionalLight(0xffffff, 2.6);
-  sun.position.set(-1, -0.25, 0.3);
-  scene.add(sun, new THREE.AmbientLight(0xffffff, 0.12));
+  // El Sol queda del lado de la plataforma: el lanzamiento es de día.
+  sun.position.set(1, -0.45, 0.35);
+  scene.add(sun, new THREE.AmbientLight(0xffffff, 0.16));
 
+  const vehicleColors = {
+    hull: cssVar(container, '--c-ship-hull'),
+    dark: cssVar(container, '--c-ship-dark'),
+    solar: cssVar(container, '--c-ship-solar'),
+    core: cssVar(container, '--c-ship-core'),
+    flame: cssVar(container, '--c-trail-prox'),
+  };
   const stars = createStars(cssVar(container, '--c-label'));
   const bodies = createBodies({
     earth: cssVar(container, '--c-body-earth'),
@@ -95,6 +115,7 @@ export function createTrajectoryView(container: HTMLElement, deps: TrajectoryVie
     orbit: cssVar(container, '--c-label'),
     ei: cssVar(container, '--c-caution'),
   });
+  bodies.setLit(is3d);
   const trails = createTrails({
     out: cssVar(container, '--c-trail-out'),
     ret: cssVar(container, '--c-trail-return'),
@@ -104,19 +125,13 @@ export function createTrajectoryView(container: HTMLElement, deps: TrajectoryVie
     los: cssVar(container, '--c-label'),
     predicted: cssVar(container, '--c-label'),
   });
-  const model = createShipModel({
-    hull: cssVar(container, '--c-ship-hull'),
-    dark: cssVar(container, '--c-ship-dark'),
-    solar: cssVar(container, '--c-ship-solar'),
-  });
-  scene.add(bodies.group, trails.group, model.group);
+  const model = createVehicleModel(vehicleColors);
+  const debrisModels = createDebrisModels(vehicleColors);
+  const debrisGroup = new THREE.Group();
+  model.group.visible = is3d;
+  scene.add(bodies.group, trails.group, model.group, debrisGroup);
   const overlay = createOverlay(container);
-
-  const rigs: Record<'2d' | '3d', CameraRig> = {
-    '2d': createOrthoRig(renderer.domElement),
-    '3d': createPerspectiveRig(renderer.domElement),
-  };
-  rigs['3d'].setActive(false);
+  const rig: CameraRig = is3d ? createPerspectiveRig(renderer.domElement) : createOrthoRig(renderer.domElement);
 
   let width = 1;
   let height = 1;
@@ -124,8 +139,7 @@ export function createTrajectoryView(container: HTMLElement, deps: TrajectoryVie
     width = Math.max(1, container.clientWidth);
     height = Math.max(1, container.clientHeight);
     renderer.setSize(width, height);
-    rigs['2d'].resize(width, height);
-    rigs['3d'].resize(width, height);
+    rig.resize(width, height);
     trails.setResolution(width, height);
   };
   const observer = new ResizeObserver(resize);
@@ -139,49 +153,57 @@ export function createTrajectoryView(container: HTMLElement, deps: TrajectoryVie
   let lastTrailKey = '';
   let lastPrediction: Prediction | null | undefined;
   let lastPredictionKey = '';
-  let lastCapsule: boolean | null = null;
-  let lastBurns = -1;
+  let lastIconKey = '';
+  let lastEngines = '';
   let lastParams: MissionParams | null = null;
   let eventNames: ReadonlyMap<string, string> = new Map();
   let frameCount = 0;
   let lastTime = performance.now();
   let raf = 0;
-  const tmp = new THREE.Vector3();
-  const xAxis = new THREE.Vector3(1, 0, 0);
+  const basis = new THREE.Matrix4();
+  const vx = new THREE.Vector3();
+  const vy = new THREE.Vector3();
+  const vz = new THREE.Vector3();
+
+  /** Orienta un objeto con su eje +x sobre `dir` y su eje +y en el plano orbital. */
+  const orient = (object: THREE.Object3D, dir: Vec3): void => {
+    const side = cross(Z, dir);
+    const y = length(side) > 1e-6 ? normalize(side) : { x: 0, y: 1, z: 0 };
+    const z = cross(dir, y);
+    basis.makeBasis(vx.set(dir.x, dir.y, dir.z), vy.set(y.x, y.y, y.z), vz.set(z.x, z.y, z.z));
+    object.quaternion.setFromRotationMatrix(basis);
+  };
 
   const draw = (now: number): void => {
     raf = requestAnimationFrame(draw);
     const dt = Math.min(0.1, (now - lastTime) / 1000);
     lastTime = now;
-    deps.onFrame(dt);
+    deps.onFrame?.(dt);
     frameCount++;
 
     const s = deps.getState();
     const settings = deps.getSettings();
     const eph = ephemerisOf(s);
     const rotating = settings.frame === 'rotating';
-    const rig = rigs[settings.dim];
     const earth = eph.earth(s.t);
     const moon = eph.moon(s.t);
+    const frameAngle = rotating ? eph.moonAngle(s.t) : 0;
+    /** Dirección inercial llevada al marco de dibujo. */
+    const displayDir = (d: Vec3): Vec3 => (rotating ? rotateZ(d, -frameAngle) : d);
 
     if (settings !== lastSettings) {
-      const prev = lastSettings;
-      if (!prev || prev.dim !== settings.dim) {
-        rigs['2d'].setActive(settings.dim === '2d');
-        rigs['3d'].setActive(settings.dim === '3d');
-        bodies.setLit(settings.dim === '3d');
-      }
       bodies.setExaggerated(settings.exaggerate);
       lastSettings = settings;
     }
 
     // --- Cámara: modo efectivo y encuadre ---
     const camera: { mode: FixedMode; radius?: number } =
-      settings.cameraMode === 'auto' ? autoCamera(s, earth) : { mode: settings.cameraMode };
-    const cameraKey = `${settings.cameraMode}|${camera.mode}|${camera.radius}|${settings.frame}|${settings.dim}`;
+      settings.cameraMode !== 'auto' ? { mode: settings.cameraMode } : is3d ? { mode: 'ship' } : autoCamera(s, earth);
+    const radius = camera.radius ?? defaultRadius(camera.mode, rotating, dim, s.vehicle);
+    const cameraKey = `${settings.cameraMode}|${camera.mode}|${radius}|${settings.frame}`;
     if (cameraKey !== lastCameraKey) {
-      // Solo se reencuadra cuando cambia el modo: mientras tanto se respeta el zoom manual.
-      rig.setViewRadius(camera.radius ?? defaultRadius(camera.mode, rotating));
+      // Solo se reencuadra cuando cambia el modo o la etapa: mientras tanto se respeta el zoom manual.
+      rig.setViewRadius(radius);
       lastCameraKey = cameraKey;
     }
 
@@ -206,7 +228,7 @@ export function createTrajectoryView(container: HTMLElement, deps: TrajectoryVie
 
     // --- Trazos ---
     const tip = { t: s.t, r: s.ship.r };
-    const viewKey = `${settings.frame}|${settings.colorMode}`;
+    const viewKey = `${settings.frame}|${settings.colorMode}|${camera.mode}`;
     const trailEvery = s.trail.length > 6000 ? 6 : 1;
     const trailKey = `${viewKey}|${s.trail.length}|${s.t}`;
     if (s.trail !== lastTrail || (trailKey !== lastTrailKey && frameCount % trailEvery === 0)) {
@@ -224,33 +246,41 @@ export function createTrajectoryView(container: HTMLElement, deps: TrajectoryVie
     const viewRadiusScene = rig.getViewRadius() * KM_TO_SCENE;
     trails.setDashScale(viewRadiusScene);
 
-    // --- Nave ---
-    const capsuleOnly = s.vehicle.cmSeparated;
-    if (capsuleOnly !== lastCapsule) {
-      overlay.setShipIcon(shipIconSvg(capsuleOnly));
-      model.setCapsuleOnly(capsuleOnly);
-      lastCapsule = capsuleOnly;
-    }
-    // Dirección de avance en el marco de dibujo (relativa a la Tierra en el inercial).
-    const p0 = toDisplayFrame(s.ship.r, s.t, base);
-    const ahead = rotating
-      ? toDisplayFrame(add(s.ship.r, s.ship.v), s.t + 1, base)
-      : add(s.ship.r, sub(s.ship.v, earth.v));
-    const dir = sub(ahead, p0);
-    const shipAngle = Math.atan2(dir.y, dir.x);
-    const is3d = settings.dim === '3d';
-    model.group.visible = is3d;
+    // --- Nave: orientada según su actitud, con las partes de la etapa actual ---
+    const engines = runningEngines(s);
+    const enginesKey = engines.join(',');
+    const cfg = s.vehicle;
+    const iconKey = `${cfg.srbSeparated}${cfg.lasJettisoned}${cfg.coreSeparated}${cfg.icpsSeparated}${cfg.cmSeparated}|${enginesKey}`;
+    const shipDir = displayDir(s.attitude.dir);
     if (is3d) {
+      const lengthM = model.update(cfg, engines);
       worldToScene(s.ship.r, s.t, frame, model.group.position);
-      tmp.set(dir.x, dir.y, dir.z).normalize();
-      if (tmp.lengthSq() > 0) model.group.quaternion.setFromUnitVectors(xAxis, tmp);
-      model.group.scale.setScalar(viewRadiusScene * 0.15);
+      orient(model.group, shipDir);
+      // A escala real de cerca; de lejos se agranda para que no desaparezca.
+      model.group.scale.setScalar(M_TO_SCENE * Math.max(1, (viewRadiusScene * MIN_APPARENT) / (lengthM * M_TO_SCENE)));
+    } else if (iconKey !== lastIconKey) {
+      overlay.setShipIcon(vehicleIconSvg(cfg, engines));
     }
+    lastIconKey = iconKey;
+    // Destello cuando enciende un motor.
+    if (lastEngines !== enginesKey && engines.some((e) => !lastEngines.split(',').includes(e)) && frameCount > 1) overlay.flash();
+    lastEngines = enginesKey;
 
-    // --- Destello de encendido ---
-    const burns = s.propulsion.mainBurns + s.propulsion.auxBurns + s.propulsion.icpsBurns;
-    if (lastBurns >= 0 && burns > lastBurns) overlay.flash();
-    lastBurns = burns;
+    // --- Partes desprendidas ---
+    if (is3d) {
+      const alive = new Set(s.debris.map((b) => b.id));
+      for (const child of [...debrisGroup.children]) if (!alive.has(child.name)) debrisGroup.remove(child);
+      for (const b of s.debris) {
+        const g = debrisModels.get(b.id);
+        if (g.parent !== debrisGroup) {
+          g.name = b.id;
+          debrisGroup.add(g);
+        }
+        worldToScene(b.ship.r, b.t, frame, g.position);
+        orient(g, displayDir(b.dir));
+        g.scale.setScalar(M_TO_SCENE * Math.max(1, (viewRadiusScene * MIN_APPARENT * 0.6) / (debrisLength(b.id) * M_TO_SCENE)));
+      }
+    }
 
     // --- Capa HTML ---
     if (s.params !== lastParams) {
@@ -267,17 +297,21 @@ export function createTrajectoryView(container: HTMLElement, deps: TrajectoryVie
       moon: moon.r,
       ship: s.ship.r,
       t: s.t,
-      shipAngle,
-      showShipIcon: !is3d,
+      shipAngle: Math.atan2(shipDir.y, shipDir.x),
+      showIcons: !is3d,
       radiusPx: {
         earth: R_EARTH * k * KM_TO_SCENE * pxPerScene,
         moon: R_MOON * k * KM_TO_SCENE * pxPerScene,
       },
+      debris: s.debris.map((item) => {
+        const d = displayDir(item.dir);
+        return { item, angle: Math.atan2(d.y, d.x) };
+      }),
     });
 
     // --- Dibujo: fondo de estrellas y, encima, la escena ---
     renderer.clear();
-    stars.render(renderer, rig.camera, width / height, rotating ? eph.moonAngle(s.t) : 0);
+    stars.render(renderer, rig.camera, width / height, frameAngle);
     renderer.clearDepth();
     renderer.render(scene, rig.camera);
   };
@@ -287,13 +321,13 @@ export function createTrajectoryView(container: HTMLElement, deps: TrajectoryVie
     dispose() {
       cancelAnimationFrame(raf);
       observer.disconnect();
-      rigs['2d'].dispose();
-      rigs['3d'].dispose();
+      rig.dispose();
       overlay.dispose();
       bodies.dispose();
       trails.dispose();
       stars.dispose();
       model.dispose();
+      debrisModels.dispose();
       renderer.dispose();
       renderer.domElement.remove();
     },

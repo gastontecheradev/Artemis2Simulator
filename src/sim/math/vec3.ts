@@ -36,3 +36,13 @@ export const rotateZ = (a: Vec3, angle: number): Vec3 => {
   const s = Math.sin(angle);
   return { x: a.x * c - a.y * s, y: a.x * s + a.y * c, z: a.z };
 };
+/** Rotación de `a` alrededor del eje unitario `axis` (fórmula de Rodrigues). */
+export const rotateAbout = (a: Vec3, axis: Vec3, angle: number): Vec3 => {
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const k = dot(axis, a) * (1 - c);
+  const w = cross(axis, a);
+  return { x: a.x * c + w.x * s + axis.x * k, y: a.y * c + w.y * s + axis.y * k, z: a.z * c + w.z * s + axis.z * k };
+};
+/** Ángulo (rad) entre dos vectores unitarios. */
+export const angleBetween = (a: Vec3, b: Vec3): number => Math.acos(Math.max(-1, Math.min(1, dot(a, b))));
