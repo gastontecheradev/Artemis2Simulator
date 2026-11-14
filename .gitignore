@@ -5,3 +5,5 @@ dist/
 assets-src/
 *.log
 .vite/
+process.md
+
