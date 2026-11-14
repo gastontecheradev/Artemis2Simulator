@@ -17,6 +17,7 @@ import type { SoftAction } from './index';
 const STATUS_LABEL: Readonly<Record<ManeuverStatus, string>> = {
   pending: 'PENDIENTE',
   committed: 'COMPROMETIDO',
+  burning: 'MOTOR ENCENDIDO',
   done: 'EJECUTADO',
   missed: 'VENTANA PERDIDA',
 };
@@ -25,7 +26,7 @@ const STATUS_LABEL: Readonly<Record<ManeuverStatus, string>> = {
 export function procsActions(s: SimState): SoftAction[] {
   const id = activeManeuverId(s);
   const m = id ? s.maneuvers[id] : null;
-  const editable = !!m && s.proc.advanced && m.status !== 'done' && m.status !== 'committed';
+  const editable = !!m && s.proc.advanced && m.status === 'pending';
   const actions: SoftAction[] = [
     { side: 'L', slot: 0, label: 'PROC\n▲', run: () => act((x) => cycleProcedure(x, -1)) },
     { side: 'L', slot: 1, label: 'PROC\n▼', run: () => act((x) => cycleProcedure(x, 1)) },
@@ -102,7 +103,7 @@ export function Procs({ s }: { s: SimState }): JSX.Element {
               </span>
             </span>
           )}
-          <span className={m.status === 'missed' ? 'alarm' : m.status === 'committed' ? 'cmd' : 'val'}>{STATUS_LABEL[m.status]}</span>
+          <span className={m.status === 'missed' ? 'alarm' : m.status === 'committed' || m.status === 'burning' ? 'cmd' : 'val'}>{STATUS_LABEL[m.status]}</span>
           {s.proc.advanced && <span className="cmd">ADV</span>}
         </div>
       )}

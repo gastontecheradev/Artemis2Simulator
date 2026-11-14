@@ -38,7 +38,7 @@ function circle(radius: number, segments: number, closed: boolean): THREE.Buffer
  */
 export function createBodies(colors: { earth: string; moon: string; orbit: string; ei: string }): BodyMeshes {
   const group = new THREE.Group();
-  const geometry = new THREE.SphereGeometry(1, 64, 32);
+  const geometry = new THREE.SphereGeometry(1, 192, 96);
   // Los polos de la esfera van sobre z (perpendicular al plano orbital).
   geometry.rotateX(Math.PI / 2);
 
@@ -56,7 +56,7 @@ export function createBodies(colors: { earth: string; moon: string; orbit: strin
   const orbitMaterial = new THREE.LineBasicMaterial({ color: colors.orbit, transparent: true, opacity: 0.18 });
   const moonOrbit = new THREE.LineLoop(orbitGeometry, orbitMaterial);
 
-  const eiGeometry = circle((R_EARTH + EI_ALTITUDE) * KM_TO_SCENE, 256, true);
+  const eiGeometry = circle((R_EARTH + EI_ALTITUDE) * KM_TO_SCENE, 720, true);
   const eiMaterial = new THREE.LineBasicMaterial({ color: colors.ei, transparent: true, opacity: 0.7 });
   const eiRing = new THREE.LineLoop(eiGeometry, eiMaterial);
 

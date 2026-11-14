@@ -13,6 +13,17 @@ export const MOON_SIDEREAL_PERIOD = 27.321661 * 86400; // s
 export const MOON_ANGULAR_RATE = (2 * Math.PI) / MOON_SIDEREAL_PERIOD; // rad/s
 export const C_LIGHT = 299792.458; // km/s
 
+/** Velocidad angular de rotación de la Tierra (rad/s). */
+export const EARTH_ROTATION_RATE = 7.2921159e-5;
+/** Latitud de la plataforma LC‑39B (grados). */
+export const LAUNCH_LATITUDE_DEG = 28.627;
+/**
+ * Rotación terrestre vista en el plano de la órbita. El modelo es plano: el suelo y el
+ * aire del sitio de lanzamiento se mueven hacia el este a Ω·R·cos(latitud) ≈ 0,408 km/s,
+ * y esa es la velocidad que el cohete ya trae al despegar.
+ */
+export const EARTH_ROTATION_IN_PLANE = EARTH_ROTATION_RATE * Math.cos((LAUNCH_LATITUDE_DEG * Math.PI) / 180);
+
 /** Radio de la esfera de influencia lunar (Laplace): D·(GM_L/GM_T)^(2/5). */
 export const MOON_SOI = EARTH_MOON_DISTANCE * Math.pow(GM_MOON / GM_EARTH, 2 / 5);
 
@@ -47,14 +58,17 @@ export const MET_E5_APOGEE_RAISE = hms(1, 48, 48);
 export const MET_E6_PROX_OPS_START = hms(3, 25, 41);
 export const MET_E6_PROX_OPS_END = hms(4, 53, 36);
 
-/** Altitud en la separación (E3), de 3.png. */
+/** Altitudes publicadas en MECO y en la separación de la etapa central: objetivos del guiado del ascenso. */
+export const MECO_ALTITUDE = 511884 * FT_TO_KM; // 156,02 km
 export const INSERTION_ALTITUDE = 534564 * FT_TO_KM; // 162,94 km
 /**
- * Velocidad vertical en E3 estimada con 3.png: subida de 511.884 ft a 534.564 ft
- * en los 12 s entre MECO y separación.
+ * Velocidad publicada en la separación de la etapa central: 17.627 mph. Es relativa a la
+ * Tierra en rotación, no inercial: el ascenso simulado con los datos reales del cohete la
+ * reproduce así, y como velocidad inercial sería incompatible con los tiempos publicados.
  */
-export const INSERTION_VERTICAL_SPEED =
-  ((534564 - 511884) * FT_TO_KM) / (MET_CORE_SEPARATION - MET_MECO); // km/s
+export const INSERTION_SPEED_REL = 17627 * MPH_TO_KMS; // 7,880 km/s
+/** El TLI se centra en el perigeo: la ignición es este tiempo antes (≈ media duración del encendido). */
+export const TLI_HALF_BURN = 185; // s
 
 // --- Misión ---
 /** Interfaz de entrada: 400.000 ft. */
@@ -79,13 +93,7 @@ export const ENTRY_CORRIDOR = { min: -6.66, target: -5.66, max: -4.66 } as const
  */
 export const NSN_MAX_ALTITUDE = 35786; // km
 
-/**
- * Presupuesto de Δv de Orion (motor principal + auxiliares comparten tanques).
- * 1.050 m/s según Wikipedia, "Orion (spacecraft)", sección Performance. Falta
- * contrastarlo con una fuente primaria de NASA o ESA. Configurable acá.
- */
-export const ORION_DV_BUDGET = 1.05; // km/s
-/** Umbral de CAUTION por Δv bajo (fracción restante). */
+/** Umbral de CAUTION por propelente bajo en el módulo de servicio (fracción restante). */
 export const DV_LOW_FRACTION = 0.1;
 
 /** Más allá de esta distancia a la Tierra la nave se da por perdida. */
@@ -101,3 +109,11 @@ export const CM_SEP_PROMPT_ALTITUDE = 20000; // km
 /** Altitud a la que la tripulación automática separa el CM/SM. */
 export const CM_SEP_AUTO_ALTITUDE = 12000; // km
 export const WARP_LEVELS = [1, 10, 100, 1000, 10000] as const;
+
+// --- Actitud (SUPUESTOS: no encontré los ritmos de maniobra reales de Orion) ---
+/** Ritmo al que el piloto automático reorienta la nave (rad/s). */
+export const ATTITUDE_SLEW_RATE = (3 * Math.PI) / 180;
+/** Ritmo de rotación que comanda el controlador manual a fondo (rad/s). */
+export const RHC_RATE = (3 * Math.PI) / 180;
+/** Error de actitud aceptable para considerar la nave orientada (rad). */
+export const ATTITUDE_TOLERANCE = (2 * Math.PI) / 180;

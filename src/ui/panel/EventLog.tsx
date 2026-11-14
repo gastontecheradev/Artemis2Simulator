@@ -14,7 +14,7 @@ export function EventLog({ s }: { s: SimState }): JSX.Element {
   }, [count]);
 
   return (
-    <section className="event-log">
+    <section className="event-log" data-tour="log">
       <span className="log-title">LOG DE EVENTOS</span>
       <div
         className="log-list"

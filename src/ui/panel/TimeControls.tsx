@@ -6,7 +6,7 @@ import { act, showIntro } from '../store';
 /** Controles de tiempo: play/pausa, velocidad de simulación y reinicio. */
 export function TimeControls({ s }: { s: SimState }): JSX.Element {
   return (
-    <section className="time-controls">
+    <section className="time-controls" data-tour="time">
       <span className="tc-title">TIEMPO</span>
       <button className={s.clock.running ? 'tc-play on' : 'tc-play'} onClick={() => act(togglePlay)} disabled={!!s.outcome} title={s.clock.running ? 'Pausa' : 'Play'}>
         {s.clock.running ? '❚❚ PAUSA' : '▶ PLAY'}

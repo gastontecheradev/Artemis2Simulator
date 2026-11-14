@@ -8,6 +8,7 @@ const TITLE: Readonly<Record<OutcomeKind, string>> = {
   'entry-steep': 'ENTRADA FUERA DEL CORREDOR',
   'entry-no-sep': 'ENTRADA SIN SEPARACIÓN',
   'reentry-early': 'REENTRADA PREMATURA',
+  crash: 'IMPACTO CONTRA LA SUPERFICIE',
   'moon-impact': 'IMPACTO LUNAR',
   lost: 'ÓRBITA PERDIDA',
 };
@@ -25,8 +26,8 @@ export function EndScreen({ s, onCredits }: { s: SimState; onCredits: () => void
         <h1>{TITLE[o.kind]}</h1>
         <p>{o.text}</p>
         {ok && (
-          // La foto del amerizaje la elige Gastón en images.nasa.gov (ver ASSETS.md, pendientes).
-          <div className="end-photo">FOTO DEL AMERIZAJE PENDIENTE · VER ASSETS.md</div>
+          // La foto del amerizaje la elige Gastón en images.nasa.gov (está anotada como pendiente en ASSETS.md).
+          <div className="end-photo">FOTO DEL AMERIZAJE PENDIENTE</div>
         )}
         <dl className="end-stats">
           <dt>MET FINAL</dt>

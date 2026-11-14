@@ -1,6 +1,6 @@
 /** Fases de la misión. Las transiciones las dispara la física (ver advance.ts). */
 export type Phase =
-  | 'ASCENSO' // E1 → E3: guionado con los datos de 3.png, sin física
+  | 'ASCENSO' // E1 → E3: vuelo propulsado del cohete
   | 'INSERCION' // E3 → E4: órbita de inserción con perigeo bajo
   | 'ORBITA_BAJA' // E4 → E5
   | 'ORBITA_ALTA' // E5 → E9: chequeo de ~23,5 h

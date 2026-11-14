@@ -1,5 +1,5 @@
-import { fireCmSeparation, fireEngine, fireIcpsSeparation, setSwitch } from '../../sim/commands';
-import { SimState, SwitchName } from '../../sim/state';
+import { fireCmSeparation, fireEngine, fireIcpsSeparation, setDapMode, setRhc, setSwitch, setThc } from '../../sim/commands';
+import { DapMode, SimState, SwitchName } from '../../sim/state';
 import { act } from '../store';
 
 type Led = 'off' | 'armed' | 'active' | 'done';
@@ -80,7 +80,34 @@ function Plate({ id, title, children }: { id: string; title: string; children: R
   );
 }
 
-/** Panel de interruptores. Todos accionan comandos reales de la simulación. */
+const DAP_MODES: readonly DapMode[] = ['AUTO', 'INRTL', 'MAN'];
+const DAP_HELP: Readonly<Record<DapMode, string>> = {
+  AUTO: 'El guiado orienta la nave',
+  INRTL: 'Mantiene la actitud inercial actual',
+  MAN: 'La tripulación rota la nave con el RHC',
+};
+
+/** Botón que actúa mientras se mantiene apretado: así funcionan los controladores manuales. */
+function HoldButton({ label, title, disabled, onHold }: { label: string; title: string; disabled: boolean; onHold: (on: boolean) => void }): JSX.Element {
+  return (
+    <button
+      className="pb hold"
+      title={title}
+      disabled={disabled}
+      onPointerDown={(e) => {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        onHold(true);
+      }}
+      onPointerUp={() => onHold(false)}
+      onPointerCancel={() => onHold(false)}
+      onLostPointerCapture={() => onHold(false)}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** Panel de interruptores y controladores. Todos accionan comandos reales de la simulación. */
 export function SwitchPanel({ s }: { s: SimState }): JSX.Element {
   const sw = s.switches;
   const set = (name: SwitchName) => (value: boolean) => act((x) => setSwitch(x, name, value));
@@ -89,13 +116,15 @@ export function SwitchPanel({ s }: { s: SimState }): JSX.Element {
     const armed = system === 'MAIN' ? sw.mainArm : sw.auxArm;
     const committed = Object.values(s.maneuvers).some((m) => m.system === system && m.status === 'committed');
     if (s.vehicle.cmSeparated) return { led: 'off', state: 'SEPARADO' };
+    if (s.burn?.system === system) return { led: 'active', state: 'ENCENDIDO' };
     if (committed) return { led: 'active', state: 'EN TIG' };
     return armed ? { led: 'armed', state: 'ARMADO' } : { led: 'off', state: 'SEGURO' };
   };
+  const canTranslate = s.vehicle.icpsSeparated && !s.vehicle.cmSeparated;
   const main = engine('MAIN');
   const aux = engine('AUX');
   return (
-    <section className="switch-panel">
+    <section className="switch-panel" data-tour="switches">
       <Plate id="F1" title="PROPULSIÓN">
         <GuardedSwitch label="MAIN ENG" armed={sw.mainArm} led={main.led} state={main.state} disabled={over || s.vehicle.cmSeparated} onArm={set('mainArm')} onFire={() => act((x) => fireEngine(x, 'MAIN'))} />
         <GuardedSwitch label="AUX THR" armed={sw.auxArm} led={aux.led} state={aux.state} disabled={over || s.vehicle.cmSeparated} onArm={set('auxArm')} onFire={() => act((x) => fireEngine(x, 'AUX'))} />
@@ -123,6 +152,40 @@ export function SwitchPanel({ s }: { s: SimState }): JSX.Element {
       <Plate id="F3" title="OPERACIÓN">
         <Toggle label="CREW AUTO" on={sw.autoCrew} onChange={set('autoCrew')} labels={['AUTO', 'MANUAL']} />
         <Toggle label="AUTO PAUSA" on={sw.autoPause} onChange={set('autoPause')} labels={['ON', 'OFF']} />
+      </Plate>
+      <Plate id="F4" title="CONTROL DE VUELO">
+        <div className="fc" data-tour="flight-controls">
+          <div className="fc-block">
+            <span className="sw-label">DAP</span>
+            <div className="fc-row">
+              {DAP_MODES.map((m) => (
+                <button key={m} className={s.attitude.mode === m ? 'pb on' : 'pb'} disabled={over} onClick={() => act((x) => setDapMode(x, m))} title={DAP_HELP[m]}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="fc-block">
+            <span className="sw-label">
+              RHC CABECEO
+              <i className={`led ${s.attitude.rhc !== 0 ? 'active' : 'off'}`} />
+            </span>
+            <div className="fc-row">
+              <HoldButton label="◄" title="Rotar en sentido antihorario (necesita DAP en MAN)" disabled={over || s.attitude.mode !== 'MAN'} onHold={(on) => act((x) => setRhc(x, on ? 1 : 0))} />
+              <HoldButton label="►" title="Rotar en sentido horario (necesita DAP en MAN)" disabled={over || s.attitude.mode !== 'MAN'} onHold={(on) => act((x) => setRhc(x, on ? -1 : 0))} />
+            </div>
+          </div>
+          <div className="fc-block">
+            <span className="sw-label">
+              THC EJE X
+              <i className={`led ${s.thc !== 0 ? 'active' : 'off'}`} />
+            </span>
+            <div className="fc-row">
+              <HoldButton label="−X" title="Traslación hacia atrás con el RCS" disabled={over || !canTranslate} onHold={(on) => act((x) => setThc(x, on ? -1 : 0))} />
+              <HoldButton label="+X" title="Traslación hacia adelante con el RCS" disabled={over || !canTranslate} onHold={(on) => act((x) => setThc(x, on ? 1 : 0))} />
+            </div>
+          </div>
+        </div>
       </Plate>
     </section>
   );

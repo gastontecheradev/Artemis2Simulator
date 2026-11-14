@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Ephemeris } from '../sim/bodies';
-import { Vec3, ZERO, rotateZ } from '../sim/math/vec3';
+import { Vec3, rotateZ } from '../sim/math/vec3';
 
 /** 1 unidad de escena = 1.000 km. */
 export const KM_TO_SCENE = 1e-3;
@@ -33,6 +33,3 @@ export function worldToScene(p: Vec3, t: number, frame: ViewFrame, out = new THR
     (d.z - frame.origin.z) * KM_TO_SCENE,
   );
 }
-
-/** Mismo marco pero sin origen flotante: para geometrías ancladas al baricentro. */
-export const anchored = (frame: ViewFrame): ViewFrame => ({ ...frame, origin: ZERO });
