@@ -45,7 +45,8 @@ function Canvas({ dim, className }: { dim: ViewDim; className?: string }): JSX.E
 
 /**
  * Área de la derecha, dividida en dos: arriba el mapa 2D, fijo como una infografía
- * (marco rotante, escala que abarca toda la misión y datos de vuelo), y abajo la vista 3D, que sigue a la nave de cerca y a escala real.
+ * (marco rotante, escala que abarca toda la misión y datos de vuelo), y abajo la vista
+ * 3D, que sigue a la nave de cerca y a escala real, con el recuadro del entorno terrestre.
  */
 export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits: () => void; onTutorial: () => void; onGuides: () => void }): JSX.Element {
   const t = useT();
@@ -88,6 +89,11 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
       </section>
       <section className="pane pane-3d" data-tour="view-3d">
         <Canvas dim="3d" />
+        {/* El recuadro del entorno terrestre va sobre la vista 3D para no tapar la Luna del mapa. */}
+        <div className="map-inset" data-tour="inset">
+          <Canvas dim="inset" className="view-canvas-host" />
+          <span className="inset-title">{t('map.inset')}</span>
+        </div>
         <div className="toolbar">
           <span className="pane-title">{t('vw.3d')}</span>
           <Group title={t('vw.camera')} options={CAMERA_MODES.map((id) => ({ id, label: t(`cam.${id}`) }))} value={view.camera['3d']} onChange={(mode) => setCamera('3d', mode)} />

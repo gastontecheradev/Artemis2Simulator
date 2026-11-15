@@ -172,7 +172,7 @@ const STEPS_EN = (): TourStep[] => [
   {
     target: 'view-3d',
     title: '3D VIEW',
-    body: <p>The spacecraft up close and at real scale. Here you can watch the boosters, the launch abort system and each stage come off. Drag to orbit the camera.</p>,
+    body: <p>The spacecraft up close and at real scale. Here you can watch the boosters, the launch abort system and each stage come off. Drag to orbit the camera. The inset in the corner shows the Earth vicinity, seen from above.</p>,
   },
   {
     target: 'time',
@@ -328,7 +328,7 @@ const STEPS_ES = (): TourStep[] => [
   {
     target: 'view-3d',
     title: 'VISTA 3D',
-    body: <p>La nave de cerca y a escala real. Acá se ve cómo se desprenden los boosters, la torre de escape y cada etapa. Arrastrá para girar la cámara.</p>,
+    body: <p>La nave de cerca y a escala real. Acá se ve cómo se desprenden los boosters, la torre de escape y cada etapa. Arrastrá para girar la cámara. El recuadro de la esquina muestra el entorno terrestre visto desde arriba.</p>,
   },
   {
     target: 'time',
