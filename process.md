@@ -41,6 +41,7 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 11. **Integrador Dormand–Prince 5(4) con `rtol = 1e-11`**, llevando el propelente de cada tanque como estado. El avance se corta en cada discontinuidad.
 12. **Encendidos de la tripulación comprometidos al TIG**; bajar la guarda con el motor encendido lo corta.
 13. **Los motores empujan hacia donde apunta la nave.** Actitud cinemática y solo en cabeceo, 3°/s (supuesto). Con la cápsula sola (después de E13) el DAP AUTO la pone retrógrada: el escudo térmico va por delante (sesión 10).
+26. **Vista 3D solo en marco inercial** (sesión 13): se quitó el selector MARCO de la 3D y el parámetro `?frame`; el marco rotante queda solo en el mapa 2D.
 25. **Sol** (sesión 11): `sunDirection(t)` en `sim/bodies.ts`, en el plano del modelo; al despegue faltan 1,28 h para la puesta en la plataforma ([AV], apertura de la ventana del 01/04/2026, 22:24 UTC) y avanza con el año sidéreo. Solo ilumina el 3D. La Tierra 3D tiene brillo propio (35 % de su color) y su lado diurno apenas aclarado (12 % de blanco; con 30 % se veía gris, sesión 12).
 24. **3D a escala real** (sesión 10): nave, partes, Tierra y Luna sin agrandar; lo que mide menos de 3 px se marca con un punto. El cohete se apoya en su base hasta separar la etapa central. La cámara de la nave encuadra de costado y desde arriba del plano, y nunca entra en un cuerpo (`keepOutside`). La Tierra en 3D gira con la plataforma para que el sitio de lanzamiento caiga en un vértice de la esfera.
 14. **Corredor de entrada: objetivo −5,66°** (Artemis I, NASA AAS 24‑174). Ancho ±1°: supuesto.
@@ -92,6 +93,11 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - **Difiere:** 6 teclas por lado horizontal (la referencia tiene 8) y sin perillas; interruptores SVG planos; la guarda es una tapa translúcida con botón; los controladores manuales son botones, no palancas; el indicador de actitud solo cabecea; la barra de estado superior no existe en la cabina real; no hay dispositivo de cursor.
 
 ## Historial de sesiones
+
+## Sesión 13 — 2026-11-15 — Vista 3D solo inercial
+**Hecho:** `ui/TrajectoryView.tsx` sin el selector MARCO de la 3D; `ui/store.ts` sin `frame` en `ViewState` ni `?frame` (la 3D recibe siempre `inertial`).
+**Tests:** 52 en verde; build sin errores. Sin captura.
+**Próximo paso:** el de "Estado actual".
 
 ## Sesión 12 — 2026-11-15 — Tierra 3D más azul
 **Hecho:** `render/bodies.ts`: `EARTH_DAY_LIFT` 0,3 → 0,12 y `EARTH_NIGHT_GLOW` 0,3 → 0,35.

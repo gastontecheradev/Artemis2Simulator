@@ -108,15 +108,6 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
         <div className="toolbar">
           <span className="pane-title">{t('vw.3d')}</span>
           <Group title={t('vw.camera')} options={CAMERA_MODES.map((id) => ({ id, label: t(`cam.${id}`) }))} value={view.camera['3d']} onChange={(mode) => setCamera('3d', mode)} />
-          <Group
-            title={t('vw.frame')}
-            options={[
-              { id: 'inertial', label: t('vw.inertial') },
-              { id: 'rotating', label: t('vw.rotating') },
-            ]}
-            value={view.frame}
-            onChange={(frame) => setViewState({ frame })}
-          />
         </div>
         <div className="legend">
           <span className="hint">{t('vw.hint3d')}</span>
