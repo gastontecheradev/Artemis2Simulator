@@ -1,6 +1,7 @@
 import { formatMet } from '../../../sim/format';
 import { nextEvent, timelineStatus } from '../../../sim/mission/timeline';
 import { SimState } from '../../../sim/state';
+import { useT } from '../../i18n';
 
 const WHO = { AUTO: 'AUTO', CREW: 'CREW', NONE: '' } as const;
 
@@ -9,6 +10,7 @@ const WHO = { AUTO: 'AUTO', CREW: 'CREW', NONE: '' } as const;
  * real, predicho o planificado. El próximo evento va resaltado en magenta.
  */
 export function Timeline({ s }: { s: SimState }): JSX.Element {
+  const t = useT();
   const rows = timelineStatus(s);
   const next = nextEvent(s);
   return (
@@ -28,9 +30,9 @@ export function Timeline({ s }: { s: SimState }): JSX.Element {
         ))}
       </div>
       <div className="tl-foot">
-        <span>✓ REAL</span>
-        <span>P PREDICHO</span>
-        <span>N NOMINAL</span>
+        <span>{t('pg.real')}</span>
+        <span>{t('pg.pred')}</span>
+        <span>{t('pg.nom')}</span>
       </div>
     </div>
   );

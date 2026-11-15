@@ -1,15 +1,22 @@
 import { setWarp, togglePlay } from '../../sim/commands';
 import { WARP_LEVELS } from '../../sim/constants';
 import { SimState } from '../../sim/state';
+import { useT } from '../i18n';
 import { act, showIntro } from '../store';
 
 /** Controles de tiempo: play/pausa, velocidad de simulación y reinicio. */
 export function TimeControls({ s }: { s: SimState }): JSX.Element {
+  const t = useT();
   return (
     <section className="time-controls" data-tour="time">
-      <span className="tc-title">TIEMPO</span>
-      <button className={s.clock.running ? 'tc-play on' : 'tc-play'} onClick={() => act(togglePlay)} disabled={!!s.outcome} title={s.clock.running ? 'Pausa' : 'Play'}>
-        {s.clock.running ? '❚❚ PAUSA' : '▶ PLAY'}
+      <span className="tc-title">{t('tc.title')}</span>
+      <button
+        className={s.clock.running ? 'tc-play on' : 'tc-play'}
+        onClick={() => act(togglePlay)}
+        disabled={!!s.outcome}
+        title={s.clock.running ? t('tc.pauseTitle') : t('tc.playTitle')}
+      >
+        {s.clock.running ? t('tc.pause') : t('tc.play')}
       </button>
       <div className="tc-warp">
         {WARP_LEVELS.map((w) => (
@@ -18,8 +25,8 @@ export function TimeControls({ s }: { s: SimState }): JSX.Element {
           </button>
         ))}
       </div>
-      <button className="tc-btn tc-reset" onClick={showIntro} title="Volver a la pantalla de inicio">
-        REINICIAR
+      <button className="tc-btn tc-reset" onClick={showIntro} title={t('tc.resetTitle')}>
+        {t('tc.reset')}
       </button>
     </section>
   );

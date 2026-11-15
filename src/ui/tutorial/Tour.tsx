@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { SimState } from '../../sim/state';
+import { useLocale, useT } from '../i18n';
 import { setTour } from '../store';
-import { TOUR_STEPS } from './steps';
+import { tourSteps } from './steps';
 
 interface Box {
   left: number;
@@ -18,6 +19,8 @@ const MARGIN = 10;
  * verdad y avanzan solos cuando la simulación registra la acción.
  */
 export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element | null {
+  const t = useT();
+  const TOUR_STEPS = tourSteps(useLocale());
   const step = TOUR_STEPS[index];
   const cardRef = useRef<HTMLDivElement>(null);
   const [target, setTarget] = useState<Box | null>(null);
@@ -102,21 +105,21 @@ export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element 
       )}
       <div className="tour-card" ref={cardRef} style={pos ? { left: pos.left, top: pos.top } : { visibility: 'hidden' }}>
         <span className="tour-count">
-          PASO {index + 1} DE {TOUR_STEPS.length}
-          {step.until ? ' · ACCIÓN' : ''}
+          {t('tour.step', { n: index + 1, total: TOUR_STEPS.length })}
+          {step.until ? t('tour.action') : ''}
         </span>
         <h3>{step.title}</h3>
         <div className="tour-body">{step.body}</div>
-        {step.until && <p className={done ? 'tour-status ok' : 'tour-status'}>{done ? '✓ HECHO' : 'ESPERANDO LA ACCIÓN…'}</p>}
+        {step.until && <p className={done ? 'tour-status ok' : 'tour-status'}>{done ? t('tour.done') : t('tour.waiting')}</p>}
         <div className="tour-actions">
           <button className="tb-btn" disabled={index === 0} onClick={() => setTour(index - 1)}>
-            ANTERIOR
+            {t('tour.prev')}
           </button>
           <button className={step.until ? 'tb-btn' : 'tb-btn on'} onClick={() => setTour(last ? null : index + 1)}>
-            {last ? 'TERMINAR' : step.until ? 'SALTEAR' : 'SIGUIENTE'}
+            {last ? t('tour.finish') : step.until ? t('tour.skip') : t('tour.next')}
           </button>
           <button className="tb-btn tour-exit" onClick={() => setTour(null)}>
-            SALIR
+            {t('tour.exit')}
           </button>
         </div>
       </div>

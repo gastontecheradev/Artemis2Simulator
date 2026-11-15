@@ -1735,3 +1735,233 @@ button.ann.link {
 button.ann.link.acked {
   background: transparent;
 }
+
+/* ---------- Mapa 2D estático: recuadro del entorno terrestre y datos de vuelo ---------- */
+.map-inset {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: min(30%, 280px);
+  aspect-ratio: 1;
+  border: 1px solid var(--c-label-dim);
+  background: var(--c-screen);
+  overflow: hidden;
+  z-index: 1;
+}
+.map-inset .view-canvas-host {
+  position: absolute;
+  inset: 0;
+}
+.map-inset .view-overlay .ship-marker {
+  width: 30px;
+  height: 30px;
+}
+.map-inset .view-overlay .event-marker {
+  width: 14px;
+  height: 14px;
+  font-size: 8px;
+}
+.map-inset .view-overlay .body-label {
+  display: none !important;
+}
+.inset-title {
+  position: absolute;
+  left: 4px;
+  top: 3px;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  color: var(--c-label-dim);
+  pointer-events: none;
+}
+.map-hud {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  gap: 4px 18px;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--c-screen) 78%, transparent);
+  border: 1px solid var(--c-label-faint);
+  pointer-events: none;
+  z-index: 1;
+}
+.hud-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 90px;
+}
+.hud-l {
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  color: var(--c-label-dim);
+  white-space: nowrap;
+}
+.hud-v {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--c-value-hi);
+  white-space: nowrap;
+}
+.hud-v small {
+  font-size: 9px;
+  color: var(--c-label-dim);
+}
+.hud-v.warn {
+  color: var(--c-caution);
+}
+.hud-bar {
+  display: block;
+  width: 100%;
+  height: 3px;
+  margin-top: 2px;
+  background: var(--c-label-faint);
+}
+.hud-bar i {
+  display: block;
+  height: 100%;
+  background: var(--c-value);
+}
+.legend .swatch.plan {
+  background: var(--c-label);
+  opacity: 0.35;
+}
+@media (max-width: 1500px) {
+  .map-hud {
+    grid-template-columns: repeat(2, auto);
+  }
+}
+
+/* ---------- Control de misión ---------- */
+.bottom-row .event-log,
+.bottom-row .mcc {
+  flex: 1 1 240px;
+}
+.mcc-los {
+  color: var(--c-caution);
+}
+.log-line.mcc-go .log-x {
+  color: var(--c-command-hi);
+}
+.log-line.mcc-info .log-x {
+  color: var(--c-label);
+}
+.log-line.mcc-caution .log-x {
+  color: var(--c-caution);
+}
+
+/* ---------- Menús de inicio: idioma y guías ---------- */
+.lang-card {
+  text-align: center;
+}
+.lang-buttons,
+.guide-menu {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.lang-buttons {
+  grid-template-columns: 1fr 1fr;
+}
+.guide-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-key-lo);
+  border-radius: 3px;
+  background: var(--c-frame);
+  color: var(--c-label);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.guide-btn:hover {
+  border-color: var(--c-value);
+}
+.guide-btn.on {
+  border-color: var(--c-value);
+  background: var(--c-title-bar);
+}
+.lang-btn {
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 10px;
+  font-size: 15px;
+  letter-spacing: 0.1em;
+}
+.lang-btn small {
+  font-size: 10px;
+  color: var(--c-label-dim);
+  letter-spacing: 0.04em;
+}
+.guide-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border-radius: 50%;
+  background: var(--c-command);
+  color: var(--c-label);
+  font-size: 11px;
+  font-weight: 600;
+}
+.modal.guide {
+  z-index: 12;
+  text-transform: none;
+  align-items: flex-start;
+}
+.guide-card {
+  width: min(760px, 100%);
+  margin: auto;
+  border-top-color: var(--c-command);
+}
+.guide-section h3 {
+  margin: 12px 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--c-value-hi);
+  text-transform: uppercase;
+}
+.guide-section ul {
+  margin: 0 0 8px;
+  padding-left: 18px;
+  color: var(--c-label);
+  line-height: 1.45;
+}
+.guide-section li {
+  margin-bottom: 4px;
+}
+.guide-table {
+  width: 100%;
+  margin: 4px 0 8px;
+  border-collapse: collapse;
+  font-size: 11px;
+  color: var(--c-label);
+}
+.guide-table th,
+.guide-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--c-label-faint);
+  text-align: left;
+  vertical-align: top;
+}
+.guide-table th {
+  color: var(--c-label-dim);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+}
+.guide-table td:first-child {
+  color: var(--c-value-hi);
+  white-space: nowrap;
+}
+
+.pane-2d .legend:not(.legend-colors) {
+  display: none;
+}

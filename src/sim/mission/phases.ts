@@ -1,3 +1,5 @@
+import { tr } from '../i18n';
+
 /** Fases de la misión. Las transiciones las dispara la física (ver advance.ts). */
 export type Phase =
   | 'ASCENSO' // E1 → E3: vuelo propulsado del cohete
@@ -9,16 +11,8 @@ export type Phase =
   | 'REGRESO' // salida de la esfera de influencia → EI
   | 'ENTRADA'; // E14: fin de la física
 
-export const PHASE_LABEL: Readonly<Record<Phase, string>> = {
-  ASCENSO: 'ASCENSO',
-  INSERCION: 'INSERCIÓN',
-  ORBITA_BAJA: 'ÓRB BAJA',
-  ORBITA_ALTA: 'ÓRB ALTA',
-  TRANSITO_IDA: 'TRÁNSITO',
-  SOBREVUELO: 'SOBREVUELO',
-  REGRESO: 'REGRESO',
-  ENTRADA: 'ENTRADA',
-};
+/** Etiqueta corta de cada fase en el idioma actual. */
+export const phaseLabel = (p: Phase): string => tr(`phase.${p}`);
 
 const ORDER: readonly Phase[] = [
   'ASCENSO',

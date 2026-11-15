@@ -2,6 +2,7 @@ import { Draft, advance, endBurn, executeManeuver, logTo, produce, separateCm, s
 import { dvMagnitude } from './burns';
 import { BURN_LEAD_TIME, WARP_LEVELS } from './constants';
 import { formatDvMs, formatMet } from './format';
+import { tr } from './i18n';
 import { solveCorrection } from './guidance';
 import { MissionParams } from './mission/params';
 import {
@@ -58,12 +59,12 @@ export function setSwitch(s: SimState, name: SwitchName, value: boolean): SimSta
       for (const m of Object.values(d.maneuvers)) {
         if (m.system === system && m.status === 'committed') {
           setManeuver(d, m.id, { status: 'pending' });
-          logTo(d, 'INFO', `${m.id} · ${SYSTEM_SWITCH[system]} desarmado: encendido cancelado.`);
+          logTo(d, 'INFO', tr('cmd.disarmCancel', { id: m.id, sw: SYSTEM_SWITCH[system] }));
         }
       }
     }
     if (name === 'autoCrew') {
-      logTo(d, 'INFO', value ? 'Tripulación automática activada.' : 'Tripulación automática desactivada.');
+      logTo(d, 'INFO', tr(value ? 'cmd.autoCrewOn' : 'cmd.autoCrewOff'));
     }
   });
 }
@@ -82,27 +83,27 @@ export function fireEngine(s: SimState, system: 'MAIN' | 'AUX'): SimState {
     const id = activeManeuverId(d);
     const m = id ? d.maneuvers[id] : null;
     if (!id || !m || m.system !== system) {
-      logTo(d, 'INFO', `${sw}: no hay una maniobra de este sistema cargada en Procs.`);
+      logTo(d, 'INFO', tr('cmd.noManeuver', { sw }));
       return;
     }
     if (m.status === 'done' || m.status === 'committed' || m.status === 'burning') return;
     if (!m.confirmed) {
-      logTo(d, 'CAUTION', `${id} · Δv sin confirmar: confirmar en Procs antes de ejecutar.`);
+      logTo(d, 'CAUTION', tr('cmd.unconfirmed', { id }));
       return;
     }
     const blocker = burnBlocker(system, dvMagnitude(m.dv), d.propulsion, d.vehicle);
     if (blocker) {
-      logTo(d, 'WARNING', `${id} · ${MANEUVER_TITLE[id]}: encendido inhibido. ${blocker}.`);
+      logTo(d, 'WARNING', tr('burn.inhibited', { title: `${id} · ${MANEUVER_TITLE[id]}`, reason: blocker }));
       return;
     }
     if (m.tig !== null && d.t < m.tig) {
       const windowSkipped = d.proc.skipped.includes(`${id}:0`);
       if (d.t < m.tig - BURN_LEAD_TIME && !windowSkipped) {
-        logTo(d, 'CAUTION', `${id} · Fuera de ventana: TIG ${formatMet(m.tig)}.`);
+        logTo(d, 'CAUTION', tr('cmd.outOfWindow', { id, tig: formatMet(m.tig) }));
         return;
       }
       setManeuver(d, id, { status: 'committed' });
-      logTo(d, 'INFO', `${id} · Encendido comprometido para TIG ${formatMet(m.tig)}.`);
+      logTo(d, 'INFO', tr('cmd.committed', { id, tig: formatMet(m.tig) }));
       return;
     }
     executeManeuver(d, id);
@@ -139,7 +140,7 @@ export function skipStep(s: SimState): SimState {
   return produce(s, (d: Draft) => {
     d.proc = { ...d.proc, cursor: null, skipped: [...d.proc.skipped, `${view.id}:${i}`] };
     const id = activeManeuverId(d);
-    if (id && view.steps[i].text.startsWith('Confirmar')) setManeuver(d, id, { confirmed: true });
+    if (id && view.steps[i].key === 'confirm') setManeuver(d, id, { confirmed: true });
   });
 }
 
@@ -192,9 +193,9 @@ export function computeCorrection(s: SimState): SimState {
     const res = solveCorrection(d, id === 'E10' ? 'flyby' : 'entry', m.axis);
     if (res.ok) {
       setManeuver(d, id, { dv: { ...m.dv, [m.axis]: res.dv }, computed: true, confirmed: false });
-      logTo(d, 'INFO', `${id} · Guiado: Δv ${formatDvMs(res.dv)} m/s (${res.message}).`);
+      logTo(d, 'INFO', tr('cmd.guidance', { id, dv: formatDvMs(res.dv), msg: res.message }));
     } else {
-      logTo(d, 'CAUTION', `${id} · Guiado: ${res.message}.`);
+      logTo(d, 'CAUTION', tr('cmd.guidanceFail', { id, msg: res.message }));
     }
   });
 }
@@ -206,11 +207,11 @@ export function setDapMode(s: SimState, mode: DapMode): SimState {
   if (s.outcome || s.attitude.mode === mode) return s;
   return produce(s, (d) => {
     if (d.phase === 'ASCENSO') {
-      logTo(d, 'INFO', 'DAP: durante el ascenso la actitud la controla el guiado del cohete.');
+      logTo(d, 'INFO', tr('cmd.dapAscent'));
       return;
     }
     d.attitude = { ...d.attitude, mode, rhc: 0 };
-    logTo(d, 'INFO', `DAP: modo ${mode}.`);
+    logTo(d, 'INFO', tr('cmd.dapMode', { mode }));
   });
 }
 
@@ -223,14 +224,14 @@ export function setRhc(s: SimState, value: number): SimState {
 
 /**
  * Controlador de traslación (THC) sobre el eje de la nave: +1 empuja hacia adelante,
- * −1 hacia atrás, con los propulsores de control de reacción. Necesita Orion ya
- * separado del ICPS y con el módulo de servicio.
+ * −1 hacia atrás, con los propulsores de control de reacción del módulo de servicio
+ * (o los de la cápsula, después de separarlo). Necesita Orion ya separado del ICPS.
  */
 export function setThc(s: SimState, value: number): SimState {
   const v = Math.sign(value);
   if (s.outcome || s.thc === v) return s;
-  if (v !== 0 && (!s.vehicle.icpsSeparated || s.vehicle.cmSeparated)) {
-    return produce(s, (d) => logTo(d, 'INFO', 'THC: el RCS de traslación solo está disponible con Orion separado del ICPS y con el módulo de servicio.'));
+  if (v !== 0 && !s.vehicle.icpsSeparated) {
+    return produce(s, (d) => logTo(d, 'INFO', tr('cmd.thcUnavailable')));
   }
   return produce(s, (d) => {
     d.thc = v;

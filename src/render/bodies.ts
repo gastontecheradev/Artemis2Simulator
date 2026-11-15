@@ -15,7 +15,8 @@ export interface BodyMeshes {
   readonly eiRing: THREE.LineLoop;
   /** Esfera de influencia lunar (en el plano orbital). */
   readonly soiRing: THREE.Line;
-  setExaggerated(on: boolean): void;
+  /** Factor de tamaño de los cuerpos (1 = escala real). */
+  setBodyScale(k: number): void;
   /** En 3D los cuerpos se iluminan con el "Sol"; en 2D son discos planos. */
   setLit(on: boolean): void;
   dispose(): void;
@@ -67,14 +68,13 @@ export function createBodies(colors: { earth: string; moon: string; orbit: strin
 
   group.add(earth, moon, moonOrbit, eiRing, soiRing);
 
-  const setExaggerated = (on: boolean): void => {
-    const k = on ? EXAGGERATION : 1;
+  const setBodyScale = (k: number): void => {
     earth.scale.setScalar(R_EARTH * KM_TO_SCENE * k);
     moon.scale.setScalar(R_MOON * KM_TO_SCENE * k);
     // El anillo de EI está a escala real: con la Tierra agrandada quedaría adentro del disco.
-    eiRing.visible = !on;
+    eiRing.visible = k === 1;
   };
-  setExaggerated(false);
+  setBodyScale(1);
 
   return {
     group,
@@ -83,7 +83,7 @@ export function createBodies(colors: { earth: string; moon: string; orbit: strin
     moonOrbit,
     eiRing,
     soiRing,
-    setExaggerated,
+    setBodyScale,
     setLit(on) {
       earth.material = on ? earthMat.lit : earthMat.flat;
       moon.material = on ? moonMat.lit : moonMat.flat;

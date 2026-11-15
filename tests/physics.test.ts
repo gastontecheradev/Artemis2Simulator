@@ -17,7 +17,7 @@ import {
 import { integrateWithEvents } from '../src/sim/events';
 import { ShipState, integrate } from '../src/sim/integrator';
 import { add, distance, length, scale, vec3 } from '../src/sim/math/vec3';
-import { earthElements, jacobiConstant } from '../src/sim/orbit';
+import { earthElements, jacobiConstant, timeToDescendTo } from '../src/sim/orbit';
 import { propagate } from '../src/sim/propagate';
 
 describe('constantes', () => {
@@ -177,6 +177,47 @@ describe('H5 · encendidos y trayectoria predicha', () => {
     const pred = propagate({ r: vec3(r, 0, 0), v: vec3(0, v, 0) }, 0, 6000, eph);
     expect(pred.end).toBe('ei');
     expect(pred.ei!.fpaDeg).toBeLessThan(0);
+  });
+});
+
+describe('tiempo hasta un radio (ecuación de Kepler)', () => {
+  const eph = createEarthOnlyEphemeris();
+  const check = (ship: ShipState, target: number): void => {
+    const el = earthElements(ship, 0, eph);
+    const t = timeToDescendTo(el, target, GM_EARTH);
+    // Se compara con la integración numérica: el instante en que la distancia cruza el radio pedido.
+    let s = ship;
+    let tt = 0;
+    let crossed: number | null = null;
+    while (tt < 5 * 86400 && crossed === null) {
+      const res = integrate(s, tt, tt + 1, eph, { maxStep: 1 });
+      if (length(res.state.r) <= target) crossed = tt + (length(s.r) - target) / (length(s.r) - length(res.state.r));
+      s = res.state;
+      tt = res.t;
+    }
+    expect(crossed).not.toBeNull();
+    expect(Math.abs(t - crossed!)).toBeLessThan(2);
+  };
+  it('en una elipse que baja al perigeo', () => {
+    // Apogeo de una órbita alta, girado para que esté bajando (velocidad radial negativa).
+    const r = R_EARTH + 60000;
+    const vApo = Math.sqrt(GM_EARTH * (2 / r - 2 / (r + R_EARTH + 200)));
+    const apo: ShipState = { r: vec3(r, 0, 0), v: vec3(0, vApo, 0) };
+    const ship = integrate(apo, 0, 3600, eph).state;
+    expect(earthElements(ship, 0, eph).radialSpeed).toBeLessThan(0);
+    check(ship, R_EARTH + 1000);
+  });
+  it('en una hipérbola de regreso', () => {
+    const r = 200000;
+    const ship: ShipState = { r: vec3(r, 0, 0), v: vec3(-2.6, 0.08, 0) };
+    expect(earthElements(ship, 0, eph).e).toBeGreaterThan(1);
+    check(ship, R_EARTH + 121.92);
+  });
+  it('NaN si no está bajando o el radio no se alcanza', () => {
+    const r = R_EARTH + 400;
+    const v = Math.sqrt(GM_EARTH / r);
+    const circ = earthElements({ r: vec3(r, 0, 0), v: vec3(0, v, 0) }, 0, eph);
+    expect(Number.isNaN(timeToDescendTo(circ, R_EARTH, GM_EARTH))).toBe(true);
   });
 });
 

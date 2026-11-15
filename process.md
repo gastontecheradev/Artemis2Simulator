@@ -51,7 +51,30 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 
 - Interacción sin probar a mano (ver "Estado actual").
 - Duración total 8,55 d contra los ~10 d de 1.png.
-- **Diferencias con el vuelo real que conozco por prensa, sin fuente primaria:** apogeo de la órbita alta ~74.000 km (acá 69.200) y TLI de 5 min 50 s (acá 6 min 1 s). El perigeo tras E4 queda en ~840 km; en el vuelo real era bastante más bajo. Viene del criterio de la decisión 4.
+- **Contradicciones con la guía de referencia de Artemis II** (NASA, "Artemis II Reference Guide", 2026; PDF en el escritorio, `a2-reference-guide-012825.pdf`), pendientes de decisión:
+  - Sobrevuelo: la guía dice "aproximadamente 4.700 millas" más allá de la cara oculta (~7.560 km); 1.png dice 4.047 mi / 6.513 km "mean". Se mantiene 6.513 km.
+  - MECO: la guía da ~T+483 s; 3.png y la tabla de eventos de la guía del SLS dan 8:06 (486 s). Se mantiene 486 s.
+  - La "masa post‑TLI" de 25.854 kg no es compatible con un TLI hecho por Orion (implicaría ~80 m/s). Probablemente viene de Artemis I. No se usa.
+  - La guía dice que Orion y el ICPS dan "tres vueltas" a la Tierra en un lugar y "dos órbitas elípticas" en otro.
+- **Órbitas terrestres contra la guía del SLS** (NASA, "SLS Reference Guide for Artemis II", oct. 2025, tabla "Artemis II by the Numbers"). Ahora hay fuente primaria; la decisión 4 queda en revisión:
+  - Inserción: publicada 28 × 2.222 km; el modelo da 31 × 2.246 km sin haberla ajustado.
+  - Tras E4 (PRM, ~30 s cerca del apogeo): publicada 185 × 2.222 km; el modelo da 819 × 2.266 km con 110 s.
+  - Tras E5 (ARB, ~20 min): publicada 0 × 74.080 km (perigeo a altitud cero, para la eliminación del ICPS); el modelo da 955 × 69.150 km con 15 min.
+  - Tras E8 (PRB de Orion): publicada 185 × 74.080 km; el modelo da 1.124 × 69.194 km. Subir el perigeo de 0 a 185 km en el apogeo pide ~11 m/s (cuenta kepleriana), cerca del supuesto actual de 10 m/s.
+  - La tabla de eventos de la guía da altitud y velocidad en el PRM, el ARB, la separación, la demo, la eliminación del ICPS y los CubeSats. En órbita las velocidades son inerciales (PRM: 6,323 km/s publicada, 6,310 en el modelo); en el ascenso son relativas, como en 3.png.
+- **Cronograma contra el "Artemis II Overview Timeline"** (NASA, 18/03/2026): TLI 1/01:08:42 (modelo 1/01:15:43); máximo acercamiento lunar 5/00:29:59 (modelo 4/18:13:41); EI 9/01:29 (modelo 8/13:07); amerizaje 9/01:42:48. Cada tránsito dura ~6 h más que en el modelo. Probable causa: la distancia Tierra‑Luna fija de 384.400 km. El cronograma marca el récord de distancia de Apollo 13 (400.171 km, dato externo) antes del acercamiento; el modelo no pasa de 392.654 km.
+- **Contradicciones entre los documentos nuevos:**
+  - ARB: 01:48:48 (3.png), 01:46:37 (tabla del SLS), 0/01:47 (cronograma).
+  - Separación ICPS/Orion: 03:25:41 (3.png, inicio de la demo), 03:22:46 (tabla del SLS), 0/03:23 (cronograma).
+  - TLI: 25:00:00 (tabla del SLS) y 1/01:08:42 (cronograma).
+  - CubeSats: 05:20:23–05:24:23 (tabla del SLS), ~05:27 (cronograma), 05:29:10–05:33:10 (tabla de cargas). La página 20 de la misma guía dice que se liberan después del TLI, a un tercio de la distancia a la Luna; parece texto viejo.
+  - Caída de los boosters: ~5,5 min (texto) y 06:10 (tabla); el modelo da 5:33.
+  - RS‑25 al 85 % y de vuelta al 109 %: 2:04 y 2:08 (tabla), ~123 y ~132 s (sección del motor).
+  - Propelente de la etapa central: 987,5 t (suma de LH2 y LOX), 998 t ("total propellant weight") o 1.003,7 t (cargada menos vacía). El modelo usa 984 t.
+  - El encendido de salida de Orion (E7) dura 2 min "con el motor del módulo de servicio"; el diagrama de la demo lo rotula "AUX DEPARTURE".
+  - Duración: 9 d 1 h 43 min (cronograma) contra "~10 días" (1.png y las dos guías).
+  - La guía del SLS también dice que Orion y el ICPS dan "tres vueltas" a la Tierra.
+- **El ICPS de Artemis II usa un RL10C‑2**, no el RL10B‑2. El Isp del modelo (465,5 s) es el del RL10B‑2; ninguno de los documentos da el del C‑2.
 - Max Q cae a los 62 s (publicado: 71 s) y los boosters se separan ~3 km más alto que lo publicado. El perfil de empuje de los boosters es una recta (supuesto); la curva real tiene más estructura.
 - Supuestos sin fuente primaria: ver la lista en `CLAUDE.md`, sección "El vehículo".
 - El ICPS desprendido no hace su encendido de eliminación: queda en la órbita alta.
@@ -69,6 +92,13 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - **Difiere:** 6 teclas por lado horizontal (la referencia tiene 8) y sin perillas; interruptores SVG planos; la guarda es una tapa translúcida con botón; los controladores manuales son botones, no palancas; el indicador de actitud solo cabecea; la barra de estado superior no existe en la cabina real; no hay dispositivo de cursor.
 
 ## Historial de sesiones
+
+## Sesión 4 — 2026-11-14 — Análisis de la guía de referencia
+**Hecho:** lectura completa del texto de la guía de referencia de Artemis II y contraste con el modelo. Después, lo mismo con cuatro documentos más de NASA: la guía del SLS para Artemis II (oct. 2025), el cronograma general (18/03/2026), las ventanas de lanzamiento de abril de 2026 y la lista de prioridades y objetivos. Sin cambios de código: se presentaron propuestas a Gastón.
+**Decisiones:** ninguna todavía.
+**Problemas:** contradicciones anotadas en "Problemas abiertos".
+**Tests:** sin cambios (43 en verde).
+**Próximo paso:** aplicar las propuestas que Gastón apruebe, empezando por los datos del vehículo con fuente primaria.
 
 ## Sesión 3 — 2026-11-14 — Física completa, controles y vistas
 **Hecho:**

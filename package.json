@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "calibrate": "tsx scripts/calibrate-insertion.ts",
     "tune": "tsx scripts/tune-free-return.ts",
+    "path": "tsx scripts/nominal-path.ts",
     "palette": "tsx scripts/extract-palette.ts",
     "images": "tsx scripts/optimize-images.ts"
   },

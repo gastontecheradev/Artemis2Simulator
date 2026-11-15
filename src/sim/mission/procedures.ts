@@ -2,25 +2,22 @@ import { burnDirection, dvMagnitude } from '../burns';
 import {
   ATTITUDE_TOLERANCE,
   BURN_LEAD_TIME,
-  CM_SEP_PROMPT_ALTITUDE,
+  CM_SEP_PROMPT_LEAD_TIME,
   MET_E6_PROX_OPS_END,
   MET_E6_PROX_OPS_START,
-  R_EARTH,
 } from '../constants';
 import { formatMet, formatNumber } from '../format';
-import { angleBetween, distance } from '../math/vec3';
+import { tr } from '../i18n';
+import { angleBetween } from '../math/vec3';
+import { timeToEntry } from '../orbit';
 import { PropSystem } from '../propulsion';
 import { ManeuverId, ProcedureId, SimState, ephemerisOf } from '../state';
 import { phaseIndex } from './phases';
 
-export const MANEUVER_TITLE: Readonly<Record<ManeuverId, string>> = {
-  E7: 'Encendido de separación de la etapa superior (USS)',
-  E8: 'Elevación del perigeo',
-  E9: 'Inyección translunar (TLI)',
-  E10: 'Corrección de trayectoria de ida (OTC)',
-  E12: 'Corrección de trayectoria de regreso (RTC)',
-  MAN: 'Maniobra manual',
-};
+/** Títulos de las maniobras en el idioma actual (se leen en cada acceso). */
+export const MANEUVER_TITLE: Readonly<Record<ManeuverId, string>> = new Proxy({} as Record<ManeuverId, string>, {
+  get: (_t, id: string) => tr(`man.${id as ManeuverId}`),
+});
 
 export const SYSTEM_SWITCH: Readonly<Record<PropSystem, string>> = {
   MAIN: 'MAIN ENG',
@@ -32,6 +29,8 @@ export const SYSTEM_SWITCH: Readonly<Record<PropSystem, string>> = {
 export type StepKind = 'AUTO' | 'CREW';
 
 export interface ProcStep {
+  /** Identificador estable del paso (independiente del idioma). */
+  readonly key: string;
   readonly text: string;
   readonly kind: StepKind;
   readonly done: boolean;
@@ -61,9 +60,6 @@ const CODE: Readonly<Record<ProcedureId, string>> = {
 
 const isManeuver = (id: ProcedureId): id is ManeuverId => id !== 'SEP_ICPS' && id !== 'SEP_CM';
 
-const earthAltitude = (s: SimState): number =>
-  distance(s.ship.r, ephemerisOf(s).earth(s.t).r) - R_EARTH;
-
 function maneuverSteps(s: SimState, id: ManeuverId): ProcStep[] {
   const m = s.maneuvers[id];
   const sw = SYSTEM_SWITCH[m.system];
@@ -73,23 +69,22 @@ function maneuverSteps(s: SimState, id: ManeuverId): ProcStep[] {
   const aligned =
     dvMagnitude(m.dv) > 0 &&
     angleBetween(s.attitude.dir, burnDirection(m.dv, ephemerisOf(s))(s.t, s.ship.r, s.ship.v)) < ATTITUDE_TOLERANCE;
-  const dv = `${formatNumber(m.dv[m.axis] * 1000, 1)} m/s ${m.axis === 'radial' ? 'radial' : 'prograde'}`;
+  const dv = `${formatNumber(m.dv[m.axis] * 1000, 1)} m/s ${tr(m.axis === 'radial' ? 'proc.radial' : 'proc.prograde')}`;
   const steps: ProcStep[] = [];
   if (m.tig !== null) {
     const open = s.t >= m.tig - BURN_LEAD_TIME || fired;
-    steps.push({ text: `Verificar ventana: TIG ${formatMet(m.tig)}`, kind: 'AUTO', done: open });
-    steps.push({ text: 'Orientar la nave para el encendido (DAP AUTO)', kind: 'AUTO', done: (open && aligned) || fired });
+    steps.push({ key: 'window', text: tr('proc.window', { tig: formatMet(m.tig) }), kind: 'AUTO', done: open });
+    steps.push({ key: 'orient', text: tr('proc.orient'), kind: 'AUTO', done: (open && aligned) || fired });
   } else if (id !== 'MAN') {
-    const target = id === 'E10' ? 'sobrevuelo a 6.513 km' : 'corredor de entrada';
-    steps.push({ text: `Calcular corrección (tecla CALC): ${target}`, kind: 'CREW', done: m.computed });
+    steps.push({ key: 'calc', text: tr('proc.calc', { target: tr(id === 'E10' ? 'proc.targetFlyby' : 'proc.targetCorridor') }), kind: 'CREW', done: m.computed });
   } else {
-    steps.push({ text: 'Cargar Δv con las teclas ΔV (modo ADV)', kind: 'CREW', done: m.dv[m.axis] !== 0 });
+    steps.push({ key: 'load', text: tr('proc.loadDv'), kind: 'CREW', done: m.dv[m.axis] !== 0 });
   }
-  if (m.tig === null) steps.push({ text: 'Orientar la nave para el encendido (DAP AUTO)', kind: 'AUTO', done: aligned || fired });
-  steps.push({ text: `Armar ${sw}: levantar la guarda`, kind: 'CREW', done: armed || fired });
-  steps.push({ text: `Confirmar Δv planeado: ${dv}`, kind: 'CREW', done: m.confirmed || fired });
-  steps.push({ text: `Ejecutar: accionar ${sw}`, kind: 'CREW', done: fired });
-  if (m.tig !== null) steps.push({ text: 'Ignición en TIG y corte automático', kind: 'AUTO', done: m.status === 'done' });
+  if (m.tig === null) steps.push({ key: 'orient', text: tr('proc.orient'), kind: 'AUTO', done: aligned || fired });
+  steps.push({ key: 'arm', text: tr('proc.arm', { sw }), kind: 'CREW', done: armed || fired });
+  steps.push({ key: 'confirm', text: tr('proc.confirm', { dv }), kind: 'CREW', done: m.confirmed || fired });
+  steps.push({ key: 'execute', text: tr('proc.execute', { sw }), kind: 'CREW', done: fired });
+  if (m.tig !== null) steps.push({ key: 'tig', text: tr('proc.tigAuto'), kind: 'AUTO', done: m.status === 'done' });
   return steps;
 }
 
@@ -100,28 +95,28 @@ export function procedureView(s: SimState, id: ProcedureId): ProcedureView {
     return {
       id,
       code: CODE[id],
-      title: 'Separación Orion/ICPS y demo de proximidad',
+      title: tr('proc.sepIcps.title'),
       optional: false,
       steps: [
-        { text: `Esperar fin de encendidos del ICPS: MET ${formatMet(MET_E6_PROX_OPS_START)}`, kind: 'AUTO', done: s.t >= MET_E6_PROX_OPS_START || sep },
-        { text: 'Armar ICPS SEP: levantar la guarda', kind: 'CREW', done: s.switches.icpsSepArm || sep },
-        { text: 'Separar: accionar ICPS SEP', kind: 'CREW', done: sep },
-        { text: `Demo de proximidad hasta MET ${formatMet(MET_E6_PROX_OPS_END)}`, kind: 'AUTO', done: sep && s.t >= MET_E6_PROX_OPS_END },
+        { key: 'wait', text: tr('proc.waitIcps', { met: formatMet(MET_E6_PROX_OPS_START) }), kind: 'AUTO', done: s.t >= MET_E6_PROX_OPS_START || sep },
+        { key: 'arm', text: tr('proc.armIcps'), kind: 'CREW', done: s.switches.icpsSepArm || sep },
+        { key: 'fire', text: tr('proc.fireIcps'), kind: 'CREW', done: sep },
+        { key: 'demo', text: tr('proc.proxDemo', { met: formatMet(MET_E6_PROX_OPS_END) }), kind: 'AUTO', done: sep && s.t >= MET_E6_PROX_OPS_END },
       ],
     };
   }
   if (id === 'SEP_CM') {
     const sep = s.vehicle.cmSeparated;
-    const near = phaseIndex(s.phase) >= phaseIndex('TRANSITO_IDA') && earthAltitude(s) < CM_SEP_PROMPT_ALTITUDE;
+    const near = phaseIndex(s.phase) >= phaseIndex('TRANSITO_IDA') && timeToEntry(s) <= CM_SEP_PROMPT_LEAD_TIME;
     return {
       id,
       code: CODE[id],
-      title: 'Separación módulo de tripulación / módulo de servicio',
+      title: tr('proc.sepCm.title'),
       optional: false,
       steps: [
-        { text: `Esperar regreso: altitud < ${formatNumber(CM_SEP_PROMPT_ALTITUDE)} km`, kind: 'AUTO', done: near || sep },
-        { text: 'Armar CM/SM SEP: levantar la guarda', kind: 'CREW', done: s.switches.cmSepArm || sep },
-        { text: 'Separar: accionar CM/SM SEP', kind: 'CREW', done: sep },
+        { key: 'wait', text: tr('proc.waitReturn', { min: formatNumber(CM_SEP_PROMPT_LEAD_TIME / 60) }), kind: 'AUTO', done: near || sep },
+        { key: 'arm', text: tr('proc.armCm'), kind: 'CREW', done: s.switches.cmSepArm || sep },
+        { key: 'fire', text: tr('proc.fireCm'), kind: 'CREW', done: sep },
       ],
     };
   }

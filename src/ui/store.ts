@@ -3,7 +3,9 @@ import type { CameraMode, ViewDim, ViewSettings } from '../render/scene';
 import { advance } from '../sim/advance';
 import { pause, play, reset, setSwitch, setWarp } from '../sim/commands';
 import { MISSION_PARAMS } from '../sim/mission/params';
+import { Locale } from '../sim/i18n';
 import { SimState, createStore } from '../sim/state';
+import { setUiLocale } from './i18n';
 
 const query = new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
 
@@ -17,11 +19,14 @@ const query = new URLSearchParams(typeof location === 'undefined' ? '' : locatio
  * Cualquiera de ellos saltea la pantalla de inicio.
  */
 const skipIntro = ['met', 'auto', 'warp', 'tour'].some((k) => query.has(k));
+// ?lang=es fija el idioma sin pasar por el menú.
+const queryLang = query.get('lang');
+if (queryLang === 'es' || queryLang === 'en') setUiLocale(queryLang);
 
 function initialState(): SimState {
   let s = reset(MISSION_PARAMS);
   const met = Number(query.get('met'));
-  if (met > s.t) {
+  if (query.has('met') && met > s.t) {
     let f = play(setSwitch(s, 'autoCrew', true));
     while (f.t < met && !f.outcome) {
       // Por tramos cortos, para que el procedimiento activo y las partes desprendidas vayan avanzando.
@@ -111,12 +116,12 @@ export interface ViewState {
   readonly camera: Readonly<Record<ViewDim, CameraMode>>;
 }
 
-// También por URL: ?cam=overview (2D), ?cam3d=earth, ?frame=rotating, ?color=network, ?big
+// También por URL: ?cam3d=earth, ?frame=rotating (solo la vista 3D), ?color=network, ?real (cuerpos a escala real)
 const view = createValue<ViewState>({
   frame: pick('frame', ['inertial', 'rotating'] as const, 'inertial'),
   colorMode: pick('color', ['phase', 'network'] as const, 'phase'),
-  exaggerate: query.has('big'),
-  camera: { '2d': pick('cam', CAMERAS, 'auto'), '3d': pick('cam3d', CAMERAS, 'auto') },
+  exaggerate: !query.has('real'),
+  camera: { '2d': 'overview', '3d': pick('cam3d', CAMERAS, 'auto'), inset: 'earth' },
 });
 
 export const useViewState = view.use;
@@ -135,20 +140,38 @@ export function getViewSettings(dim: ViewDim): ViewSettings {
   return value;
 }
 
-// Pantalla de inicio: visible hasta que se elige cómo empezar.
-const intro = createValue(!skipIntro);
+/** Pantallas previas a la misión: idioma, guías y pantalla de inicio. null = misión en curso. */
+export type IntroStep = 'lang' | 'guides' | 'start' | null;
+const intro = createValue<IntroStep>(skipIntro ? null : 'lang');
 export const useIntro = intro.use;
+export const setIntro = intro.set;
+
+/** Elige el idioma (primer menú) y pasa al menú de guías. */
+export function chooseLanguage(locale: Locale): void {
+  setUiLocale(locale);
+  // El estado inicial ya existe en el idioma anterior: se vuelve a crear con el nuevo.
+  act(() => reset(MISSION_PARAMS));
+  intro.set('guides');
+}
+
+export type GuideId = 'objective' | 'stages' | 'budget' | 'power' | 'ship';
+/** Guía abierta en el visor (desde el menú de inicio o el botón GUÍAS). */
+const GUIDES = ['objective', 'stages', 'budget', 'power', 'ship'] as const;
+// ?guide=stages abre una guía directamente (para capturas).
+const guide = createValue<GuideId | null>(query.has('guide') ? pick('guide', GUIDES, 'objective') : null);
+export const useGuide = guide.use;
+export const setGuide = guide.set;
 
 // Tutorial guiado: índice del paso actual, o null si no está en curso.
 const tour = createValue<number | null>(query.has('tour') ? Number(query.get('tour')) || 0 : null);
 export const useTour = tour.use;
 export const setTour = tour.set;
 
-/** Vuelve a la pantalla de inicio con el cohete en la plataforma. */
+/** Vuelve a la pantalla de inicio con el cohete en la plataforma (el idioma ya está elegido). */
 export function showIntro(): void {
   act(() => reset(MISSION_PARAMS));
   tour.set(null);
-  intro.set(true);
+  intro.set('start');
 }
 
 /** Empieza una misión nueva. Con `tutorial` arranca en pausa y con el recorrido guiado. */
@@ -159,5 +182,5 @@ export function startMission(opts: { autoCrew: boolean; tutorial: boolean }): vo
     return play(opts.autoCrew ? setWarp(s, 10) : s);
   });
   tour.set(opts.tutorial ? 0 : null);
-  intro.set(false);
+  intro.set(null);
 }

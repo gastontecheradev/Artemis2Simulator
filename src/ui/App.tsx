@@ -3,14 +3,17 @@ import { ackAlarms, setRhc, setThc, setWarp, togglePlay } from '../sim/commands'
 import { WARP_LEVELS } from '../sim/constants';
 import { Credits } from './Credits';
 import { EndScreen } from './EndScreen';
+import { LanguageScreen } from './LanguageScreen';
 import { StartScreen } from './StartScreen';
 import { CAMERA_MODES, TrajectoryView } from './TrajectoryView';
+import { GuideViewer, GuidesMenu } from './guides/Guides';
+import { Capcom } from './panel/Capcom';
 import { DisplayUnit } from './panel/DisplayUnit';
 import { EventLog } from './panel/EventLog';
 import { StatusBar } from './panel/StatusBar';
 import { SwitchPanel } from './panel/SwitchPanel';
 import { TimeControls } from './panel/TimeControls';
-import { act, setCamera, setTour, useIntro, useSim, useTour } from './store';
+import { act, setCamera, setGuide, setTour, useGuide, useIntro, useSim, useTour } from './store';
 import { Tour } from './tutorial/Tour';
 
 /** Anchos mínimos del panel para mostrar dos o tres Display Units (la cabina real tiene tres). */
@@ -51,7 +54,7 @@ function useKeyboard(enabled: boolean): void {
       } else if (e.key === '+' || e.key === '=' || e.key === '.') step(1);
       else if (e.key === '-' || e.key === ',') step(-1);
       else if (e.key === 'a' || e.key === 'A') act(ackAlarms);
-      else if (/^[1-5]$/.test(e.key)) setCamera('2d', CAMERA_MODES[Number(e.key) - 1].id);
+      else if (/^[1-5]$/.test(e.key)) setCamera('3d', CAMERA_MODES[Number(e.key) - 1]);
     };
     const onUp = (e: KeyboardEvent): void => {
       if (!typing(e)) hold(e, false);
@@ -69,10 +72,11 @@ export function App(): JSX.Element {
   const s = useSim();
   const intro = useIntro();
   const tour = useTour();
+  const guide = useGuide();
   const panelRef = useRef<HTMLElement>(null);
   const [units, setUnits] = useState(1);
   const [credits, setCredits] = useState(false);
-  useKeyboard(!intro && !credits);
+  useKeyboard(intro === null && !credits && !guide);
 
   useEffect(() => {
     const el = panelRef.current;
@@ -96,15 +100,19 @@ export function App(): JSX.Element {
         <SwitchPanel s={s} />
         <div className="bottom-row">
           <TimeControls s={s} />
+          <Capcom s={s} />
           <EventLog s={s} />
         </div>
       </aside>
       <main className="view">
-        <TrajectoryView onCredits={() => setCredits(true)} onTutorial={() => setTour(0)} />
-        {s.outcome && !intro && <EndScreen s={s} onCredits={() => setCredits(true)} />}
+        <TrajectoryView onCredits={() => setCredits(true)} onTutorial={() => setTour(0)} onGuides={() => setGuide('objective')} />
+        {s.outcome && intro === null && <EndScreen s={s} onCredits={() => setCredits(true)} />}
       </main>
-      {intro && <StartScreen onCredits={() => setCredits(true)} />}
-      {tour !== null && !intro && <Tour s={s} index={tour} />}
+      {intro === 'lang' && <LanguageScreen />}
+      {intro === 'guides' && <GuidesMenu />}
+      {intro === 'start' && <StartScreen onCredits={() => setCredits(true)} />}
+      {tour !== null && intro === null && <Tour s={s} index={tour} />}
+      <GuideViewer />
       {credits && <Credits onClose={() => setCredits(false)} />}
     </div>
   );

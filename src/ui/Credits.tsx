@@ -1,4 +1,5 @@
 import assetsMd from '../../ASSETS.md?raw';
+import { useT } from './i18n';
 
 interface Asset {
   file: string;
@@ -21,12 +22,13 @@ function parseAssets(md: string): Asset[] {
 }
 
 export function Credits({ onClose }: { onClose: () => void }): JSX.Element {
+  const t = useT();
   const assets = parseAssets(assetsMd);
   return (
     <div className="modal" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <h2>CRÉDITOS</h2>
-        <p>Imágenes cortesía de NASA. Este proyecto no está afiliado ni avalado por NASA.</p>
+        <h2>{t('cr.title')}</h2>
+        <p>{t('cr.nasa')}</p>
         {assets.length > 0 ? (
           <ul className="credit-list">
             {assets.map((a) => (
@@ -34,21 +36,19 @@ export function Credits({ onClose }: { onClose: () => void }): JSX.Element {
                 <b>{a.file}</b> · {a.credit}
                 {a.nasaId ? ` · ${a.nasaId}` : ''} ·{' '}
                 <a href={a.url} target="_blank" rel="noreferrer">
-                  origen
+                  {t('cr.origin')}
                 </a>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="dim">Todavía no hay imágenes de NASA incorporadas a la app. La Tierra y la Luna se dibujan con colores lisos.</p>
+          <p className="dim">{t('cr.none')}</p>
         )}
-        <p>
-          Simulador educativo: la trayectoria se calcula con un modelo simplificado (problema restringido de tres cuerpos circular,
-          encendidos impulsivos) y no reproduce los datos reales de vuelo.
-        </p>
-        <p className="dim">Tipografía IBM Plex Mono (SIL Open Font License). Gráficos con Three.js (MIT).</p>
+        <p>{t('cr.model')}</p>
+        <p className="dim">{t('cr.sources')}</p>
+        <p className="dim">{t('cr.font')}</p>
         <button className="tb-btn on" onClick={onClose}>
-          CERRAR
+          {t('cr.close')}
         </button>
       </div>
     </div>

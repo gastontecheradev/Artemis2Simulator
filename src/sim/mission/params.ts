@@ -9,6 +9,13 @@ export interface BurnParams {
   readonly system: PropSystem;
   /** Δv ideal del encendido, por componente del marco local (km/s). */
   readonly dv: DeltaV;
+  /**
+   * true: la actitud se congela en el instante de ignición (marco inercial), como en un
+   * encendido largo de etapa superior sin guiado activo; los componentes de `dv` se
+   * interpretan en el marco local de la ignición. false (por defecto): el empuje sigue
+   * al marco local durante todo el encendido.
+   */
+  readonly hold?: boolean;
 }
 
 export interface MissionParams {

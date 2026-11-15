@@ -1,5 +1,6 @@
 import { DeltaV, ZERO_DV, applyBurn, referenceBody } from './burns';
 import { EI_ALTITUDE, ENTRY_CORRIDOR, FLYBY_ALTITUDE_TARGET, GM_EARTH, R_EARTH } from './constants';
+import { tr } from './i18n';
 import { earthElements } from './orbit';
 import { propagate } from './propagate';
 import { SimState, ephemerisOf } from './state';
@@ -51,14 +52,14 @@ export function solveCorrection(state: SimState, target: CorrectionTarget, axis:
   let x0 = 0;
   let f0 = miss(x0);
   if (Number.isNaN(f0)) {
-    return { ok: false, dv: 0, message: target === 'flyby' ? 'sin sobrevuelo lunar en la predicción' : 'sin retorno a la Tierra en la predicción' };
+    return { ok: false, dv: 0, message: tr(target === 'flyby' ? 'guid.noFlyby' : 'guid.noReturn') };
   }
-  if (Math.abs(f0) < tol) return { ok: true, dv: 0, message: 'trayectoria dentro de tolerancia, no hace falta corregir' };
+  if (Math.abs(f0) < tol) return { ok: true, dv: 0, message: tr('guid.inTolerance') };
   let x1 = 0.0005;
   let f1 = miss(x1);
   for (let i = 0; i < 20; i++) {
     if (Number.isNaN(f1) || f1 === f0) break;
-    if (Math.abs(f1) < tol) return { ok: true, dv: x1, message: 'solución encontrada' };
+    if (Math.abs(f1) < tol) return { ok: true, dv: x1, message: tr('guid.found') };
     let x2 = x1 - (f1 * (x1 - x0)) / (f1 - f0);
     // Limita el salto para no salir de la zona donde la predicción es válida.
     const maxJump = Math.max(0.002, 4 * Math.abs(x1 - x0));
@@ -69,5 +70,5 @@ export function solveCorrection(state: SimState, target: CorrectionTarget, axis:
     x1 = x2;
     f1 = miss(x1);
   }
-  return { ok: false, dv: 0, message: 'el guiado no converge: usar maniobra manual' };
+  return { ok: false, dv: 0, message: tr('guid.noConverge') };
 }

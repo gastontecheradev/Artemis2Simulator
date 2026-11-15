@@ -60,8 +60,13 @@ const DEBRIS_PART: Readonly<Record<string, PartId>> = {
   SM: 'SM',
 };
 
+/** Los CubeSats son cajas de 12U: 0,37 × 0,24 × 0,22 m [SLS]. */
+const CUBESAT_SIZE = { x: 0.366, y: 0.239, z: 0.224 };
+const isCubesat = (id: string): boolean => id.startsWith('CUBESAT');
+
 /** Largo (m) de una parte desprendida, para escalarla en pantalla. */
 export const debrisLength = (id: string): number => {
+  if (isCubesat(id)) return CUBESAT_SIZE.x;
   const e = EXTENT[DEBRIS_PART[id] ?? 'SM'];
   return e.x1 - e.x0;
 };
@@ -212,6 +217,7 @@ export function createVehicleModel(colors: VehicleColors): VehicleModel {
     MAIN: [flame(kit, -5.6, 0, 0.9, 7)],
     AUX: [flame(kit, -5.2, 0, 1.6, 3)],
     RCS: [flame(kit, -4.4, 0, 2.3, 1.2)],
+    CMRCS: [flame(kit, 0.2, 0, 2.4, 1.0)],
   };
   for (const list of Object.values(flames)) for (const f of list) stack.add(f);
 
@@ -246,6 +252,11 @@ export function createDebrisModels(colors: VehicleColors): DebrisModels {
   return {
     get(id) {
       let g = cache.get(id);
+      if (!g && isCubesat(id)) {
+        g = new THREE.Group();
+        g.add(new THREE.Mesh(kit.track(new THREE.BoxGeometry(CUBESAT_SIZE.x, CUBESAT_SIZE.y, CUBESAT_SIZE.z)), kit.hull));
+        cache.set(id, g);
+      }
       if (!g) {
         const part = DEBRIS_PART[id] ?? 'SM';
         const e = EXTENT[part];
@@ -319,5 +330,7 @@ export function debrisIconSvg(kind: DebrisKind): string {
       return svg('<path d="M -5 -2.4 L -9 -3.6 L -9 3.6 L -5 2.4 Z" class="nozzle"/><rect x="-5" y="-4.6" width="13" height="9.2" class="hull"/>');
     case 'SM':
       return svg(`${ARRAYS_ICON}${SM_ICON}`);
+    case 'CUBESAT':
+      return svg('<rect x="-2.5" y="-1.6" width="5" height="3.2" class="hull"/><rect x="-6" y="-0.5" width="3" height="1" class="wing"/><rect x="3" y="-0.5" width="3" height="1" class="wing"/>');
   }
 }

@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { formatMet } from '../../sim/format';
 import { SimState } from '../../sim/state';
+import { useT } from '../i18n';
 
 /** Log de eventos con timestamp en MET. Sigue al último evento salvo que se haya subido a mano. */
 export function EventLog({ s }: { s: SimState }): JSX.Element {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const count = s.log.length;
@@ -15,7 +17,7 @@ export function EventLog({ s }: { s: SimState }): JSX.Element {
 
   return (
     <section className="event-log" data-tour="log">
-      <span className="log-title">LOG DE EVENTOS</span>
+      <span className="log-title">{t('log.title')}</span>
       <div
         className="log-list"
         ref={ref}

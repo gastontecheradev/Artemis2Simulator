@@ -18,6 +18,8 @@ export interface OverlayAnchors {
   readonly radiusPx: { readonly earth: number; readonly moon: number };
   /** Partes desprendidas, con el rumbo en pantalla de cada una. */
   readonly debris: readonly { readonly item: Debris; readonly angle: number }[];
+  /** Etiquetas de los cuerpos en el idioma actual. */
+  readonly labels: { readonly earth: string; readonly moon: string };
 }
 
 /**
@@ -54,8 +56,8 @@ export function createOverlay(root: HTMLElement): Overlay {
   };
   const earthDot = make('body-dot earth');
   const moonDot = make('body-dot moon');
-  const earthLabel = make('body-label', 'TIERRA');
-  const moonLabel = make('body-label', 'LUNA');
+  const earthLabel = make('body-label');
+  const moonLabel = make('body-label');
   const burnFlash = make('burn-flash');
   const ship = make('ship-marker');
 
@@ -108,6 +110,8 @@ export function createOverlay(root: HTMLElement): Overlay {
         const offset = (small ? MIN_VISIBLE_RADIUS_PX : radiusPx) + 6;
         put(label, p, `translate(-50%, ${offset.toFixed(1)}px)`, radiusPx < Math.max(w, h));
       };
+      if (earthLabel.textContent !== a.labels.earth) earthLabel.textContent = a.labels.earth;
+      if (moonLabel.textContent !== a.labels.moon) moonLabel.textContent = a.labels.moon;
       body(a.earth, a.radiusPx.earth, earthDot, earthLabel);
       body(a.moon, a.radiusPx.moon, moonDot, moonLabel);
 

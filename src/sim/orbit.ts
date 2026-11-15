@@ -1,7 +1,8 @@
 import { BodyState, Ephemeris } from './bodies';
-import { MOON_ANGULAR_RATE } from './constants';
+import { EI_ALTITUDE, GM_EARTH, MOON_ANGULAR_RATE, R_EARTH } from './constants';
 import { ShipState } from './integrator';
 import { Vec3, cross, distance, dot, length, sub } from './math/vec3';
+import { SimState, ephemerisOf } from './state';
 
 export interface OrbitElements {
   /** Semieje mayor (km). Negativo si es hiperbólica. */
@@ -41,6 +42,31 @@ export function orbitElements(rRel: Vec3, vRel: Vec3, gm: number): OrbitElements
   return { a, e, rp, ra, period, energy, fpaDeg, r, speed, radialSpeed };
 }
 
+/**
+ * Tiempo (s) hasta que una nave que está bajando (velocidad radial negativa) llegue al
+ * radio `rTarget` en su órbita osculante de dos cuerpos, resuelto con la ecuación de
+ * Kepler (elíptica o hiperbólica). NaN si no está bajando o si el radio pedido queda
+ * por debajo del periapsis o por encima del radio actual.
+ */
+export function timeToDescendTo(el: OrbitElements, rTarget: number, gm: number): number {
+  if (el.radialSpeed >= 0 || rTarget >= el.r || rTarget < el.rp || el.e < 1e-9) return NaN;
+  const a = el.a;
+  const e = el.e;
+  if (e < 1) {
+    // Anomalías excéntricas negativas: antes del periapsis.
+    const cosE = (x: number): number => Math.max(-1, Math.min(1, (1 - x / a) / e));
+    const E0 = -Math.acos(cosE(el.r));
+    const E1 = -Math.acos(cosE(rTarget));
+    const M = (E: number): number => E - e * Math.sin(E);
+    return (M(E1) - M(E0)) / Math.sqrt(gm / (a * a * a));
+  }
+  const coshH = (x: number): number => Math.max(1, (1 - x / a) / e);
+  const H0 = -Math.acosh(coshH(el.r));
+  const H1 = -Math.acosh(coshH(rTarget));
+  const M = (H: number): number => e * Math.sinh(H) - H;
+  return (M(H1) - M(H0)) / Math.sqrt(gm / (-a * -a * -a));
+}
+
 const relElements = (s: ShipState, b: BodyState, gm: number): OrbitElements =>
   orbitElements(sub(s.r, b.r), sub(s.v, b.v), gm);
 
@@ -61,4 +87,11 @@ export function jacobiConstant(s: ShipState, t: number, eph: Ephemeris): number 
   const r2 = distance(s.r, eph.moon(t).r);
   const lz = s.r.x * s.v.y - s.r.y * s.v.x;
   return 2 * (eph.gmEarth / r1 + eph.gmMoon / r2) + 2 * MOON_ANGULAR_RATE * lz - dot(s.v, s.v);
+}
+
+/** Tiempo (s) hasta cruzar la interfaz de entrada bajando, según la órbita osculante; Infinity si no está bajando hacia ella. */
+export function timeToEntry(s: SimState): number {
+  const el = earthElements(s.ship, s.t, ephemerisOf(s));
+  const t = timeToDescendTo(el, R_EARTH + EI_ALTITUDE, GM_EARTH);
+  return Number.isFinite(t) ? t : Infinity;
 }
