@@ -9,6 +9,11 @@ export interface TourStep {
   readonly body: JSX.Element;
   /** Paso de acción: se completa solo cuando la simulación cumple esta condición. */
   readonly until?: (s: SimState) => boolean;
+  /**
+   * Botón que hay que apretar ahora (su `data-press`), o null si no hace falta ninguno.
+   * El tutorial lo señala con una mano animada mientras el paso no se cumpla.
+   */
+  readonly press?: (s: SimState) => string | null;
 }
 
 type Parts = readonly { readonly name: string; readonly text: string }[];
@@ -64,6 +69,10 @@ function MissionDiagram({ items }: { items: Parts }): JSX.Element {
 
 const e7 = (s: SimState): SimState['maneuvers']['E7'] => s.maneuvers.E7;
 const fired = (s: SimState): boolean => ['committed', 'burning', 'done'].includes(e7(s).status);
+/** PLAY, si la simulación está en pausa. */
+const playIfPaused = (s: SimState): string | null => (s.clock.running ? null : 'play');
+/** Warp alto: ×1000 si todavía está bajo (salvo que la simulación lo haya bajado sola para un encendido); después, PLAY. */
+const highWarp = (s: SimState): string | null => (s.clock.warp < 100 && s.warpRestore === null ? 'warp-1000' : playIfPaused(s));
 
 const PARTS: Readonly<Record<Locale, Parts>> = {
   en: [
@@ -179,12 +188,14 @@ const STEPS_EN = (): TourStep[] => [
     title: 'LIFTOFF',
     body: <p>Press <b>PLAY</b>. The RS‑25 engines start six seconds before T‑0; at T‑0 the boosters ignite and the rocket leaves the pad.</p>,
     until: (s) => s.clock.running && s.t > 0,
+    press: playIfPaused,
   },
   {
     target: 'view-3d',
     title: 'BOOSTERS',
     body: <p>The rocket climbs vertically and starts to tilt at 7 seconds. Set the warp to <b>×10</b> and watch the booster separation at 2 min 8 s.</p>,
     until: (s) => s.vehicle.srbSeparated,
+    press: (s) => (s.clock.warp < 10 ? 'warp-10' : playIfPaused(s)),
   },
   {
     target: 'du',
@@ -197,54 +208,63 @@ const STEPS_EN = (): TourStep[] => [
     title: 'HIGH ORBIT',
     body: <p>Now the ICPS fires twice on its own. Raise the warp to <b>×100</b> or <b>×1000</b> and let it run.</p>,
     until: (s) => s.phase === 'ORBITA_ALTA',
+    press: highWarp,
   },
   {
     target: 'time',
     title: 'WAIT FOR THE SEPARATION',
     body: <p>At 3 h 23 min the window opens to separate Orion from the ICPS. Keep a high warp: the simulation pauses by itself when it arrives.</p>,
     until: (s) => s.t >= MET_E6_PROX_OPS_START || s.vehicle.icpsSeparated,
+    press: highWarp,
   },
   {
     target: 'switches',
     title: 'ARM THE SEPARATION',
     body: <p>Your first action. Lift the <b>guard</b> of <b>ICPS SEP</b>.</p>,
     until: (s) => s.switches.icpsSepArm || s.vehicle.icpsSeparated,
+    press: () => 'icps-guard',
   },
   {
     target: 'switches',
     title: 'SEPARATE',
     body: <p>Now actuate the ICPS SEP <b>lever</b>. In the 3D view you will see Orion alone, with its solar arrays deployed.</p>,
     until: (s) => s.vehicle.icpsSeparated,
+    press: (s) => (s.switches.icpsSepArm ? 'icps-lever' : 'icps-guard'),
   },
   {
     target: 'time',
     title: 'WAIT FOR THE FIRST BURN',
     body: <p>Press <b>PLAY</b> with a high warp. Two minutes before the E7 burn the simulation pauses and the spacecraft orients itself.</p>,
     until: (s) => s.t >= (e7(s).tig ?? 0) - BURN_LEAD_TIME || fired(s),
+    press: highWarp,
   },
   {
     target: 'du',
     title: 'CONFIRM THE ΔV',
     body: <p>The <b>PROCS</b> page shows procedure E7 with the current step in magenta. Press the <b>CONF ΔV</b> key, at the lower right of that page.</p>,
     until: (s) => e7(s).confirmed || fired(s),
+    press: () => 'conf-dv',
   },
   {
     target: 'switches',
     title: 'ARM THE ENGINE',
     body: <p>Lift the <b>guard</b> of <b>AUX THR</b>, the auxiliary thrusters.</p>,
     until: (s) => s.switches.auxArm || fired(s),
+    press: () => 'aux-guard',
   },
   {
     target: 'switches',
     title: 'FIRE',
     body: <p>Actuate the AUX THR <b>lever</b>. The burn is committed: the engines will fire by themselves at the planned time (TIG).</p>,
     until: fired,
+    press: (s) => (s.switches.auxArm ? 'aux-lever' : 'aux-guard'),
   },
   {
     target: 'time',
     title: 'IGNITION',
     body: <p>Press <b>PLAY</b>. At TIG the thrusters fire for two minutes, as in the real flight, and shut down by themselves.</p>,
     until: (s) => e7(s).status === 'done',
+    press: playIfPaused,
   },
   {
     title: 'FROM HERE ON, IT IS YOURS',
@@ -335,12 +355,14 @@ const STEPS_ES = (): TourStep[] => [
     title: 'DESPEGUE',
     body: <p>Apretá <b>PLAY</b>. Los RS‑25 arrancan seis segundos antes de T‑0; en T‑0 encienden los boosters y el cohete sale de la plataforma.</p>,
     until: (s) => s.clock.running && s.t > 0,
+    press: playIfPaused,
   },
   {
     target: 'view-3d',
     title: 'BOOSTERS',
     body: <p>El cohete sube vertical y a los 7 segundos empieza a inclinarse. Poné el warp en <b>×10</b> y mirá la separación de los boosters a los 2 min 8 s.</p>,
     until: (s) => s.vehicle.srbSeparated,
+    press: (s) => (s.clock.warp < 10 ? 'warp-10' : playIfPaused(s)),
   },
   {
     target: 'du',
@@ -353,54 +375,63 @@ const STEPS_ES = (): TourStep[] => [
     title: 'ÓRBITA ALTA',
     body: <p>Ahora el ICPS enciende dos veces por su cuenta. Subí el warp a <b>×100</b> o <b>×1000</b> y dejalo correr.</p>,
     until: (s) => s.phase === 'ORBITA_ALTA',
+    press: highWarp,
   },
   {
     target: 'time',
     title: 'ESPERAR LA SEPARACIÓN',
     body: <p>A las 3 h 23 min se abre la ventana para separar Orion del ICPS. Seguí con warp alto: la simulación se pausa sola cuando llega.</p>,
     until: (s) => s.t >= MET_E6_PROX_OPS_START || s.vehicle.icpsSeparated,
+    press: highWarp,
   },
   {
     target: 'switches',
     title: 'ARMAR LA SEPARACIÓN',
     body: <p>Tu primera acción. Levantá la <b>guarda</b> de <b>ICPS SEP</b>.</p>,
     until: (s) => s.switches.icpsSepArm || s.vehicle.icpsSeparated,
+    press: () => 'icps-guard',
   },
   {
     target: 'switches',
     title: 'SEPARAR',
     body: <p>Ahora accioná la <b>palanca</b> de ICPS SEP. En la vista 3D vas a ver a Orion sola, con los paneles solares desplegados.</p>,
     until: (s) => s.vehicle.icpsSeparated,
+    press: (s) => (s.switches.icpsSepArm ? 'icps-lever' : 'icps-guard'),
   },
   {
     target: 'time',
     title: 'ESPERAR EL PRIMER ENCENDIDO',
     body: <p>Dale a <b>PLAY</b> con warp alto. Dos minutos antes del encendido E7 la simulación se pausa y la nave se orienta sola.</p>,
     until: (s) => s.t >= (e7(s).tig ?? 0) - BURN_LEAD_TIME || fired(s),
+    press: highWarp,
   },
   {
     target: 'du',
     title: 'CONFIRMAR EL ΔV',
     body: <p>En la página <b>PROCS</b> está el procedimiento E7 con el paso actual en magenta. Apretá la tecla <b>CONF ΔV</b>, abajo a la derecha de esa página.</p>,
     until: (s) => e7(s).confirmed || fired(s),
+    press: () => 'conf-dv',
   },
   {
     target: 'switches',
     title: 'ARMAR EL MOTOR',
     body: <p>Levantá la <b>guarda</b> de <b>AUX THR</b>, los propulsores auxiliares.</p>,
     until: (s) => s.switches.auxArm || fired(s),
+    press: () => 'aux-guard',
   },
   {
     target: 'switches',
     title: 'ENCENDER',
     body: <p>Accioná la <b>palanca</b> de AUX THR. El encendido queda comprometido: los propulsores van a encender solos en el instante planeado (TIG).</p>,
     until: fired,
+    press: (s) => (s.switches.auxArm ? 'aux-lever' : 'aux-guard'),
   },
   {
     target: 'time',
     title: 'IGNICIÓN',
     body: <p>Apretá <b>PLAY</b>. Cuando llegue el TIG los propulsores encienden durante dos minutos, como en el vuelo real, y se apagan solos.</p>,
     until: (s) => e7(s).status === 'done',
+    press: playIfPaused,
   },
   {
     title: 'A PARTIR DE ACÁ, SEGUÍS VOS',

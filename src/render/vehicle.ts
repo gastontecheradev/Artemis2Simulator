@@ -121,7 +121,10 @@ function buildPart(id: PartId, kit: Kit): THREE.Group {
     case 'SM': {
       // Módulo de servicio: cuerpo, tobera del motor principal y cuatro paneles solares en X.
       g.add(tube(kit, 2.05, 2.05, -4.2, 4.2, kit.hull), tube(kit, 0.95, 0.4, -5.6, 1.4, kit.dark, true));
+      // Cada ala con la cara hacia el eje de la nave (se ve de frente mirando la nave desde
+      // adelante, como en 4.png): el plano se gira 90° sobre su largo, que es radial.
       const wing = kit.track(new THREE.PlaneGeometry(1.9, 7));
+      wing.rotateY(Math.PI / 2);
       for (let i = 0; i < 4; i++) {
         const arm = new THREE.Group();
         arm.rotation.x = Math.PI / 4 + (i * Math.PI) / 2;

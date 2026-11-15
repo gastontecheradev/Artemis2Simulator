@@ -12,6 +12,37 @@ interface Box {
 }
 
 const MARGIN = 10;
+/** Lugar que necesita la mano debajo del botón (px); si no lo hay, señala desde arriba. */
+const HAND_ROOM = 64;
+
+const boxOf = (selector: string | null): Box | null => {
+  const el = selector ? document.querySelector(selector) : null;
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0 ? { left: r.left, top: r.top, width: r.width, height: r.height } : null;
+};
+const sameBox = (a: Box | null, b: Box | null): boolean =>
+  a === b || (!!a && !!b && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height);
+
+/**
+ * Mano con el índice extendido (dibujo propio) que toca el botón que hay que apretar.
+ * La punta del dedo queda sobre el centro del botón; si abajo no hay lugar, señala desde arriba.
+ */
+function Hand({ box }: { box: Box }): JSX.Element {
+  const above = box.top + box.height + HAND_ROOM > window.innerHeight;
+  return (
+    <div className={above ? 'tour-hand above' : 'tour-hand'} style={{ left: box.left + box.width / 2, top: box.top + box.height / 2 }} aria-hidden="true">
+      <span className="tour-hand-ring" />
+      <svg className="tour-hand-svg" viewBox="0 0 48 60" width="48" height="60">
+        <path
+          className="tour-hand-fill"
+          d="M10 36 V7 A4 4 0 0 1 18 7 V22 A4 4 0 0 1 26 23 V25 A4 4 0 0 1 34 26 V28 A3.8 3.8 0 0 1 41.6 29.5 V42 C41.6 52 36 57 28 57 H22 C16 57 13 53 10 48 L4 41 A3.6 3.6 0 0 1 9.5 36.6 Z"
+        />
+        <path className="tour-hand-line" d="M18 22 V31 M26 24 V32 M34 27 V33" />
+      </svg>
+    </div>
+  );
+}
 
 /**
  * Tutorial guiado: un cartel junto al elemento que explica cada paso, con el elemento
@@ -24,8 +55,10 @@ export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element 
   const step = TOUR_STEPS[index];
   const cardRef = useRef<HTMLDivElement>(null);
   const [target, setTarget] = useState<Box | null>(null);
+  const [press, setPress] = useState<Box | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const done = step?.until ? step.until(s) : true;
+  const pressId = !done && step?.press ? step.press(s) : null;
 
   // Los pasos de acción avanzan solos al cumplirse.
   useEffect(() => {
@@ -35,20 +68,14 @@ export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element 
     }
   }, [step, done, index]);
 
-  // Ubica el resaltado sobre el elemento señalado (se revisa seguido: el panel cambia de tamaño y se desplaza).
+  // Ubica el resaltado sobre el elemento señalado y la mano sobre el botón que hay que
+  // apretar (se revisa seguido: el panel cambia de tamaño y se desplaza).
   useEffect(() => {
     const measure = (): void => {
-      const el = step?.target ? document.querySelector(`[data-tour="${step.target}"]`) : null;
-      if (!el) {
-        setTarget(null);
-        return;
-      }
-      const r = el.getBoundingClientRect();
-      setTarget((prev) =>
-        prev && prev.left === r.left && prev.top === r.top && prev.width === r.width && prev.height === r.height
-          ? prev
-          : { left: r.left, top: r.top, width: r.width, height: r.height },
-      );
+      const next = boxOf(step?.target ? `[data-tour="${step.target}"]` : null);
+      setTarget((prev) => (sameBox(prev, next) ? prev : next));
+      const hand = boxOf(pressId ? `[data-press="${pressId}"]` : null);
+      setPress((prev) => (sameBox(prev, hand) ? prev : hand));
     };
     measure();
     const id = setInterval(measure, 250);
@@ -57,7 +84,7 @@ export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element 
       clearInterval(id);
       window.removeEventListener('resize', measure);
     };
-  }, [step]);
+  }, [step, pressId]);
 
   // Ubica el cartel al lado del elemento, donde haya lugar, sin salirse de la ventana.
   useLayoutEffect(() => {
@@ -103,6 +130,7 @@ export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element 
       {target && (
         <div className="tour-spot" style={{ left: target.left - 4, top: target.top - 4, width: target.width + 8, height: target.height + 8 }} />
       )}
+      {press && pressId && <Hand box={press} />}
       <div className="tour-card" ref={cardRef} style={pos ? { left: pos.left, top: pos.top } : { visibility: 'hidden' }}>
         <span className="tour-count">
           {t('tour.step', { n: index + 1, total: TOUR_STEPS.length })}
