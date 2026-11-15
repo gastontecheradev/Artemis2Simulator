@@ -72,6 +72,7 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - **RL10C‑2:** el Isp del modelo (465,5 s) es el del RL10B‑2; ningún documento da el del C‑2.
 - **Temperatura de piel simplificada** (`thermal.ts`): Sutton–Graves + equilibrio radiativo instantáneo; da ~645 °C en el ascenso a 31 km. Es una estimación, no un modelo térmico.
 - **Recuadro del mapa durante el ascenso:** a ±9.000 km el cohete casi no se mueve en pantalla.
+- **Procs durante el ascenso** muestra el procedimiento de E6 (el primero de la tripulación); podría mostrar la secuencia automática del ascenso. Menor.
 - Supuestos sin fuente primaria: ver la lista en `CLAUDE.md`, sección "El vehículo".
 - La demo de operaciones de proximidad (E6) no tiene guía ni medición respecto del ICPS.
 - En 3D la nave se ve oscura cuando el Sol queda del otro lado (luz ambiente baja).
