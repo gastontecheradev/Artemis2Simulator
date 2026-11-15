@@ -8,7 +8,7 @@ export function LanguageScreen(): JSX.Element {
         <span className="end-kicker">ARTEMIS II</span>
         <h2>LANGUAGE · IDIOMA</h2>
         <div className="lang-buttons">
-          <button className="guide-btn lang-btn on" onClick={() => chooseLanguage('en')} autoFocus>
+          <button className="guide-btn lang-btn" onClick={() => chooseLanguage('en')}>
             <span className="guide-n">EN</span>
             ENGLISH
             <small>Default</small>

@@ -1316,6 +1316,24 @@ button.softkey:active {
   height: 7px;
   border-radius: 50%;
 }
+/* 3D: la nave y las partes desprendidas van a escala real; de lejos, un punto. */
+.ship-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--c-ship-hull) 60%, white);
+  box-shadow: 0 0 0 1px var(--c-screen);
+}
+.debris-marker.dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--c-label);
+  opacity: 0.6;
+}
+.debris-marker.dot svg {
+  display: none;
+}
 .body-dot.earth {
   background: color-mix(in srgb, var(--c-body-earth) 60%, white);
 }

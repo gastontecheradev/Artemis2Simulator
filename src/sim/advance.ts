@@ -149,11 +149,17 @@ function attitudeTargetDv(s: SimState): DeltaV | null {
   return m.confirmed || m.computed ? m.dv : null;
 }
 
-/** Actitud que comanda el guiado: la del cohete en el ascenso, la del encendido que viene, o prograde. */
+/**
+ * Actitud que comanda el guiado: la del cohete en el ascenso, la del encendido que viene,
+ * prograde o, con la cápsula sola, retrógrada (el escudo térmico por delante para la entrada).
+ */
 export function commandedDirection(s: SimState): Vec3 {
   const eph = ephemerisOf(s);
   if (s.phase === 'ASCENSO') return ascentDirection(s.params.ascent, s.ascentTan, eph)(s.t, s.ship.r, s.ship.v);
   if (s.burn?.fixedDir) return s.burn.fixedDir;
+  // Después de E13 el eje de la nave (la punta de la cápsula) mira hacia atrás: el escudo
+  // térmico, en la base, queda de cara a la velocidad, como en la entrada real.
+  if (s.vehicle.cmSeparated && !s.burn) return normalize(sub(referenceBody(s.ship, s.t, eph).v, s.ship.v));
   const dv = attitudeTargetDv(s);
   if (dv) return burnDirection(dv, eph)(s.t, s.ship.r, s.ship.v);
   return normalize(sub(s.ship.v, referenceBody(s.ship, s.t, eph).v));

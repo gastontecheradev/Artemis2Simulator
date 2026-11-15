@@ -2,9 +2,6 @@ import * as THREE from 'three';
 import { EARTH_MOON_DISTANCE, EI_ALTITUDE, GM_EARTH, GM_MOON, MOON_SOI, R_EARTH, R_MOON } from '../sim/constants';
 import { KM_TO_SCENE } from './worldToScene';
 
-/** Factor del toggle "tamaño exagerado": a escala real los cuerpos casi no se ven. */
-export const EXAGGERATION = 6;
-
 export interface BodyMeshes {
   readonly group: THREE.Group;
   readonly earth: THREE.Mesh;
