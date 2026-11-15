@@ -2,15 +2,15 @@
 
 ## Estado actual
 
-- **Hito en curso:** H1–H12 con primera pasada completa, más vuelo propulsado completo (sin tramos guionados), actitud y controladores manuales, partes desprendidas, vista dividida y tutorial.
+- **Hito en curso:** H1–H12 con primera pasada completa, más vuelo propulsado, datos de las guías de NASA para Artemis II, interfaz bilingüe, guías, mapa fijo y control de misión.
 - **Funciona** (con cómo se verificó):
-  - Simulación de E1 a E15 con motores, masa y arrastre reales: 43 tests en verde (`npm test`, desde PowerShell).
-  - Panel con hasta tres pantallas, vista 2D + 3D, pantalla de inicio, tutorial y pantalla final: capturas en Chrome headless a 1700, 1920 y 2600 px.
-  - `npm run build` compila sin errores de tipos.
-- **Sin verificar:** la interacción a mano. Nadie hizo clic todavía en un navegador real. Interruptores, soft keys, controladores manuales (botones y flechas del teclado, que actúan mientras se mantienen apretados), rueda, pellizco, arrastre de la vista 3D, tooltips y el avance de los pasos del tutorial solo están cubiertos a nivel de comandos o de captura estática.
-- **Publicado** en https://gastontecheradev.github.io/Artemis2Simulator/ (deploy por GitHub Actions en cada push a `main`). Lo publicado es anterior a esta sesión: los cambios de la sesión 3 están en commits locales, sin push.
-- **Sin hacer:** texturas y fotos de NASA (se dejaron para el final, ver `ASSETS.md`) y los pendientes listados en `CLAUDE.md`.
-- **Próximo paso:** `npm run dev`, hacer el tutorial y volar la misión completa a mano; anotar acá lo que falle o resulte incómodo. Después, las texturas.
+  - Simulación de T‑6 s a E15 con motores, masa y arrastre reales, calibrada contra las órbitas publicadas: 49 tests en verde (`npx vitest run`, desde PowerShell).
+  - `npm run build` compila sin errores de tipos (bundle ~957 kB).
+  - Capturas en Chrome headless a 1700 × 950: menú de idioma; vista en español en MET 12.500 s (mapa, recuadro, HUD, Houston, panel traducido); vista en inglés en MET 100 s (ascenso: plan tenue, recuadro, HUD, Houston, cohete en 3D); guía de etapas en inglés sobre la vista en MET 12.500 s.
+- **Sin verificar:** la interacción a mano (clics, teclas, arrastre en 3D, pasos del tutorial, navegación de los menús de idioma y guías). Solo hay capturas estáticas y tests a nivel de comandos. Tampoco hay captura de las guías de objetivo, presupuesto, energía y nave, ni de la pantalla final en inglés.
+- **Publicado:** el código de la sesión 5 ya está en `main` y en GitHub (commit `abc9397`, hecho por Gastón); el deploy de GitHub Actions corre en cada push.
+- **Sin hacer:** texturas y fotos de NASA (ver `ASSETS.md`) y los pendientes de `CLAUDE.md`.
+- **Próximo paso:** recorrer a mano en un navegador el flujo idioma → guías → inicio → tutorial y volar la misión en los dos idiomas; anotar acá lo que falle. Después, las texturas.
 
 ## Decisiones vigentes
 
@@ -18,73 +18,69 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 
 | Parámetro | Valor |
 |---|---|
-| Guiado del ascenso | cabeceo 3,121°, tangente 9,60·10⁻⁴ 1/s, tope de aceleración 2,99 g |
-| Inserción (E3) | 162,94 km, 7,880 km/s relativos = 8,298 km/s inerciales, ángulo 4,03° |
-| Órbita de inserción | apogeo 2.266 km en MET 00:58:02; perigeo bajo la interfaz de entrada |
-| E4 / E5 (ICPS) | 211,0 m/s en 110 s / 2.321,8 m/s en 925 s |
-| Órbita alta | ~1.120 × 69.190 km; apogeo en MET 13:36:46 |
-| E7 / E8 (supuestos) | +1 m/s en MET 05:10:00 / +10 m/s en el apogeo |
-| TLI (E9) | 388,5 m/s en 361 s, ignición MET 001/01:15:43; fase lunar 191,66° |
-| Sobrevuelo (E11) | 6.513,0 km en MET 004/18:13:41; LOS de ~42 min |
-| Entrada (E14) | −5,660° y 10,990 km/s en MET 008/13:07:04 |
-| Δv entregado | ICPS 2.532,8 m/s; Orion 399,5 m/s |
-| Partes que caen | boosters MET 00:05:33, torre de escape 00:08:57, etapa central 01:49:28 |
+| Guiado del ascenso | cabeceo 4,145°, tangente 1,050·10⁻³ 1/s, tope de aceleración 35,47 m/s² (3,62 g) |
+| Inserción (E3) | 162,94 km, 7,880 km/s relativos = 8,298 km/s inerciales, ángulo 4,03°; órbita 31 × 2.246 km (publicada 28 × 2.222) |
+| E4 (ICPS, 00:49:52) | 43,4 m/s en ~25 s → perigeo 185,2 km |
+| E5 (ICPS, 01:46:37) | 2.624,5 m/s prograde y −450,1 m/s radial, actitud fija; ~2.663 m/s en 1.108 s → 0 × 74.080 km |
+| E7 (auxiliares, 04:53:15) | 18,1 m/s en 120 s |
+| E8 (motor principal) | 6,7 m/s en el apogeo, MET 14:24:01 → 185 × 74.080 km |
+| TLI (E9) | 340,9 m/s, ignición MET 001/02:53:38; fase lunar 186,363° |
+| Sobrevuelo (E11) | 6.513,0 km en MET 004/20:38:12 |
+| Entrada (E14) | −5,658° y 10,991 km/s en MET 008/14:32:55 |
 
-1. **Todo el vuelo es física, sin tramos guionados.** El ascenso se integra con empuje, masa y arrastre; los encendidos duran lo que tarda el motor en entregar el Δv. Lo programado es lo que en el vehículo real también lo está: la secuencia por tiempo y las leyes de guiado.
-2. **La velocidad publicada del ascenso es relativa a la Tierra en rotación.** Confirmado en la sesión 3: el ascenso con los datos reales del cohete da 7,89 km/s relativos en la separación con un guiado sin ajustar, contra los 7,880 publicados.
-3. **El guiado del ascenso se ajusta a tres datos publicados** (altitud en MECO, altitud y velocidad en la separación) con tres parámetros. El resto de la tabla publicada queda como control y da parecido, no igual (ver `CLAUDE.md`).
-4. **E4 y E5 encienden en los MET publicados; se calibra cuánto empujan.** Criterio para E4: que el encendido de E5 quede centrado en el perigeo. Es un criterio propio (minimiza pérdidas por gravedad y no necesita ningún número externo). Descartada la interpretación de la sesión 1 (E4 en el apogeo, E5 en el perigeo), que forzaba órbitas de 1.500 km que no se parecían a nada.
-5. **Integrador Dormand–Prince 5(4) con `rtol = 1e-11`**, llevando el propelente de cada tanque como estado. El avance se corta en cada discontinuidad.
-6. **Encendidos de la tripulación comprometidos al TIG**; bajar la guarda con el motor encendido lo corta.
-7. **Los motores empujan hacia donde apunta la nave.** En DAP AUTO la dirección sigue la ley del encendido en cada instante; en INRTL o MAN, la actitud que tenga.
-8. **Actitud cinemática y solo en cabeceo:** rota a 3°/s (supuesto), sin inercia. El modelo es plano.
-9. **Corredor de entrada: objetivo −5,66°** (Artemis I, NASA AAS 24‑174). Ancho ±1°: supuesto.
-10. **Masas y motores** de `sim/vehicle.ts`: mayormente de Wikipedia (que cita a NASA), con empujes confirmados por NASA y ESA. La suma reproduce la masa de despegue publicada. Los supuestos sin fuente están listados en `CLAUDE.md`.
-11. **Límite NSN/DSN: 35.786 km** (altitud geoestacionaria). 2.png no da el valor.
-12. **Guiado de correcciones:** secante sobre el eje radial, estimando con un impulso instantáneo. Con el encendido real queda un error de pocos km en el sobrevuelo.
-13. **La plataforma está sobre +y** ("arriba" en el mapa) para que el cohete suba hacia arriba en pantalla. La fase lunar se mide desde ahí.
-14. **Vista dividida:** dos renderers independientes (2D y 3D). Solo el 2D marca el paso del tiempo.
-15. **Estrellas decorativas** con semilla fija; no es un catálogo.
-16. **`CLAUDE.md` no se commitea** (está en `.gitignore`). El original de la sesión 1 quedó en `CLAUDE.md.bak`, también ignorado.
+1. **Todo el vuelo es física, sin tramos guionados.** Lo programado es lo que en el vehículo real también lo está: la secuencia por tiempo y las leyes de guiado.
+2. **La velocidad publicada del ascenso es relativa a la Tierra en rotación;** en órbita las tablas de NASA dan velocidad inercial.
+3. **El guiado del ascenso se ajusta a tres datos publicados** (altitud en MECO, altitud y velocidad en la separación). El resto de las tablas publicadas (`ASCENT_TABLE`, `ORBIT_TABLE`) son control, con tolerancias en los tests.
+4. **Órbitas terrestres publicadas como objetivo** (reemplaza el criterio propio de la sesión 3): E4 deja el perigeo en 100 NM, E5 deja 0 × 40.000 NM medido después de E7, E8 sube el perigeo a 100 NM. Fuente: "Artemis II by the Numbers" de la guía del SLS.
+5. **E5 vuela con actitud inercial fija** (`hold`). Con guiado prograde local el perigeo no baja a cero con el Δv disponible; con la actitud congelada y una componente radial sí.
+6. **Horarios de E1–E7 de la tabla de eventos de la guía del SLS** (ARB 01:46:37, separación 03:22:46, salida 04:53:15) cuando los documentos se contradicen.
+7. **Vehículo con datos de las guías de NASA** ([SLS] y [A2], ver `CLAUDE.md`): curva de empuje publicada de los boosters (interpretada en vacío con corrección a nivel del mar), programa de potencia de los RS‑25, cinco tanques, RCS de la cápsula. Isp efectivo de los boosters derivado de la curva (~262 s).
+8. **Cuenta regresiva desde T‑6 s** con los RS‑25 encendidos y el cohete sujeto (solo baja el propelente).
+9. **ICPS después de la separación:** encendido de eliminación (5 m/s, supuesto), cuatro CubeSats como objetos propios, caída en el primer perigeo (~25 h).
+10. **Se mantienen** el sobrevuelo de 6.513 km (1.png), MECO en 486 s y el límite NSN/DSN en 35.786 km (altitud geoestacionaria; 2.png no da el valor).
+11. **Integrador Dormand–Prince 5(4) con `rtol = 1e-11`**, llevando el propelente de cada tanque como estado. El avance se corta en cada discontinuidad.
+12. **Encendidos de la tripulación comprometidos al TIG**; bajar la guarda con el motor encendido lo corta.
+13. **Los motores empujan hacia donde apunta la nave.** Actitud cinemática y solo en cabeceo, 3°/s (supuesto).
+14. **Corredor de entrada: objetivo −5,66°** (Artemis I, NASA AAS 24‑174). Ancho ±1°: supuesto.
+15. **Separación CM/SM:** se pide a EI − 40 min y la tripulación automática la hace a EI − 20 min (cronograma de NASA), con el tiempo a la entrada calculado por Kepler (`timeToEntry`).
+16. **Guiado de correcciones:** secante sobre el eje radial, estimando con un impulso instantáneo.
+17. **Idiomas:** inglés por defecto y español. Textos de la simulación en `sim/i18n.ts` (`tr`), de la interfaz en `ui/i18n.ts` (`useT`). Siglas de cabina en inglés en los dos. Los tests comparan en español.
+18. **Mapa 2D fijo:** marco rotante, encuadre calculado del plan nominal (`nominal-path.json`), sin zoom; cuerpos ×3; recuadro centrado en la Tierra (±9.000 km hasta E5, ±95.000 km después). La vista 3D conserva cámara y marco.
+19. **Control de misión (CAPCOM):** función pura del estado (`sim/capcom.ts`), sin guardarse en `SimState`; los mensajes dentro de una LOS no llegan.
+20. **Guías** con números tomados del modelo (`vehicle.ts`, `params.json`); costo del programa del informe IG‑22‑003 de la OIG de NASA. La de energía aclara que el sistema eléctrico no se simula.
+21. **La plataforma está sobre +y** ("arriba" en el mapa); la fase lunar se mide desde ahí.
+22. **Estrellas decorativas** con semilla fija; no es un catálogo.
+23. **`CLAUDE.md` no se commitea** (está en `.gitignore`).
 
 ## Problemas abiertos
 
 - Interacción sin probar a mano (ver "Estado actual").
-- Duración total 8,55 d contra los ~10 d de 1.png.
-- **Contradicciones con la guía de referencia de Artemis II** (NASA, "Artemis II Reference Guide", 2026; PDF en el escritorio, `a2-reference-guide-012825.pdf`), pendientes de decisión:
-  - Sobrevuelo: la guía dice "aproximadamente 4.700 millas" más allá de la cara oculta (~7.560 km); 1.png dice 4.047 mi / 6.513 km "mean". Se mantiene 6.513 km.
-  - MECO: la guía da ~T+483 s; 3.png y la tabla de eventos de la guía del SLS dan 8:06 (486 s). Se mantiene 486 s.
-  - La "masa post‑TLI" de 25.854 kg no es compatible con un TLI hecho por Orion (implicaría ~80 m/s). Probablemente viene de Artemis I. No se usa.
-  - La guía dice que Orion y el ICPS dan "tres vueltas" a la Tierra en un lugar y "dos órbitas elípticas" en otro.
-- **Órbitas terrestres contra la guía del SLS** (NASA, "SLS Reference Guide for Artemis II", oct. 2025, tabla "Artemis II by the Numbers"). Ahora hay fuente primaria; la decisión 4 queda en revisión:
-  - Inserción: publicada 28 × 2.222 km; el modelo da 31 × 2.246 km sin haberla ajustado.
-  - Tras E4 (PRM, ~30 s cerca del apogeo): publicada 185 × 2.222 km; el modelo da 819 × 2.266 km con 110 s.
-  - Tras E5 (ARB, ~20 min): publicada 0 × 74.080 km (perigeo a altitud cero, para la eliminación del ICPS); el modelo da 955 × 69.150 km con 15 min.
-  - Tras E8 (PRB de Orion): publicada 185 × 74.080 km; el modelo da 1.124 × 69.194 km. Subir el perigeo de 0 a 185 km en el apogeo pide ~11 m/s (cuenta kepleriana), cerca del supuesto actual de 10 m/s.
-  - La tabla de eventos de la guía da altitud y velocidad en el PRM, el ARB, la separación, la demo, la eliminación del ICPS y los CubeSats. En órbita las velocidades son inerciales (PRM: 6,323 km/s publicada, 6,310 en el modelo); en el ascenso son relativas, como en 3.png.
-- **Cronograma contra el "Artemis II Overview Timeline"** (NASA, 18/03/2026): TLI 1/01:08:42 (modelo 1/01:15:43); máximo acercamiento lunar 5/00:29:59 (modelo 4/18:13:41); EI 9/01:29 (modelo 8/13:07); amerizaje 9/01:42:48. Cada tránsito dura ~6 h más que en el modelo. Probable causa: la distancia Tierra‑Luna fija de 384.400 km. El cronograma marca el récord de distancia de Apollo 13 (400.171 km, dato externo) antes del acercamiento; el modelo no pasa de 392.654 km.
-- **Contradicciones entre los documentos nuevos:**
-  - ARB: 01:48:48 (3.png), 01:46:37 (tabla del SLS), 0/01:47 (cronograma).
-  - Separación ICPS/Orion: 03:25:41 (3.png, inicio de la demo), 03:22:46 (tabla del SLS), 0/03:23 (cronograma).
+- **Cronograma contra el "Artemis II Overview Timeline"** (NASA, 18/03/2026): el TLI cae a 1/02:53:38 (publicado 1/01:08:42), porque el período de la órbita publicada de 74.080 km de apogeo es de ~25 h y el modelo enciende en su perigeo. Sobrevuelo 4/20:38 (publicado 5/00:30), EI 8/14:33 (publicado 9/01:29): los tránsitos son más cortos, probablemente por la distancia Tierra‑Luna fija. El modelo no supera el récord de Apollo 13 (400.171 km), que el cronograma marca antes del acercamiento.
+- **Primeros dos minutos del ascenso ~10 % rápidos:** Max Q a los 57 s (publicado 71 s), boosters a 51,6 km y 1,37 km/s (publicado 45,2 km y 1,34 km/s). De la eyección del LAS en adelante coincide. Los tests tienen tolerancias anchas para eso.
+- **Contradicciones entre documentos** (se eligió la tabla de eventos de la guía del SLS salvo que se diga otra cosa):
+  - ARB: 01:48:48 (3.png), 01:46:37 (tabla del SLS, usada), 0/01:47 (cronograma).
+  - Separación ICPS/Orion: 03:25:41 (3.png), 03:22:46 (usada), 0/03:23 (cronograma).
   - TLI: 25:00:00 (tabla del SLS) y 1/01:08:42 (cronograma).
-  - CubeSats: 05:20:23–05:24:23 (tabla del SLS), ~05:27 (cronograma), 05:29:10–05:33:10 (tabla de cargas). La página 20 de la misma guía dice que se liberan después del TLI, a un tercio de la distancia a la Luna; parece texto viejo.
-  - Caída de los boosters: ~5,5 min (texto) y 06:10 (tabla); el modelo da 5:33.
-  - RS‑25 al 85 % y de vuelta al 109 %: 2:04 y 2:08 (tabla), ~123 y ~132 s (sección del motor).
-  - Propelente de la etapa central: 987,5 t (suma de LH2 y LOX), 998 t ("total propellant weight") o 1.003,7 t (cargada menos vacía). El modelo usa 984 t.
-  - El encendido de salida de Orion (E7) dura 2 min "con el motor del módulo de servicio"; el diagrama de la demo lo rotula "AUX DEPARTURE".
-  - Duración: 9 d 1 h 43 min (cronograma) contra "~10 días" (1.png y las dos guías).
-  - La guía del SLS también dice que Orion y el ICPS dan "tres vueltas" a la Tierra.
-- **El ICPS de Artemis II usa un RL10C‑2**, no el RL10B‑2. El Isp del modelo (465,5 s) es el del RL10B‑2; ninguno de los documentos da el del C‑2.
-- Max Q cae a los 62 s (publicado: 71 s) y los boosters se separan ~3 km más alto que lo publicado. El perfil de empuje de los boosters es una recta (supuesto); la curva real tiene más estructura.
+  - CubeSats: 05:20:23–05:24:23 (tabla del SLS), ~05:27 (cronograma), 05:29:10–05:33:10 (tabla de cargas, usada).
+  - RS‑25 al 85 %: 2:04–2:08 (tabla, usada) contra ~123–132 s (texto).
+  - Propelente de la etapa central: 987,5 t, 998 t o 1.003,7 t (cargada menos vacía, usada).
+  - E7: "motor del módulo de servicio" en el texto, "AUX DEPARTURE" en el diagrama (se usan los auxiliares).
+  - Sobrevuelo: ~7.560 km en la guía de Artemis II contra 6.513 km de 1.png (se mantiene 6.513).
+  - MECO: ~483 s en la guía de Artemis II contra 486 s (se mantiene 486).
+  - La "masa post‑TLI" de 25.854 kg no es compatible con un TLI de Orion; no se usa.
+  - Duración: 9 d 1 h 43 min (cronograma) contra "~10 días" (1.png y las guías).
+- **RL10C‑2:** el Isp del modelo (465,5 s) es el del RL10B‑2; ningún documento da el del C‑2.
+- **Temperatura de piel simplificada** (`thermal.ts`): Sutton–Graves + equilibrio radiativo instantáneo; da ~645 °C en el ascenso a 31 km. Es una estimación, no un modelo térmico.
+- **Recuadro del mapa durante el ascenso:** a ±9.000 km el cohete casi no se mueve en pantalla.
 - Supuestos sin fuente primaria: ver la lista en `CLAUDE.md`, sección "El vehículo".
-- El ICPS desprendido no hace su encendido de eliminación: queda en la órbita alta.
 - La demo de operaciones de proximidad (E6) no tiene guía ni medición respecto del ICPS.
 - En 3D la nave se ve oscura cuando el Sol queda del otro lado (luz ambiente baja).
 - El lockfile solo lo acepta npm ≥ 11.6. El workflow fija `npm@11.6.2`.
-- Vitest falla desde Git Bash por las mayúsculas de la ruta; desde PowerShell funciona.
-- El bundle pesa ~820 kB (220 kB gzip) por Three.js; sin code‑splitting.
-- El color de los paneles solares sale gris azulado de 4.png (`#9398a5`): la muestra agarra el dorso de los paneles.
+- Vitest falla desde Git Bash por las mayúsculas de la ruta; desde PowerShell funciona (`npx vitest run`; redirigido con `Out-File` sale vacío).
+- El bundle pesa ~957 kB por Three.js; sin code‑splitting.
+- El color de los paneles solares sale gris azulado de 4.png (`#9398a5`).
 - Los heredocs largos fallan en Git Bash en esta máquina; los archivos grandes se escriben con la herramienta de escritura.
+- Chrome headless a veces termina con "Abnormal renderer termination" o se cuelga; con un `--user-data-dir` nuevo en cada captura y `Start-Process` con espera acotada funciona.
 
 ## Diferencias del panel contra 9.png y 11.png
 
@@ -93,43 +89,46 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 
 ## Historial de sesiones
 
-## Sesión 4 — 2026-11-14 — Análisis de la guía de referencia
-**Hecho:** lectura completa del texto de la guía de referencia de Artemis II y contraste con el modelo. Después, lo mismo con cuatro documentos más de NASA: la guía del SLS para Artemis II (oct. 2025), el cronograma general (18/03/2026), las ventanas de lanzamiento de abril de 2026 y la lista de prioridades y objetivos. Sin cambios de código: se presentaron propuestas a Gastón.
-**Decisiones:** ninguna todavía.
-**Problemas:** contradicciones anotadas en "Problemas abiertos".
-**Tests:** sin cambios (43 en verde).
-**Próximo paso:** aplicar las propuestas que Gastón apruebe, empezando por los datos del vehículo con fuente primaria.
-
-## Sesión 3 — 2026-11-14 — Física completa, controles y vistas
+## Sesión 5 — 2026-11-15 — Datos oficiales, idiomas, guías, mapa fijo y control de misión
 **Hecho:**
-- **Vuelo propulsado:** `sim/vehicle.ts` (etapas, masas, motores), `sim/atmosphere.ts`, `sim/power.ts` (empuje, consumo, arrastre); integrador generalizado con el propelente como estado; `advance.ts` reescrito (motores, separaciones, cortes por tramo).
-- **Ascenso simulado** (`mission/ascent.ts`): secuencia por tiempo y ley de guiado. Se eliminó el ascenso guionado y el arranque en E3.
-- **Encendidos finitos** para ICPS y Orion, con corte manual bajando la guarda.
-- **Actitud:** DAP (AUTO/INRTL/MAN), RHC y THC; página Flight.PFD con indicador de actitud.
-- **Partes desprendidas** como objetos propios con gravedad y arrastre.
-- **Calibración nueva** (`scripts/lib/calibration.ts`, `tune-free-return.ts`): guiado del ascenso, E4/E5 y retorno libre con vuelo propulsado.
-- **Interfaz:** vista dividida 2D + 3D; modelo del vehículo por partes a escala real (`render/vehicle.ts`); Prop.Sys por etapas; placa F4; tercera pantalla; alarmas que abren su procedimiento; tutorial guiado (`ui/tutorial/`); pantalla de inicio nueva.
-- Ningún texto de la interfaz nombra archivos del proyecto.
+- **Vehículo** (`sim/vehicle.ts` reescrito): masas y motores de las guías del SLS y de Artemis II; curva de empuje publicada de los boosters; programa de potencia de los RS‑25; cinco tanques; RCS de la cápsula (THC después de E13).
+- **Misión** (`sim/constants.ts` reescrito): tablas publicadas de ascenso y órbita, órbitas publicadas, horarios de la tabla de eventos, cronograma oficial como control (`PUBLISHED_MET`), CubeSats, eliminación del ICPS.
+- **Física:** cuenta regresiva desde T‑6 s (`padState`), encendidos con actitud fija, `timeToDescendTo` / `timeToEntry` en `orbit.ts`, temperatura de piel (`sim/thermal.ts`), CubeSats y encendido de eliminación del ICPS en `advance.ts`.
+- **Calibración** (`scripts/lib/calibration.ts`, `tune-free-return.ts`): E4 a perigeo 100 NM, E5 con Newton 2D a 0 × 40.000 NM, E7 de 120 s, E8 en el apogeo; semilla del retorno libre elegida por la fecha de regreso publicada; `nominal-path.json` y `npm run path`.
+- **Idiomas:** `sim/i18n.ts` y `ui/i18n.ts`; todo el panel, el log, los procedimientos, las alarmas, el tutorial y las pantallas en inglés y español.
+- **Flujo de inicio:** `LanguageScreen` → `guides/Guides.tsx` (cinco guías de `guides/content.tsx`) → `StartScreen`; botón GUÍAS; `?lang` y `?guide`.
+- **Mapa 2D fijo** (`render/scene.ts` reescrito): marco rotante, encuadre del plan, plan nominal tenue, recuadro del entorno terrestre, `MapHud`. Los atajos `1`–`5` pasaron a la cámara 3D.
+- **Control de misión:** `sim/capcom.ts` y `ui/panel/Capcom.tsx`.
 - `CLAUDE.md`, `README.md` y este archivo actualizados.
 
-**Decisiones:** 1–4, 7, 8, 10 y 12–14 de arriba.
+**Decisiones:** 4–10, 15 y 17–20 de arriba. Descartados: guiado prograde local para E5 (no llega a perigeo cero); tomar la curva de los boosters como empuje a nivel del mar (el ascenso salía mucho más rápido); elegir la semilla del retorno libre por el sobrevuelo (convergía a una rama de 11,8 días).
 
 **Problemas:**
-- El ajuste del retorno libre oscilaba entre dos puntos: en algunos casos la nave pasaba el perigeo sin entrar y entraba 11 días después, en la segunda pasada, y el script medía esa entrada. Ahora mide siempre el primer regreso.
-- El centrado de E5 tenía 23 s de error porque la calibración no descontaba el propelente que gasta E4.
-- Las partes desprendidas se atrasaban después de un avance de horas de un tirón: el presupuesto de pasos ahora crece con el atraso.
-- El lanzamiento quedaba del lado nocturno en 3D: se movió la luz.
+- El empuje de los boosters en t = 0 daba cero (borde de la interpolación).
+- "REENTRADA PREDICHA" falsa durante E5 y el TLI: la alarma se suprime durante un encendido y mientras E8 siga programado.
+- Import circular al poner `timeToEntry` en `advance.ts`: se movió a `orbit.ts`.
+- `?met` vacío se leía como 0 y salteaba la cuenta regresiva: ahora se mira si el parámetro existe.
+- Error al iniciar la vista ("lastCameraKey before initialization").
+- El recuadro tapaba la Luna: pasó abajo a la derecha.
+- Siguen abiertos el desfasaje del cronograma y el ascenso temprano rápido (ver "Problemas abiertos").
 
-**Tests:** `tests/mission.test.ts` reescrito (29): ascenso contra los datos publicados, Max Q y tope de aceleración, masa y empuje al despegue, guiado malo que no llega a órbita, duración y centrado de E5, corte manual, partes desprendidas, DAP, RHC, THC, encendido con la nave mal orientada, y los de antes adaptados. Con `physics.test.ts` (14): 43, todos pasan.
+**Tests:** 49 (físicos 17, misión 32), todos pasan. Nuevos o cambiados: cuenta regresiva, empuje al despegue (36.787 kN), Isp de los boosters, tablas publicadas con tolerancias, órbitas publicadas, duraciones de E4/E5/E7, reentrada sin E8, separación CM/SM a EI − 20 min, ICPS y CubeSats, programa de potencia de los RS‑25, `timeToDescendTo` (3).
 
-**Próximo paso:** prueba manual en navegador; después las texturas de la Tierra y la Luna.
+**Próximo paso:** prueba manual en navegador del flujo completo en los dos idiomas.
+
+## Sesión 4 — 2026-11-14 — Análisis de la guía de referencia
+**Hecho:** lectura de la guía de referencia de Artemis II, la guía del SLS para Artemis II (oct. 2025), el cronograma general (18/03/2026), las ventanas de lanzamiento de abril de 2026 y la lista de prioridades y objetivos; contraste con el modelo y propuestas a Gastón. Sin cambios de código.
+**Tests:** sin cambios (43 en verde).
+
+## Sesión 3 — 2026-11-14 — Física completa, controles y vistas
+**Hecho:** vuelo propulsado (`vehicle.ts`, `atmosphere.ts`, `power.ts`, integrador con propelente), ascenso simulado, encendidos finitos con corte manual, DAP/RHC/THC y Flight.PFD, partes desprendidas, calibración con vuelo propulsado, vista dividida 2D + 3D, modelo por partes, Prop.Sys por etapas, placa F4, tercera pantalla, tutorial guiado.
+**Problemas resueltos:** el retorno libre medía la segunda pasada (ahora el primer regreso); centrado de E5 sin descontar el propelente de E4; partes desprendidas atrasadas tras avances largos; lanzamiento del lado nocturno en 3D.
+**Tests:** 43.
 
 ## Sesión 2 — 2026-11-13 — Mejoras posteriores a H12
-**Hecho:** verificación con fuentes del ángulo de entrada; pantalla de inicio; página Mission.Tl y cuenta regresiva; cámara automática; estrellas, anillo de EI, esfera de influencia, destello de encendido; atajos de teclado; `CLAUDE.md` reescrito; `README.md`. El ascenso guionado y el presupuesto fijo de Δv de esta sesión fueron reemplazados en la sesión 3.
-
-**Problemas:** al parchear archivos con `node -e "..."` desde Bash, el shell expandía los `${}`; se pasó a scripts temporales.
+**Hecho:** ángulo de entrada con fuente; pantalla de inicio; Mission.Tl y cuenta regresiva; cámara automática; estrellas, anillo de EI, esfera de influencia, destello; atajos; `CLAUDE.md` y `README.md`.
+**Problemas:** `node -e` desde Bash expandía `${}`; se pasó a scripts temporales.
 
 ## Sesión 1 — 2026-11-13 — Hitos H1–H12 (primera pasada)
-**Hecho:** esqueleto; núcleo `src/sim/`; scripts de calibración y retorno libre; paleta extraída; panel; vista 2D/3D; fin de misión, créditos, layout angosto, workflow de GitHub Pages, `ASSETS.md`. Los encendidos eran impulsivos y la física arrancaba en E3; ambas cosas cambiaron en la sesión 3.
-
-**Problemas:** la tripulación automática no separaba el CM/SM porque los disparadores por altitud solo se evaluaban al final de un tramo largo (resuelto acotando el tramo); las teclas derechas del Display Unit quedaban amontonadas por la auto‑ubicación de CSS grid.
+**Hecho:** esqueleto; núcleo `src/sim/`; calibración y retorno libre; paleta; panel; vistas; fin de misión, créditos, layout angosto, workflow de GitHub Pages, `ASSETS.md`.
+**Problemas:** la separación CM/SM automática fallaba con tramos largos (se acotó el tramo); teclas del Display Unit amontonadas por la auto‑ubicación de CSS grid.
