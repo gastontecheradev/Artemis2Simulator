@@ -3,9 +3,9 @@ import { EARTH_MOON_DISTANCE, EI_ALTITUDE, GM_EARTH, GM_MOON, MOON_SOI, R_EARTH,
 import { KM_TO_SCENE } from './worldToScene';
 
 /** Brillo propio de la Tierra en 3D (fracción de su color), solo para que se vea el lado nocturno. */
-const EARTH_NIGHT_GLOW = 0.3;
-/** Aclarado del color de la Tierra iluminada en 3D (mezcla con blanco). */
-const EARTH_DAY_LIFT = 0.3;
+const EARTH_NIGHT_GLOW = 0.35;
+/** Aclarado del color de la Tierra iluminada en 3D (mezcla con blanco). Bajo para que siga azul. */
+const EARTH_DAY_LIFT = 0.12;
 
 export interface BodyMeshes {
   readonly group: THREE.Group;
