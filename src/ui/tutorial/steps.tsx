@@ -167,7 +167,7 @@ const STEPS_EN = (): TourStep[] => [
   {
     target: 'view-2d',
     title: '2D MAP',
-    body: <p>A fixed map of the Earth‑Moon system seen from above, in the rotating frame: the Earth and the Moon stay still and the spacecraft moves along the faint nominal plan.</p>,
+    body: <p>A fixed map of the Earth‑Moon system seen from above, in the rotating frame: the Earth and the Moon stay still and the spacecraft moves along the faint nominal plan. With <b>FRAME · INERTIAL</b> you see it from a fixed point in space instead: the Moon travels along its orbit, and the dotted outline shows where it will be when the spacecraft arrives.</p>,
   },
   {
     target: 'view-3d',
@@ -323,7 +323,7 @@ const STEPS_ES = (): TourStep[] => [
   {
     target: 'view-2d',
     title: 'MAPA 2D',
-    body: <p>Un mapa fijo del sistema Tierra‑Luna visto desde arriba, en el marco rotante: la Tierra y la Luna quedan quietas y la nave avanza sobre el plan nominal, dibujado tenue.</p>,
+    body: <p>Un mapa fijo del sistema Tierra‑Luna visto desde arriba, en el marco rotante: la Tierra y la Luna quedan quietas y la nave avanza sobre el plan nominal, dibujado tenue. Con <b>MARCO · INERCIAL</b> se ve desde un punto fijo del espacio: la Luna recorre su órbita y el contorno punteado marca dónde va a estar cuando llegue la nave.</p>,
   },
   {
     target: 'view-3d',

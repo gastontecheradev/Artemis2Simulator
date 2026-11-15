@@ -45,7 +45,7 @@ function Canvas({ dim, className }: { dim: ViewDim; className?: string }): JSX.E
 
 /**
  * Área de la derecha, dividida en dos: arriba el mapa 2D, fijo como una infografía
- * (marco rotante, escala que abarca toda la misión y datos de vuelo), y abajo la vista
+ * (marco rotante o inercial, escala que abarca toda la misión y datos de vuelo), y abajo la vista
  * 3D, que sigue a la nave de cerca y a escala real, con el recuadro del entorno terrestre.
  */
 export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits: () => void; onTutorial: () => void; onGuides: () => void }): JSX.Element {
@@ -59,6 +59,15 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
         <MapHud s={s} />
         <div className="toolbar">
           <span className="pane-title">{t('vw.map')}</span>
+          <Group
+            title={t('vw.frame')}
+            options={[
+              { id: 'rotating', label: t('vw.rotating') },
+              { id: 'inertial', label: t('vw.inertial') },
+            ]}
+            value={view.mapFrame}
+            onChange={(mapFrame) => setViewState({ mapFrame })}
+          />
           <Group
             title={t('vw.trail')}
             options={[
@@ -84,7 +93,7 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
           </div>
         </div>
         <div className="legend">
-          <span className="hint">{t('vw.hintMap')}</span>
+          <span className="hint">{t(view.mapFrame === 'rotating' ? 'vw.hintMap' : 'vw.hintMapInertial')}</span>
         </div>
       </section>
       <section className="pane pane-3d" data-tour="view-3d">

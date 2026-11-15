@@ -10,15 +10,21 @@ export interface ViewFrame {
   /** true = marco rotante Tierra‑Luna (la Luna queda fija sobre +x). */
   readonly rotating: boolean;
   /**
+   * Solo en el marco inercial: giro fijo (rad) que se le resta al dibujo. El mapa
+   * inercial lo usa para dejar el sobrevuelo arriba; 0 o ausente = ejes inerciales tal cual.
+   */
+  readonly angle?: number;
+  /**
    * Origen flotante: punto (km, ya en el marco de dibujo) que se dibuja en el origen
    * de la escena. Es lo que sigue la cámara, así float32 nunca ve números grandes.
    */
   readonly origin: Vec3;
 }
 
-/** Posición en el marco de dibujo (km): inercial tal cual, o rotada según la Luna en t. */
+/** Posición en el marco de dibujo (km): inercial (con su giro fijo), o rotada según la Luna en t. */
 export function toDisplayFrame(p: Vec3, t: number, frame: ViewFrame): Vec3 {
-  return frame.rotating ? rotateZ(p, -frame.eph.moonAngle(t)) : p;
+  if (frame.rotating) return rotateZ(p, -frame.eph.moonAngle(t));
+  return frame.angle ? rotateZ(p, -frame.angle) : p;
 }
 
 /**

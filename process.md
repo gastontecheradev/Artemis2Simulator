@@ -2,7 +2,7 @@
 
 ## Estado actual
 
-- **Hito en curso:** H1–H12 con primera pasada completa, más vuelo propulsado, datos de las guías de NASA para Artemis II, interfaz bilingüe, guías, mapa fijo y control de misión.
+- **Hito en curso:** H1–H12 con primera pasada completa, más vuelo propulsado, datos de las guías de NASA para Artemis II, interfaz bilingüe, guías, mapa fijo (marco rotante o inercial) y control de misión.
 - **Funciona** (con cómo se verificó):
   - Simulación de T‑6 s a E15 con motores, masa y arrastre reales, calibrada contra las órbitas publicadas: 49 tests en verde (`npx vitest run`, desde PowerShell).
   - `npm run build` compila sin errores de tipos (bundle ~957 kB).
@@ -45,7 +45,7 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 15. **Separación CM/SM:** se pide a EI − 40 min y la tripulación automática la hace a EI − 20 min (cronograma de NASA), con el tiempo a la entrada calculado por Kepler (`timeToEntry`).
 16. **Guiado de correcciones:** secante sobre el eje radial, estimando con un impulso instantáneo.
 17. **Idiomas:** inglés por defecto y español. Textos de la simulación en `sim/i18n.ts` (`tr`), de la interfaz en `ui/i18n.ts` (`useT`). Siglas de cabina en inglés en los dos. Los tests comparan en español.
-18. **Mapa 2D fijo:** marco rotante, encuadre calculado del plan nominal (`nominal-path.json`), sin zoom; cuerpos ×3. La vista 3D conserva cámara y marco y comparte su área con el recuadro del entorno terrestre, en una columna de alto completo a la derecha (centrado en la Tierra, ±9.000 km hasta E5, ±95.000 km después); estaba sobre el mapa y se movió en la sesión 6 para no tapar la Luna.
+18. **Mapa 2D fijo:** marco rotante por defecto o inercial a elección (sesión 7), encuadre calculado del plan nominal (`nominal-path.json`), sin zoom; cuerpos ×3. El inercial va girado para que la Luna del sobrevuelo nominal quede arriba y muestra esa posición futura con un contorno punteado. La vista 3D conserva cámara y marco y comparte su área con el recuadro del entorno terrestre, en una columna de alto completo a la derecha (centrado en la Tierra, ±9.000 km hasta E5, ±95.000 km después); estaba sobre el mapa y se movió en la sesión 6 para no tapar la Luna.
 19. **Control de misión (CAPCOM):** función pura del estado (`sim/capcom.ts`), sin guardarse en `SimState`; los mensajes dentro de una LOS no llegan.
 20. **Guías** con números tomados del modelo (`vehicle.ts`, `params.json`); costo del programa del informe IG‑22‑003 de la OIG de NASA. La de energía aclara que el sistema eléctrico no se simula.
 21. **La plataforma está sobre +y** ("arriba" en el mapa); la fase lunar se mide desde ahí.
@@ -89,6 +89,13 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - **Difiere:** 6 teclas por lado horizontal (la referencia tiene 8) y sin perillas; interruptores SVG planos; la guarda es una tapa translúcida con botón; los controladores manuales son botones, no palancas; el indicador de actitud solo cabecea; la barra de estado superior no existe en la cabina real; no hay dispositivo de cursor.
 
 ## Historial de sesiones
+
+## Sesión 7 — 2026-11-15 — Mapa 2D en marco inercial
+**Hecho:** selector MARCO (rotante / inercial) en la barra del mapa 2D (`ui/TrajectoryView.tsx`, `mapFrame` en `ui/store.ts`, `?map=inertial`). En el inercial la Luna recorre su órbita (se ve la circunferencia), el dibujo va girado un ángulo fijo (`angle` en `ViewFrame`, `render/worldToScene.ts`) para que la Luna del sobrevuelo nominal quede arriba, y un contorno punteado con la etiqueta "LUNA EN EL SOBREVUELO" marca dónde va a estar la Luna cuando llegue la nave (`render/markers.ts`, se oculta pasado el sobrevuelo). `mapFraming` (`render/scene.ts`) incluye el arco de la Luna durante la misión y deja libres 40 px arriba (barra) y 100 px abajo (HUD) en el inercial; el rotante queda igual. Textos de ayuda y paso del tutorial del mapa en los dos idiomas.
+**Decisiones:** rotante sigue por defecto. Orientación del inercial con el sobrevuelo arriba: el arco de la Luna queda apaisado (de derecha a izquierda por encima de la Tierra) y entra mejor en el área ancha del mapa; con la Luna inicial a la derecha el sobrevuelo quedaba en una esquina. La posición futura usa el sobrevuelo nominal (`params.nominal.flybyMet`), no la predicción, para que sea un objetivo estable.
+**Problemas:** la primera versión encuadraba sin márgenes y la barra tapaba el sobrevuelo y el HUD a la Tierra; se agregaron los márgenes en píxeles.
+**Tests:** 49 en verde; build sin errores; capturas headless del mapa inercial en MET 100 s (inglés), 200.000 s (español) y 600.000 s (inglés), y del rotante en 200.000 s (sin cambios). El clic en el selector quedó sin probar a mano.
+**Próximo paso:** el mismo de "Estado actual".
 
 ## Sesión 6 — 2026-11-15 — Recuadro del entorno terrestre a la vista 3D
 **Hecho:** el recuadro "Entorno terrestre" pasó del mapa 2D al área de la vista 3D (`ui/TrajectoryView.tsx`, `ui/styles.css`): ocupa una columna de alto completo a la derecha (`--inset-w`, min(30 %, 280 px)) y la escena 3D, su barra y su ayuda se achican a lo que queda, así no se tapan. La ayuda de la 3D subió una línea para no pisar la leyenda de colores. La frase del tutorial que lo presenta pasó del paso del mapa al de la vista 3D (`ui/tutorial/steps.tsx`).
