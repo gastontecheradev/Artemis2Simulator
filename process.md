@@ -45,7 +45,7 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 15. **Separación CM/SM:** se pide a EI − 40 min y la tripulación automática la hace a EI − 20 min (cronograma de NASA), con el tiempo a la entrada calculado por Kepler (`timeToEntry`).
 16. **Guiado de correcciones:** secante sobre el eje radial, estimando con un impulso instantáneo.
 17. **Idiomas:** inglés por defecto y español. Textos de la simulación en `sim/i18n.ts` (`tr`), de la interfaz en `ui/i18n.ts` (`useT`). Siglas de cabina en inglés en los dos. Los tests comparan en español.
-18. **Mapa 2D fijo:** marco rotante, encuadre calculado del plan nominal (`nominal-path.json`), sin zoom; cuerpos ×3. La vista 3D conserva cámara y marco y lleva, abajo a la derecha, el recuadro del entorno terrestre (centrado en la Tierra, ±9.000 km hasta E5, ±95.000 km después); estaba sobre el mapa y se movió en la sesión 6 para no tapar la Luna.
+18. **Mapa 2D fijo:** marco rotante, encuadre calculado del plan nominal (`nominal-path.json`), sin zoom; cuerpos ×3. La vista 3D conserva cámara y marco y comparte su área con el recuadro del entorno terrestre, en una columna de alto completo a la derecha (centrado en la Tierra, ±9.000 km hasta E5, ±95.000 km después); estaba sobre el mapa y se movió en la sesión 6 para no tapar la Luna.
 19. **Control de misión (CAPCOM):** función pura del estado (`sim/capcom.ts`), sin guardarse en `SimState`; los mensajes dentro de una LOS no llegan.
 20. **Guías** con números tomados del modelo (`vehicle.ts`, `params.json`); costo del programa del informe IG‑22‑003 de la OIG de NASA. La de energía aclara que el sistema eléctrico no se simula.
 21. **La plataforma está sobre +y** ("arriba" en el mapa); la fase lunar se mide desde ahí.
@@ -91,10 +91,10 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 ## Historial de sesiones
 
 ## Sesión 6 — 2026-11-15 — Recuadro del entorno terrestre a la vista 3D
-**Hecho:** el recuadro "Entorno terrestre" pasó del mapa 2D a la esquina inferior derecha de la vista 3D (`ui/TrajectoryView.tsx`, `ui/styles.css`), por encima de la ayuda de la vista. La frase del tutorial que lo presenta pasó del paso del mapa al de la vista 3D (`ui/tutorial/steps.tsx`).
+**Hecho:** el recuadro "Entorno terrestre" pasó del mapa 2D al área de la vista 3D (`ui/TrajectoryView.tsx`, `ui/styles.css`): ocupa una columna de alto completo a la derecha (`--inset-w`, min(30 %, 280 px)) y la escena 3D, su barra y su ayuda se achican a lo que queda, así no se tapan. La ayuda de la 3D subió una línea para no pisar la leyenda de colores. La frase del tutorial que lo presenta pasó del paso del mapa al de la vista 3D (`ui/tutorial/steps.tsx`).
 **Decisiones:** primero se quitó (commit `965a511`), pero hace falta para ver la nave en detalle al principio; se restauró con un revert y se movió para no tapar la Luna del mapa. Mismo contenido y escalas que antes.
-**Problemas:** en el ascenso tapa una parte de la vista 3D, donde el cohete puede pasar por debajo.
-**Tests:** 49 en verde; build sin errores; capturas headless en MET 100 s y 12.500 s (español) con el recuadro en la vista 3D y la Luna del mapa libre.
+**Problemas:** la primera versión (recuadro flotante en la esquina) tapaba al cohete en el ascenso; se pasó a la columna.
+**Tests:** 49 en verde; build sin errores; capturas headless en MET 100 s y 12.500 s (español) con el recuadro en columna junto a la 3D, sin superposiciones, y la Luna del mapa libre.
 **Próximo paso:** el mismo de "Estado actual".
 
 ## Sesión 5 — 2026-11-15 — Datos oficiales, idiomas, guías, mapa fijo y control de misión

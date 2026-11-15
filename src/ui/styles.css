@@ -1736,14 +1736,28 @@ button.ann.link.acked {
   background: transparent;
 }
 
-/* ---------- Recuadro del entorno terrestre (sobre la vista 3D) y datos de vuelo del mapa ---------- */
+/* ---------- Recuadro del entorno terrestre (columna derecha de la vista 3D) y datos de vuelo del mapa ---------- */
+/* El área de la vista 3D se divide: la escena a la izquierda y el recuadro a la derecha, sin superponerse. */
+.pane-3d {
+  --inset-w: min(30%, 280px);
+}
+.pane-3d > .view-canvas-host {
+  right: var(--inset-w);
+}
+.pane-3d .toolbar {
+  right: calc(var(--inset-w) + 8px);
+}
+.pane-3d .legend {
+  right: calc(var(--inset-w) + 10px);
+  bottom: 26px; /* encima de la leyenda de colores, que corre por abajo */
+}
 .map-inset {
   position: absolute;
-  right: 10px;
-  bottom: 28px; /* sobre la ayuda de la vista 3D */
-  width: min(30%, 280px);
-  aspect-ratio: 1;
-  border: 1px solid var(--c-label-dim);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--inset-w);
+  border-left: 2px solid var(--c-frame);
   background: var(--c-screen);
   overflow: hidden;
   z-index: 1;
