@@ -6,6 +6,7 @@
  * - [SLS] NASA, "Space Launch System Reference Guide for Artemis II", SLS‑5558, oct. 2025.
  * - [A2]  NASA, "Artemis II Reference Guide", 2026.
  * - [TL]  NASA, "Artemis II Overview Timeline", 18/03/2026 (STRIVES 20260002249).
+ * - [AV]  NASA, "Artemis II Mission Availability – April 2026" (ventanas de lanzamiento).
  * - [3.png] infografía de ascenso y órbita terrestre (docs/reference/3.png), igual a la tabla de [SLS].
  */
 
@@ -29,6 +30,16 @@ export const LAUNCH_LATITUDE_DEG = 28.627;
  * y esa es la velocidad que el cohete ya trae al despegar.
  */
 export const EARTH_ROTATION_IN_PLANE = EARTH_ROTATION_RATE * Math.cos((LAUNCH_LATITUDE_DEG * Math.PI) / 180);
+
+/**
+ * [AV] Apertura de la ventana del 01/04/2026 (06:24 PM EDT = 22:24 UTC): "1.28 Hours
+ * Before Sunset" en la plataforma. El modelo despega en ese instante (MET 0) y de este
+ * dato sale la dirección del Sol: la puesta ocurre cuando la rotación terrestre lleva la
+ * vertical de la plataforma a 90° del Sol.
+ */
+export const LAUNCH_BEFORE_SUNSET = 1.28 * 3600; // s
+/** Movimiento medio de la Tierra alrededor del Sol (año sidéreo de 365,256 días): el Sol avanza ~0,99°/día. */
+export const EARTH_ORBIT_RATE = (2 * Math.PI) / (365.256 * 86400); // rad/s
 
 /** Radio de la esfera de influencia lunar (Laplace): D·(GM_L/GM_T)^(2/5). */
 export const MOON_SOI = EARTH_MOON_DISTANCE * Math.pow(GM_MOON / GM_EARTH, 2 / 5);
