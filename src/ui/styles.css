@@ -1736,7 +1736,43 @@ button.ann.link.acked {
   background: transparent;
 }
 
-/* ---------- Mapa 2D estático: datos de vuelo ---------- */
+/* ---------- Recuadro del entorno terrestre (sobre la vista 3D) y datos de vuelo del mapa ---------- */
+.map-inset {
+  position: absolute;
+  right: 10px;
+  bottom: 28px; /* sobre la ayuda de la vista 3D */
+  width: min(30%, 280px);
+  aspect-ratio: 1;
+  border: 1px solid var(--c-label-dim);
+  background: var(--c-screen);
+  overflow: hidden;
+  z-index: 1;
+}
+.map-inset .view-canvas-host {
+  position: absolute;
+  inset: 0;
+}
+.map-inset .view-overlay .ship-marker {
+  width: 30px;
+  height: 30px;
+}
+.map-inset .view-overlay .event-marker {
+  width: 14px;
+  height: 14px;
+  font-size: 8px;
+}
+.map-inset .view-overlay .body-label {
+  display: none !important;
+}
+.inset-title {
+  position: absolute;
+  left: 4px;
+  top: 3px;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  color: var(--c-label-dim);
+  pointer-events: none;
+}
 .map-hud {
   position: absolute;
   left: 10px;
