@@ -45,8 +45,7 @@ function Canvas({ dim, className }: { dim: ViewDim; className?: string }): JSX.E
 
 /**
  * Área de la derecha, dividida en dos: arriba el mapa 2D, fijo como una infografía
- * (marco rotante, escala que abarca toda la misión, recuadro del entorno terrestre y
- * datos de vuelo), y abajo la vista 3D, que sigue a la nave de cerca y a escala real.
+ * (marco rotante, escala que abarca toda la misión y datos de vuelo), y abajo la vista 3D, que sigue a la nave de cerca y a escala real.
  */
 export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits: () => void; onTutorial: () => void; onGuides: () => void }): JSX.Element {
   const t = useT();
@@ -56,10 +55,6 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
     <>
       <section className="pane pane-2d" data-tour="view-2d">
         <Canvas dim="2d" />
-        <div className="map-inset" data-tour="inset">
-          <Canvas dim="inset" className="view-canvas-host" />
-          <span className="inset-title">{t('map.inset')}</span>
-        </div>
         <MapHud s={s} />
         <div className="toolbar">
           <span className="pane-title">{t('vw.map')}</span>

@@ -45,7 +45,7 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 15. **Separación CM/SM:** se pide a EI − 40 min y la tripulación automática la hace a EI − 20 min (cronograma de NASA), con el tiempo a la entrada calculado por Kepler (`timeToEntry`).
 16. **Guiado de correcciones:** secante sobre el eje radial, estimando con un impulso instantáneo.
 17. **Idiomas:** inglés por defecto y español. Textos de la simulación en `sim/i18n.ts` (`tr`), de la interfaz en `ui/i18n.ts` (`useT`). Siglas de cabina en inglés en los dos. Los tests comparan en español.
-18. **Mapa 2D fijo:** marco rotante, encuadre calculado del plan nominal (`nominal-path.json`), sin zoom; cuerpos ×3; recuadro centrado en la Tierra (±9.000 km hasta E5, ±95.000 km después). La vista 3D conserva cámara y marco.
+18. **Mapa 2D fijo:** marco rotante, encuadre calculado del plan nominal (`nominal-path.json`), sin zoom; cuerpos ×3; sin recuadro del entorno terrestre (se quitó en la sesión 6: no va). La vista 3D conserva cámara y marco.
 19. **Control de misión (CAPCOM):** función pura del estado (`sim/capcom.ts`), sin guardarse en `SimState`; los mensajes dentro de una LOS no llegan.
 20. **Guías** con números tomados del modelo (`vehicle.ts`, `params.json`); costo del programa del informe IG‑22‑003 de la OIG de NASA. La de energía aclara que el sistema eléctrico no se simula.
 21. **La plataforma está sobre +y** ("arriba" en el mapa); la fase lunar se mide desde ahí.
@@ -71,7 +71,6 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
   - Duración: 9 d 1 h 43 min (cronograma) contra "~10 días" (1.png y las guías).
 - **RL10C‑2:** el Isp del modelo (465,5 s) es el del RL10B‑2; ningún documento da el del C‑2.
 - **Temperatura de piel simplificada** (`thermal.ts`): Sutton–Graves + equilibrio radiativo instantáneo; da ~645 °C en el ascenso a 31 km. Es una estimación, no un modelo térmico.
-- **Recuadro del mapa durante el ascenso:** a ±9.000 km el cohete casi no se mueve en pantalla.
 - **Procs durante el ascenso** muestra el procedimiento de E6 (el primero de la tripulación); podría mostrar la secuencia automática del ascenso. Menor.
 - Supuestos sin fuente primaria: ver la lista en `CLAUDE.md`, sección "El vehículo".
 - La demo de operaciones de proximidad (E6) no tiene guía ni medición respecto del ICPS.
@@ -89,6 +88,13 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - **Difiere:** 6 teclas por lado horizontal (la referencia tiene 8) y sin perillas; interruptores SVG planos; la guarda es una tapa translúcida con botón; los controladores manuales son botones, no palancas; el indicador de actitud solo cabecea; la barra de estado superior no existe en la cabina real; no hay dispositivo de cursor.
 
 ## Historial de sesiones
+
+## Sesión 6 — 2026-11-15 — Mapa 2D sin recuadro
+**Hecho:** se quitó del mapa 2D el recuadro "Entorno terrestre" (`ui/TrajectoryView.tsx`), su clave `map.inset` (`ui/i18n.ts`), su CSS (`ui/styles.css`) y la frase del tutorial que lo nombraba (`ui/tutorial/steps.tsx`).
+**Decisiones:** Gastón pidió que no esté. El soporte del modo `inset` en `render/scene.ts` queda sin uso (no se borró, por si se quiere recuperar). Con esto deja de aplicar el problema del recuadro durante el ascenso.
+**Problemas:** ninguno.
+**Tests:** 49 en verde; build sin errores; captura headless en MET 12.500 s (español) sin el recuadro.
+**Próximo paso:** el mismo de "Estado actual".
 
 ## Sesión 5 — 2026-11-15 — Datos oficiales, idiomas, guías, mapa fijo y control de misión
 **Hecho:**

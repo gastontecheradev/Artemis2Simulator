@@ -167,7 +167,7 @@ const STEPS_EN = (): TourStep[] => [
   {
     target: 'view-2d',
     title: '2D MAP',
-    body: <p>A fixed map of the Earth‑Moon system seen from above, in the rotating frame: the Earth and the Moon stay still and the spacecraft moves along the faint nominal plan. The inset shows the Earth vicinity.</p>,
+    body: <p>A fixed map of the Earth‑Moon system seen from above, in the rotating frame: the Earth and the Moon stay still and the spacecraft moves along the faint nominal plan.</p>,
   },
   {
     target: 'view-3d',
@@ -323,7 +323,7 @@ const STEPS_ES = (): TourStep[] => [
   {
     target: 'view-2d',
     title: 'MAPA 2D',
-    body: <p>Un mapa fijo del sistema Tierra‑Luna visto desde arriba, en el marco rotante: la Tierra y la Luna quedan quietas y la nave avanza sobre el plan nominal, dibujado tenue. El recuadro muestra el entorno terrestre.</p>,
+    body: <p>Un mapa fijo del sistema Tierra‑Luna visto desde arriba, en el marco rotante: la Tierra y la Luna quedan quietas y la nave avanza sobre el plan nominal, dibujado tenue.</p>,
   },
   {
     target: 'view-3d',
