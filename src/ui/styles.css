@@ -978,6 +978,13 @@ button.softkey:active {
   height: 100%;
   touch-action: none;
 }
+/* El mapa 2D se arrastra para desplazarlo. */
+.pane-2d .view-canvas {
+  cursor: grab;
+}
+.pane-2d .view-canvas:active {
+  cursor: grabbing;
+}
 .view-overlay {
   position: absolute;
   inset: 0;
@@ -1986,6 +1993,10 @@ button.ann.link.acked {
   white-space: nowrap;
 }
 
+/* Ayuda del mapa (zoom y arrastre): abajo a la derecha, al lado del HUD. */
 .pane-2d .legend:not(.legend-colors) {
-  display: none;
+  left: auto;
+  right: 10px;
+  max-width: calc(100% - 440px);
+  text-align: right;
 }

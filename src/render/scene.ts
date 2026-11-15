@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { runningEngines } from '../sim/advance';
 import { MOON_SOI, R_EARTH, R_MOON } from '../sim/constants';
 import { getLocale } from '../sim/i18n';
-import { Vec3, ZERO, add, cross, length, normalize, rotateZ, scale } from '../sim/math/vec3';
+import { Vec3, ZERO, add, cross, length, normalize, rotateZ, scale, sub } from '../sim/math/vec3';
 import nominalRaw from '../sim/mission/nominal-path.json';
 import { MissionParams } from '../sim/mission/params';
 import { timeline } from '../sim/mission/timeline';
@@ -57,6 +57,30 @@ const MAP_EXAGGERATION = 3;
 /** Radios fijos del recuadro del entorno terrestre (km): fase de órbita baja y después. */
 const INSET_RADIUS_LOW = 9000;
 const INSET_RADIUS_HIGH = 95000;
+/** Recuadro del entorno lunar: el radio sigue la distancia a la Luna entre estos topes (km). */
+const LUNAR_RADIUS_MIN = 12000;
+const LUNAR_RADIUS_MAX = MOON_SOI * 1.1;
+
+/**
+ * Qué muestra el recuadro: el entorno terrestre o, dentro de la esfera de influencia
+ * lunar (el mismo criterio que usa la física para el marco del encendido), el lunar.
+ */
+export function insetTarget(s: SimState): 'earth' | 'moon' {
+  return length(sub(s.ship.r, ephemerisOf(s).moon(s.t).r)) < MOON_SOI ? 'moon' : 'earth';
+}
+
+/**
+ * Orientación del mapa 2D (giro que se le resta al dibujo). La cámara mira desde +z
+ * (norte), así que cualquier giro conserva el sentido real: la Tierra rota, la nave
+ * orbita la Tierra y la Luna la suya en sentido antihorario, y en el marco rotante el
+ * sobrevuelo rodea la Luna en sentido horario por la cara oculta (como en 1.png, que
+ * está dibujada con la Tierra a la izquierda: esto es esa vista girada 180°, no espejada).
+ * Rotante: la Luna (sobre +x en el marco) queda a la izquierda y la Tierra a la derecha.
+ * Inercial: la Luna del sobrevuelo nominal queda a la izquierda de la Tierra.
+ */
+function mapAngleFor(rotating: boolean, eph: ReturnType<typeof ephemerisOf>, flybyMet: number): number {
+  return rotating ? Math.PI : eph.moonAngle(flybyMet) + Math.PI;
+}
 
 /** Primer plano de la nave en 3D: entra completa a escala real. */
 const closeRadius = (cfg: VehicleConfig): number => Math.max(0.006, (vehicleExtent(cfg).length * 0.72) / 1000);
@@ -100,7 +124,9 @@ function mapFraming(
   };
   for (const [t, x, y] of NOMINAL_PATH) take(toDisplayFrame({ x, y, z: 0 }, t, frame));
   const earth = toDisplayFrame(eph.earth(0).r, 0, frame);
-  take(add(earth, { x: -R_EARTH * MAP_EXAGGERATION, y: 0, z: 0 }));
+  const re = R_EARTH * MAP_EXAGGERATION;
+  take(add(earth, { x: re, y: re, z: 0 }));
+  take(add(earth, { x: -re, y: -re, z: 0 }));
   if (frame.rotating) {
     // La Luna con su esfera de influencia (punteada) completa.
     const moon = toDisplayFrame(eph.moon(0).r, 0, frame);
@@ -181,8 +207,13 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   scene.add(bodies.group, trails.group, model.group, debrisGroup);
   const overlay = createOverlay(container);
   const rig: CameraRig = is3d ? createPerspectiveRig(renderer.domElement) : createOrthoRig(renderer.domElement);
-  // El mapa y el recuadro son estáticos: sin rueda ni pellizco.
-  if (!is3d) rig.setActive(false);
+  // El recuadro es estático. El mapa tiene zoom (rueda o pellizco, hacia el cursor) y se
+  // arrastra; doble clic vuelve al encuadre de toda la misión.
+  if (isInset) rig.setActive(false);
+  const onDoubleClick = (): void => {
+    lastCameraKey = '';
+  };
+  if (isMap) renderer.domElement.addEventListener('dblclick', onDoubleClick);
 
   // Clave del último encuadre aplicado (se invalida al cambiar el tamaño).
   let lastCameraKey = '';
@@ -244,12 +275,9 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     const rotating = is3d ? settings.frame === 'rotating' : isMap ? settings.mapFrame === 'rotating' : true;
     const earth = eph.earth(s.t);
     const moon = eph.moon(s.t);
-    // Mapa 2D: giro fijo de 90° en sentido horario respecto de la orientación base. En el
-    // rotante la Luna queda abajo de la Tierra; en el inercial, la Luna del sobrevuelo
-    // nominal queda a la derecha (antes del giro estaba arriba).
+    // Mapa 2D y recuadro: la Tierra a la derecha y la Luna a la izquierda (ver mapAngleFor).
     const flybyMet = s.params.nominal.flybyMet;
-    const MAP_TURN = Math.PI / 2;
-    const mapAngle = isMap ? (rotating ? 0 : eph.moonAngle(flybyMet) - Math.PI / 2) + MAP_TURN : 0;
+    const mapAngle = is3d ? 0 : mapAngleFor(rotating, eph, flybyMet);
     const frameAngle = rotating ? eph.moonAngle(s.t) + mapAngle : mapAngle;
     /** Dirección inercial llevada al marco de dibujo. */
     const displayDir = (d: Vec3): Vec3 => (frameAngle ? rotateZ(d, -frameAngle) : d);
@@ -272,16 +300,25 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
         const f = mapFraming(eph, { width, height, ...pad }, base);
         mapCenter = f.center;
         rig.setViewRadius(f.radius);
+        rig.setPan(0, 0);
         lastCameraKey = key;
       }
       camera = { mode: 'overview', radius: rig.getViewRadius() };
     } else if (isInset) {
-      const high = s.autoBurns.E5.status === 'done' || s.autoBurns.E5.status === 'burning' || s.vehicle.icpsSeparated;
-      camera = { mode: 'earth', radius: high ? INSET_RADIUS_HIGH : INSET_RADIUS_LOW };
-      const key = `inset|${camera.radius}`;
-      if (key !== lastCameraKey) {
+      if (insetTarget(s) === 'moon') {
+        // Entorno lunar: centrado en la Luna; el radio acompaña a la nave para que siempre entre.
+        const d = length(sub(s.ship.r, moon.r));
+        camera = { mode: 'moon', radius: Math.min(LUNAR_RADIUS_MAX, Math.max(LUNAR_RADIUS_MIN, d * 1.35)) };
         rig.setViewRadius(camera.radius);
-        lastCameraKey = key;
+        lastCameraKey = 'inset|moon';
+      } else {
+        const high = s.autoBurns.E5.status === 'done' || s.autoBurns.E5.status === 'burning' || s.vehicle.icpsSeparated;
+        camera = { mode: 'earth', radius: high ? INSET_RADIUS_HIGH : INSET_RADIUS_LOW };
+        const key = `inset|${camera.radius}`;
+        if (key !== lastCameraKey) {
+          rig.setViewRadius(camera.radius);
+          lastCameraKey = key;
+        }
       }
     } else {
       const mode: FixedMode = settings.cameraMode !== 'auto' ? settings.cameraMode : 'ship';
@@ -297,7 +334,10 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
 
     // --- Marco de dibujo y origen flotante ---
     const focus = (): Vec3 => {
-      if (isMap) return mapCenter;
+      if (isMap) {
+        const pan = rig.getPan();
+        return { x: mapCenter.x + pan.x, y: mapCenter.y + pan.y, z: 0 };
+      }
       if (camera.mode === 'ship') return toDisplayFrame(s.ship.r, s.t, base);
       if (camera.mode === 'earth') return toDisplayFrame(earth.r, s.t, base);
       if (camera.mode === 'moon') return toDisplayFrame(moon.r, s.t, base);
@@ -428,6 +468,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     dispose() {
       cancelAnimationFrame(raf);
       observer.disconnect();
+      renderer.domElement.removeEventListener('dblclick', onDoubleClick);
       rig.dispose();
       overlay.dispose();
       bodies.dispose();
