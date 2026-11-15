@@ -1,4 +1,5 @@
 import { DV_LOW_FRACTION } from './constants';
+import { tr } from './i18n';
 import { ENGINES, EngineId, FULL_TANKS, MASS, PropLoad, TANK, VehicleConfig, idealDv, totalMass } from './vehicle';
 
 /**
@@ -59,6 +60,8 @@ export const tankFraction = (p: PropulsionState): number => p.prop[TANK.ESM] / M
 export const isDvLow = (p: PropulsionState): boolean => tankFraction(p) < DV_LOW_FRACTION;
 
 export type SystemStatus = 'DISPONIBLE' | 'ENCENDIDO' | 'ACOPLADO' | 'SEPARADO' | 'AGOTADO';
+/** Etiqueta del estado en el idioma actual. */
+export const systemStatusLabel = (st: SystemStatus): string => tr(`st.${st}`);
 
 /** Estado de un sistema según la configuración del vehículo y qué motores están encendidos. */
 export function systemStatus(
@@ -82,10 +85,10 @@ export function systemStatus(
 /** Motivo por el que un encendido no se puede ejecutar, o null si se puede. `dv` en km/s. */
 export function burnBlocker(system: PropSystem, dv: number, p: PropulsionState, cfg: VehicleConfig): string | null {
   const st = systemStatus(system, p, cfg);
-  if (st === 'SEPARADO') return system === 'ICPS' ? 'ICPS ya separado' : 'Módulo de servicio separado';
-  if (st === 'ACOPLADO') return 'Orion sigue acoplado al ICPS';
-  if (system === 'ICPS' && !cfg.coreSeparated) return 'La etapa central sigue unida';
-  if (st === 'AGOTADO') return 'Sin propelente';
-  if (dv > dvAvailable(system, p, cfg) + 1e-9) return 'Propelente insuficiente para ese Δv';
+  if (st === 'SEPARADO') return tr(system === 'ICPS' ? 'blk.icpsSeparated' : 'blk.smSeparated');
+  if (st === 'ACOPLADO') return tr('blk.docked');
+  if (system === 'ICPS' && !cfg.coreSeparated) return tr('blk.coreAttached');
+  if (st === 'AGOTADO') return tr('blk.empty');
+  if (dv > dvAvailable(system, p, cfg) + 1e-9) return tr('blk.insufficient');
   return null;
 }

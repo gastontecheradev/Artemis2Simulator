@@ -10,17 +10,10 @@ import {
 } from '../../../sim/commands';
 import { formatDuration, formatMet, formatNumber } from '../../../sim/format';
 import { activeManeuverId, currentStepIndex, procedureView } from '../../../sim/mission/procedures';
-import { ManeuverStatus, SimState } from '../../../sim/state';
+import { SimState } from '../../../sim/state';
+import { useT } from '../../i18n';
 import { act } from '../../store';
 import type { SoftAction } from './index';
-
-const STATUS_LABEL: Readonly<Record<ManeuverStatus, string>> = {
-  pending: 'PENDIENTE',
-  committed: 'COMPROMETIDO',
-  burning: 'MOTOR ENCENDIDO',
-  done: 'EJECUTADO',
-  missed: 'VENTANA PERDIDA',
-};
 
 /** Teclas laterales de Procs: selección de procedimiento, pasos y Δv planeado. */
 export function procsActions(s: SimState): SoftAction[] {
@@ -52,6 +45,7 @@ export function procsActions(s: SimState): SoftAction[] {
 
 /** Procs: visor de procedimientos (inspirado en 11.png). Es la interfaz de comandos. */
 export function Procs({ s }: { s: SimState }): JSX.Element {
+  const t = useT();
   const view = procedureView(s, s.proc.activeId);
   const current = currentStepIndex(s, view);
   const id = activeManeuverId(s);
@@ -63,7 +57,7 @@ export function Procs({ s }: { s: SimState }): JSX.Element {
         <span className="proc-code">{view.code}</span>
         <span className="proc-title">
           {view.title}
-          {view.optional ? ' (OPCIONAL)' : ''}
+          {view.optional ? t('pg.optional') : ''}
         </span>
       </div>
       <ol className="proc-steps">
@@ -103,7 +97,7 @@ export function Procs({ s }: { s: SimState }): JSX.Element {
               </span>
             </span>
           )}
-          <span className={m.status === 'missed' ? 'alarm' : m.status === 'committed' || m.status === 'burning' ? 'cmd' : 'val'}>{STATUS_LABEL[m.status]}</span>
+          <span className={m.status === 'missed' ? 'alarm' : m.status === 'committed' || m.status === 'burning' ? 'cmd' : 'val'}>{t(`ms.${m.status}`)}</span>
           {s.proc.advanced && <span className="cmd">ADV</span>}
         </div>
       )}

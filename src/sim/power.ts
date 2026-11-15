@@ -3,7 +3,7 @@ import { Ephemeris } from './bodies';
 import { R_EARTH } from './constants';
 import { PowerModel } from './integrator';
 import { Vec3, ZERO, length, scale, sub } from './math/vec3';
-import { ENGINES, EngineId, G0, VehicleConfig, dragArea, fullMassFlow, srbMassFlow, totalMass } from './vehicle';
+import { ENGINES, EngineId, G0, TANK_COUNT, VehicleConfig, dragArea, fullMassFlow, rs25Throttle, srbMassFlow, totalMass } from './vehicle';
 
 /** Ley de dirección del empuje: vector unitario en función del instante y del estado. */
 export type DirectionLaw = (t: number, r: Vec3, v: Vec3) => Vec3;
@@ -44,7 +44,7 @@ export function forces(input: PowerInput, t: number, r: Vec3, v: Vec3, prop: rea
   const p = pressureRatio(altitude);
   const mass = totalMass(input.cfg, prop);
   let thrust = 0;
-  const dprop = [0, 0, 0, 0];
+  const dprop = new Array<number>(TANK_COUNT).fill(0);
   for (const id of input.engines) {
     const e = ENGINES[id];
     if (prop[e.tank] <= 0) continue;
@@ -52,14 +52,15 @@ export function forces(input: PowerInput, t: number, r: Vec3, v: Vec3, prop: rea
     let flow: number;
     if (id === 'SRB') {
       flow = srbMassFlow(t - (input.srbIgnition ?? 0));
-    } else if (id === 'RS25' && input.gLimit) {
-      // Los RS‑25 bajan el empuje para no pasar el límite de aceleración.
+    } else if (id === 'RS25') {
+      // Programa de potencia publicado, y además bajan el empuje para no pasar el límite de aceleración.
       const full = fullMassFlow(e) * G0 * isp;
-      flow = fullMassFlow(e) * Math.min(1, (input.gLimit * mass) / full);
+      const limit = input.gLimit ? (input.gLimit * mass) / full : 1;
+      flow = fullMassFlow(e) * Math.min(rs25Throttle(t), limit);
     } else {
       flow = fullMassFlow(e);
     }
-    thrust += flow * G0 * isp * (id === 'RCS' ? (input.rcsSign ?? 1) : 1);
+    thrust += flow * G0 * isp * (id === 'RCS' || id === 'CMRCS' ? (input.rcsSign ?? 1) : 1);
     dprop[e.tank] -= flow;
   }
   let q = 0;

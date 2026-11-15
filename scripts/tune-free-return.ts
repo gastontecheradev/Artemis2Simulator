@@ -14,13 +14,14 @@
  * Uso: npm run tune   →  escribe src/sim/mission/params.json
  */
 import { executeManeuver, produce, setManeuver } from '../src/sim/advance';
-import { ENTRY_CORRIDOR, FLYBY_ALTITUDE_TARGET, R_EARTH } from '../src/sim/constants';
+import { ENTRY_CORRIDOR, FLYBY_ALTITUDE_TARGET, PUBLISHED_MET, R_EARTH } from '../src/sim/constants';
 import { formatMet } from '../src/sim/format';
 import { perigeeRadiusForEntry } from '../src/sim/guidance';
 import { add, sub } from '../src/sim/math/vec3';
 import { MISSION_PARAMS, MissionParams } from '../src/sim/mission/params';
 import { SimState, ephemerisOf } from '../src/sim/state';
 import { bisect, calibrate, fly, flyFrom, saveParams, withBurn } from './lib/calibration';
+import { writeNominalPath } from './lib/nominal-path';
 
 const DAY = 86400;
 
@@ -29,6 +30,8 @@ interface Miss {
   alt: number | null;
   /** Perigeo de retorno sin atmósfera menos el perigeo objetivo (km). Infinity si no vuelve. */
   rpMiss: number;
+  /** MET del regreso (entrada o perigeo), o null. */
+  tReturn: number | null;
 }
 
 /**
@@ -38,14 +41,14 @@ interface Miss {
  */
 function measure(s: SimState): Miss {
   const per = s.record.perilune;
-  if (!per) return { alt: null, rpMiss: Infinity };
+  if (!per) return { alt: null, rpMiss: Infinity, tReturn: null };
   const peri = s.record.apsides.find((a) => a.type === 'periapsis' && a.t > per.t);
   const ei = s.record.ei;
   if (ei && (!peri || ei.t < peri.t)) {
-    return { alt: per.altitude, rpMiss: ei.rp - perigeeRadiusForEntry(ei.energy, ENTRY_CORRIDOR.target) };
+    return { alt: per.altitude, rpMiss: ei.rp - perigeeRadiusForEntry(ei.energy, ENTRY_CORRIDOR.target), tReturn: ei.t };
   }
-  if (!peri) return { alt: per.altitude, rpMiss: Infinity };
-  return { alt: per.altitude, rpMiss: peri.radius - perigeeRadiusForEntry(Math.min(peri.energy, -0.01), ENTRY_CORRIDOR.target) };
+  if (!peri) return { alt: per.altitude, rpMiss: Infinity, tReturn: null };
+  return { alt: per.altitude, rpMiss: peri.radius - perigeeRadiusForEntry(Math.min(peri.energy, -0.01), ENTRY_CORRIDOR.target), tReturn: peri.t };
 }
 
 // ---------- (a) Grilla gruesa ----------
@@ -92,7 +95,7 @@ function coarse(base: MissionParams): { theta: number; dv: number } {
   console.log('Grilla gruesa (Δv TLI → fases con sobrevuelo a 6.513 km y error de perigeo de retorno):');
   type Row = { dv: number; roots: { theta: number; rpMiss: number }[] };
   const rows: Row[] = [];
-  for (let dv = 0.375; dv <= 0.45001; dv += 0.0025) {
+  for (let dv = 0.3; dv <= 0.45001; dv += 0.0025) {
     const roots = flybyRoots(dv).map((theta) => ({ theta, rpMiss: evalAt(theta, dv).rpMiss }));
     rows.push({ dv, roots });
     console.log(
@@ -101,7 +104,9 @@ function coarse(base: MissionParams): { theta: number; dv: number } {
     );
   }
   // Cambio de signo del error de perigeo entre dos Δv consecutivos, en la misma rama
-  // (las ramas se emparejan por cercanía de θ).
+  // (las ramas se emparejan por cercanía de θ). Puede haber varios retornos libres:
+  // se elige el que vuelve en la fecha más parecida al cronograma publicado.
+  const seeds: { theta: number; dv: number; tReturn: number }[] = [];
   for (let i = 0; i + 1 < rows.length; i++) {
     for (const a of rows[i].roots) {
       const b = rows[i + 1].roots.reduce<{ theta: number; rpMiss: number } | null>(
@@ -112,11 +117,15 @@ function coarse(base: MissionParams): { theta: number; dv: number } {
       if (!Number.isFinite(a.rpMiss) || !Number.isFinite(b.rpMiss) || a.rpMiss < 0 === b.rpMiss < 0) continue;
       const u = a.rpMiss / (a.rpMiss - b.rpMiss);
       const seed = { theta: a.theta + u * (b.theta - a.theta), dv: rows[i].dv + u * (rows[i + 1].dv - rows[i].dv) };
-      console.log(`Semilla: θ = ${seed.theta.toFixed(3)}°, Δv = ${(seed.dv * 1000).toFixed(2)} m/s`);
-      return seed;
+      const tReturn = evalAt(seed.theta, seed.dv).tReturn ?? Infinity;
+      console.log(`Semilla candidata: θ = ${seed.theta.toFixed(3)}°, Δv = ${(seed.dv * 1000).toFixed(2)} m/s, regreso en ${(tReturn / DAY).toFixed(2)} d`);
+      seeds.push({ ...seed, tReturn });
     }
   }
-  throw new Error('La grilla gruesa no encontró un retorno libre: ampliar el rango de Δv.');
+  if (seeds.length === 0) throw new Error('La grilla gruesa no encontró un retorno libre: ampliar el rango de Δv.');
+  const best = seeds.reduce((p, q) => (Math.abs(q.tReturn - PUBLISHED_MET.ei) < Math.abs(p.tReturn - PUBLISHED_MET.ei) ? q : p));
+  console.log(`Semilla elegida: θ = ${best.theta.toFixed(3)}°, Δv = ${(best.dv * 1000).toFixed(2)} m/s`);
+  return best;
 }
 
 // ---------- (b) Newton con la misión completa ----------
@@ -193,6 +202,7 @@ params = {
   },
 };
 saveParams(params);
+writeNominalPath(params);
 
 const tli = params.burns.E9;
 const ins = s.record.insertion;
@@ -208,6 +218,7 @@ console.log(`Sobrevuelo: MET ${formatMet(s.record.perilune.t)}, altitud ${s.reco
 console.log(`EI: MET ${formatMet(s.record.ei.t)}, γ = ${s.record.ei.fpaDeg.toFixed(4)}°, V = ${s.record.ei.speed.toFixed(4)} km/s`);
 console.log(`Ida: ${((s.record.perilune.t - tli.met) / DAY).toFixed(2)} d · Vuelta: ${((s.record.ei.t - s.record.perilune.t) / DAY).toFixed(2)} d · Total: ${(s.record.ei.t / DAY).toFixed(2)} d`);
 const pr = s.propulsion;
-console.log(`Δv ICPS: ${(pr.icpsDvUsed * 1000).toFixed(1)} m/s · Δv Orion: ${(pr.orionDvUsed * 1000).toFixed(1)} m/s · propelente del módulo de servicio al final: ${pr.prop[3].toFixed(0)} kg`);
+const preSep = fly(params, (s.record.cmSepAt ?? s.t) - 60);
+console.log(`Δv ICPS: ${(pr.icpsDvUsed * 1000).toFixed(1)} m/s · Δv Orion: ${(pr.orionDvUsed * 1000).toFixed(1)} m/s · propelente del módulo de servicio antes de separarlo: ${preSep.propulsion.prop[3].toFixed(0)} kg`);
 console.log(`Resultado: ${s.outcome.kind}`);
 console.log('params.json actualizado.');

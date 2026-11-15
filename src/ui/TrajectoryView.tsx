@@ -1,15 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { CameraMode, ViewDim, createTrajectoryView } from '../render/scene';
 import { tick } from '../sim/commands';
-import { getViewSettings, setCamera, setViewState, simStore, useViewState } from './store';
+import { useT } from './i18n';
+import { MapHud } from './panel/MapHud';
+import { getViewSettings, setCamera, setViewState, simStore, useSim, useViewState } from './store';
 
-export const CAMERA_MODES: readonly { id: CameraMode; label: string }[] = [
-  { id: 'auto', label: 'AUTO' },
-  { id: 'overview', label: 'GENERAL' },
-  { id: 'ship', label: 'NAVE' },
-  { id: 'earth', label: 'TIERRA' },
-  { id: 'moon', label: 'LUNA' },
-];
+export const CAMERA_MODES: readonly CameraMode[] = ['auto', 'overview', 'ship', 'earth', 'moon'];
 
 interface GroupProps<T extends string> {
   title: string;
@@ -31,11 +27,9 @@ function Group<T extends string>({ title, options, value, onChange }: GroupProps
   );
 }
 
-/** Una de las dos vistas: su lienzo, su título y su selector de cámara. */
-function Pane({ dim, title, children }: { dim: ViewDim; title: string; children?: React.ReactNode }): JSX.Element {
+/** Lienzo de una vista: crea el renderer y lo destruye al desmontar. Solo el mapa marca el paso del tiempo. */
+function Canvas({ dim, className }: { dim: ViewDim; className?: string }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
-  const view = useViewState();
-
   useEffect(() => {
     if (!ref.current) return;
     const handle = createTrajectoryView(ref.current, dim, {
@@ -46,68 +40,82 @@ function Pane({ dim, title, children }: { dim: ViewDim; title: string; children?
     });
     return () => handle.dispose();
   }, [dim]);
-
-  return (
-    <section className={`pane pane-${dim}`} data-tour={`view-${dim}`}>
-      <div className="view-canvas-host" ref={ref} />
-      <div className="toolbar">
-        <span className="pane-title">{title}</span>
-        <Group title="CÁMARA" options={CAMERA_MODES} value={view.camera[dim]} onChange={(mode) => setCamera(dim, mode)} />
-        {children}
-      </div>
-      <div className="legend">
-        <span className="hint">{dim === '2d' ? 'RUEDA / PELLIZCO: ZOOM' : 'ARRASTRAR: ORBITAR · RUEDA: ZOOM'}</span>
-      </div>
-    </section>
-  );
+  return <div className={className ?? 'view-canvas-host'} ref={ref} />;
 }
 
 /**
- * Área de la derecha, dividida en dos: arriba el mapa 2D de la trayectoria y abajo la
- * vista 3D, que por defecto sigue a la nave de cerca y a escala real.
+ * Área de la derecha, dividida en dos: arriba el mapa 2D, fijo como una infografía
+ * (marco rotante, escala que abarca toda la misión, recuadro del entorno terrestre y
+ * datos de vuelo), y abajo la vista 3D, que sigue a la nave de cerca y a escala real.
  */
-export function TrajectoryView({ onCredits, onTutorial }: { onCredits: () => void; onTutorial: () => void }): JSX.Element {
+export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits: () => void; onTutorial: () => void; onGuides: () => void }): JSX.Element {
+  const t = useT();
   const view = useViewState();
+  const s = useSim();
   return (
     <>
-      <Pane dim="2d" title="MAPA 2D">
-        <Group
-          title="MARCO"
-          options={[
-            { id: 'inertial', label: 'INERCIAL' },
-            { id: 'rotating', label: 'ROTANTE' },
-          ]}
-          value={view.frame}
-          onChange={(frame) => setViewState({ frame })}
-        />
-        <Group
-          title="TRAZO"
-          options={[
-            { id: 'phase', label: 'FASE' },
-            { id: 'network', label: 'RED' },
-          ]}
-          value={view.colorMode}
-          onChange={(colorMode) => setViewState({ colorMode })}
-        />
-        <div className="tb-group">
-          <button className={view.exaggerate ? 'tb-btn on' : 'tb-btn'} onClick={() => setViewState({ exaggerate: !view.exaggerate })}>
-            CUERPOS ×6
-          </button>
-          <button className="tb-btn" onClick={onTutorial}>
-            TUTORIAL
-          </button>
-          <button className="tb-btn" onClick={onCredits}>
-            CRÉDITOS
-          </button>
+      <section className="pane pane-2d" data-tour="view-2d">
+        <Canvas dim="2d" />
+        <div className="map-inset" data-tour="inset">
+          <Canvas dim="inset" className="view-canvas-host" />
+          <span className="inset-title">{t('map.inset')}</span>
         </div>
-      </Pane>
-      <Pane dim="3d" title="VISTA 3D" />
+        <MapHud s={s} />
+        <div className="toolbar">
+          <span className="pane-title">{t('vw.map')}</span>
+          <Group
+            title={t('vw.trail')}
+            options={[
+              { id: 'phase', label: t('vw.phase') },
+              { id: 'network', label: t('vw.network') },
+            ]}
+            value={view.colorMode}
+            onChange={(colorMode) => setViewState({ colorMode })}
+          />
+          <div className="tb-group">
+            <button className={view.exaggerate ? 'tb-btn' : 'tb-btn on'} onClick={() => setViewState({ exaggerate: !view.exaggerate })}>
+              {t('vw.scale')}
+            </button>
+            <button className="tb-btn" onClick={onGuides}>
+              {t('vw.guides')}
+            </button>
+            <button className="tb-btn" onClick={onTutorial}>
+              {t('vw.tutorial')}
+            </button>
+            <button className="tb-btn" onClick={onCredits}>
+              {t('vw.credits')}
+            </button>
+          </div>
+        </div>
+        <div className="legend">
+          <span className="hint">{t('vw.hintMap')}</span>
+        </div>
+      </section>
+      <section className="pane pane-3d" data-tour="view-3d">
+        <Canvas dim="3d" />
+        <div className="toolbar">
+          <span className="pane-title">{t('vw.3d')}</span>
+          <Group title={t('vw.camera')} options={CAMERA_MODES.map((id) => ({ id, label: t(`cam.${id}`) }))} value={view.camera['3d']} onChange={(mode) => setCamera('3d', mode)} />
+          <Group
+            title={t('vw.frame')}
+            options={[
+              { id: 'inertial', label: t('vw.inertial') },
+              { id: 'rotating', label: t('vw.rotating') },
+            ]}
+            value={view.frame}
+            onChange={(frame) => setViewState({ frame })}
+          />
+        </div>
+        <div className="legend">
+          <span className="hint">{t('vw.hint3d')}</span>
+        </div>
+      </section>
       <div className="legend legend-colors">
         {view.colorMode === 'phase' ? (
           <>
-            <span><i className="swatch out" /> ÓRBITA E IDA</span>
-            <span><i className="swatch prox" /> PROXIMIDAD</span>
-            <span><i className="swatch ret" /> REGRESO</span>
+            <span><i className="swatch out" /> {t('lg.out')}</span>
+            <span><i className="swatch prox" /> {t('lg.prox')}</span>
+            <span><i className="swatch ret" /> {t('lg.ret')}</span>
           </>
         ) : (
           <>
@@ -116,7 +124,8 @@ export function TrajectoryView({ onCredits, onTutorial }: { onCredits: () => voi
             <span><i className="swatch los" /> LOS</span>
           </>
         )}
-        <span><i className="swatch pred" /> PREDICHA</span>
+        <span><i className="swatch pred" /> {t('lg.pred')}</span>
+        <span><i className="swatch plan" /> {t('lg.plan')}</span>
       </div>
     </>
   );

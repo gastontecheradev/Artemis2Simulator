@@ -1,66 +1,54 @@
 import { useState } from 'react';
-import { formatDuration } from '../sim/format';
+import { FLYBY_ALTITUDE_TARGET } from '../sim/constants';
+import { formatDuration, formatNumber } from '../sim/format';
 import { MISSION_PARAMS } from '../sim/mission/params';
-import { startMission } from './store';
+import { useT } from './i18n';
+import { setIntro, startMission } from './store';
 
 /** Pantalla de inicio: qué es, cómo se vuela y cómo empezar. */
 export function StartScreen({ onCredits }: { onCredits: () => void }): JSX.Element {
+  const t = useT();
   const [autoCrew, setAutoCrew] = useState(false);
   const n = MISSION_PARAMS.nominal;
   return (
     <div className="modal intro">
       <div className="modal-card intro-card">
-        <span className="end-kicker">SIMULADOR DE MISIÓN</span>
+        <span className="end-kicker">{t('start.kicker')}</span>
         <h2>ARTEMIS II</h2>
-        <p>
-          Vuelo tripulado alrededor de la Luna con retorno libre, desde la plataforma hasta la entrada a la atmósfera. Nada está dibujado
-          de antemano: el cohete sube con el empuje y la masa de sus motores, y la trayectoria la decide la gravedad de la Tierra y de la
-          Luna.
-        </p>
+        <p>{t('start.intro')}</p>
         <dl className="end-stats">
-          <dt>SOBREVUELO LUNAR NOMINAL</dt>
-          <dd>6.513 km</dd>
-          <dt>DURACIÓN NOMINAL</dt>
+          <dt>{t('start.flyby')}</dt>
+          <dd>{formatNumber(FLYBY_ALTITUDE_TARGET)} km</dd>
+          <dt>{t('start.duration')}</dt>
           <dd>{formatDuration(n.eiMet)}</dd>
         </dl>
-        <h3>CÓMO SE VUELA</h3>
+        <h3>{t('start.how')}</h3>
         <ol className="intro-steps">
-          <li>
-            El ascenso y los dos primeros encendidos son automáticos, como en el vuelo real. Después, la página <b>Procs</b> indica cada
-            procedimiento y su paso actual, resaltado en magenta.
-          </li>
-          <li>
-            La simulación se <b>pausa sola</b> antes de cada acción de la tripulación. Usá el warp para no esperar.
-          </li>
-          <li>
-            Para un encendido: confirmar el Δv con la tecla <b>CONF ΔV</b>, levantar la <b>guarda</b> del motor y accionar la palanca. El
-            motor enciende solo en el instante planeado y se apaga cuando entregó el Δv.
-          </li>
-          <li>
-            Si llegás tarde, cambiás el Δv, apuntás mal la nave o no encendés, la física decide: podés quedar en órbita, errarle a la Luna
-            o entrar fuera del corredor.
-          </li>
+          <li>{t('start.step1')}</li>
+          <li>{t('start.step2')}</li>
+          <li>{t('start.step3')}</li>
+          <li>{t('start.step4')}</li>
         </ol>
-        <p className="dim">
-          Teclado: <b>Espacio</b> play/pausa · <b>+</b> y <b>−</b> warp · <b>A</b> reconocer alarmas · <b>1–5</b> cámara del mapa ·{' '}
-          <b>← →</b> rotar la nave (DAP en MAN) · <b>↑ ↓</b> traslación.
-        </p>
+        <p className="dim">{t('start.keys')}</p>
         <label className="intro-check">
           <input type="checkbox" checked={autoCrew} onChange={(e) => setAutoCrew(e.target.checked)} />
-          Modo demostración: la tripulación automática vuela la misión completa
+          {t('start.demo')}
         </label>
         <div className="end-actions">
           <button className="tb-btn on" onClick={() => startMission({ autoCrew, tutorial: false })}>
-            INICIAR MISIÓN
+            {t('start.go')}
           </button>
           <button className="tb-btn" onClick={() => startMission({ autoCrew: false, tutorial: true })}>
-            TUTORIAL GUIADO
+            {t('start.tutorial')}
+          </button>
+          <button className="tb-btn" onClick={() => setIntro('guides')}>
+            {t('start.guides')}
           </button>
           <button className="tb-btn" onClick={onCredits}>
-            CRÉDITOS
+            {t('start.credits')}
           </button>
         </div>
-        <p className="dim intro-foot">Proyecto educativo, no afiliado ni avalado por NASA.</p>
+        <p className="dim intro-foot">{t('start.foot')}</p>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { formatDuration, formatNumber } from '../../../sim/format';
 import { distance } from '../../../sim/math/vec3';
 import { earthElements, moonElements } from '../../../sim/orbit';
 import { SimState, ephemerisOf } from '../../../sim/state';
+import { useT } from '../../i18n';
 
 function Box({ label, value, unit }: { label: string; value: string; unit: string }): JSX.Element {
   return (
@@ -63,6 +64,7 @@ function AltitudeGraph({ s }: { s: SimState }): JSX.Element {
 
 /** Flight.Traj: datos de vuelo (inspirada en la PFD de 10.png, sin bola de actitud). */
 export function FlightTraj({ s }: { s: SimState }): JSX.Element {
+  const t = useT();
   const eph = ephemerisOf(s);
   const el = earthElements(s.ship, s.t, eph);
   const dMoon = distance(s.ship.r, eph.moon(s.t).r);
@@ -79,17 +81,15 @@ export function FlightTraj({ s }: { s: SimState }): JSX.Element {
       </div>
       <div className="traj-cols">
         <div className="rows">
-          <Row label="DIST TIERRA" value={formatNumber(el.r, 0)} unit="km" />
-          <Row label="DIST LUNA" value={formatNumber(dMoon, 0)} unit="km" />
-          <Row label="PERIGEO" value={formatNumber(el.rp - R_EARTH, 0)} unit="km" />
-          <Row label="APOGEO" value={Number.isFinite(el.ra) ? formatNumber(el.ra - R_EARTH, 0) : 'ABIERTA'} unit={Number.isFinite(el.ra) ? 'km' : ''} />
-          <Row label="PERÍODO" value={Number.isFinite(el.period) ? formatDuration(el.period) : '---'} />
-          {ml && <Row label="H LUNA" value={formatNumber(ml.r - R_MOON, 0)} unit="km" />}
-          {ml && <Row label="PERILUNA" value={formatNumber(ml.rp - R_MOON, 0)} unit="km" />}
-          {p?.perilune && p.perilune.t > s.t && (
-            <Row label="PRED SOBREV" value={formatNumber(p.perilune.altitude, 0)} unit="km" cls="pred" />
-          )}
-          {p?.ei && <Row label="PRED EI ÁNG" value={formatNumber(p.ei.fpaDeg, 2)} unit="°" cls={eiOk ? 'pred' : 'pred bad'} />}
+          <Row label={t('pg.distEarth')} value={formatNumber(el.r, 0)} unit="km" />
+          <Row label={t('pg.distMoon')} value={formatNumber(dMoon, 0)} unit="km" />
+          <Row label={t('pg.perigee')} value={formatNumber(el.rp - R_EARTH, 0)} unit="km" />
+          <Row label={t('pg.apogee')} value={Number.isFinite(el.ra) ? formatNumber(el.ra - R_EARTH, 0) : t('pg.open')} unit={Number.isFinite(el.ra) ? 'km' : ''} />
+          <Row label={t('pg.period')} value={Number.isFinite(el.period) ? formatDuration(el.period) : '---'} />
+          {ml && <Row label={t('pg.hMoon')} value={formatNumber(ml.r - R_MOON, 0)} unit="km" />}
+          {ml && <Row label={t('pg.perilune')} value={formatNumber(ml.rp - R_MOON, 0)} unit="km" />}
+          {p?.perilune && p.perilune.t > s.t && <Row label={t('pg.predFlyby')} value={formatNumber(p.perilune.altitude, 0)} unit="km" cls="pred" />}
+          {p?.ei && <Row label={t('pg.predEiAngle')} value={formatNumber(p.ei.fpaDeg, 2)} unit="°" cls={eiOk ? 'pred' : 'pred bad'} />}
         </div>
         <AltitudeGraph s={s} />
       </div>

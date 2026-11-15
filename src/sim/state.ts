@@ -2,7 +2,9 @@ import { airVelocity } from './atmosphere';
 import { Ephemeris, createCircularEphemeris } from './bodies';
 import { DeltaV, ZERO_DV } from './burns';
 import { CommsStatus, commsStatus } from './comms';
-import { R_EARTH } from './constants';
+import { EARTH_ROTATION_IN_PLANE, R_EARTH } from './constants';
+import { RS25_START_BEFORE_LIFTOFF } from './vehicle';
+import { tr } from './i18n';
 import { ShipState } from './integrator';
 import { Vec3, add, distance, vec3 } from './math/vec3';
 import { MissionParams } from './mission/params';
@@ -11,6 +13,7 @@ import { EventId } from './mission/timeline';
 import { EntryInterface, Perilune, Prediction } from './propagate';
 import { INITIAL_PROPULSION, PropSystem, PropulsionState } from './propulsion';
 import { CONFIG_AT_LIFTOFF, EngineId, VehicleConfig } from './vehicle';
+
 
 export type LogLevel = 'INFO' | 'EVENT' | 'CAUTION' | 'WARNING';
 
@@ -69,6 +72,8 @@ export interface AutoBurn {
   readonly id: 'E4' | 'E5';
   readonly met: number;
   readonly dv: DeltaV;
+  /** Actitud inercial fija durante el encendido (ver BurnParams.hold). */
+  readonly hold: boolean;
   readonly status: 'pending' | 'burning' | 'done' | 'cancelled';
 }
 
@@ -83,6 +88,8 @@ export interface ActiveBurn {
   /** Masa y propelente del tanque al encender (kg), para medir el Δv entregado. */
   readonly massStart: number;
   readonly propStart: number;
+  /** Dirección inercial fija del empuje (encendidos con `hold`), o null si sigue al marco local. */
+  readonly fixedDir: Vec3 | null;
 }
 
 export interface Switches {
@@ -184,12 +191,14 @@ export interface MissionRecord {
   readonly maxQ: { readonly t: number; readonly q: number; readonly logged: boolean } | null;
 }
 
-export type DebrisKind = 'SRB' | 'LAS' | 'FAIRING' | 'CORE' | 'ICPS' | 'SM';
+export type DebrisKind = 'SRB' | 'LAS' | 'FAIRING' | 'CORE' | 'ICPS' | 'SM' | 'CUBESAT';
 
 /** Parte desprendida de la nave: sigue su propia trayectoria (gravedad y arrastre). */
 export interface Debris {
   readonly id: string;
   readonly kind: DebrisKind;
+  /** Nombre para el log y las etiquetas (los CubeSats tienen nombre propio). */
+  readonly name?: string;
   readonly ship: ShipState;
   /** Instante hasta el que está propagada. */
   readonly t: number;
@@ -278,21 +287,32 @@ export interface InitOptions {
   autoCrew?: boolean;
 }
 
+/** MET inicial: los RS‑25 arrancan 6 s antes del despegue, con el cohete sujeto a la plataforma. */
+export const INITIAL_MET = -RS25_START_BEFORE_LIFTOFF;
+
 /**
- * Estado inicial: el cohete completo en la plataforma, en MET 0. La plataforma está
- * sobre el eje +y respecto de la Tierra (arriba en el mapa, así el cohete sube hacia
- * arriba en pantalla) y ya se mueve hacia el este con la rotación terrestre. Al dar
- * play encienden los motores y despega.
+ * Posición y velocidad de la plataforma en el instante `t`: sobre el eje +y de la Tierra
+ * en MET 0 (arriba en el mapa, así el cohete sube hacia arriba en pantalla), girando
+ * hacia el este con la rotación terrestre.
+ */
+export function padState(t: number, eph: Ephemeris): ShipState {
+  const earth = eph.earth(t);
+  const a = EARTH_ROTATION_IN_PLANE * t;
+  const r = add(earth.r, vec3(-R_EARTH * Math.sin(a), R_EARTH * Math.cos(a), 0));
+  return { r, v: airVelocity(r, earth) };
+}
+
+/**
+ * Estado inicial: el cohete completo en la plataforma, seis segundos antes del
+ * despegue. Al dar play arrancan los RS‑25 y en T‑0 encienden los boosters.
  */
 export function createInitialState(params: MissionParams, opts: InitOptions = {}): SimState {
   const eph = ephemerisOf({ params });
-  const earth = eph.earth(0);
-  const r = add(earth.r, vec3(0, R_EARTH, 0));
-  const ship: ShipState = { r, v: airVelocity(r, earth) };
+  const ship = padState(INITIAL_MET, eph);
   const b = params.burns;
   return {
     params,
-    t: 0,
+    t: INITIAL_MET,
     ship,
     hNext: 0.05,
     phase: 'ASCENSO',
@@ -300,7 +320,7 @@ export function createInitialState(params: MissionParams, opts: InitOptions = {}
     warpRestore: null,
     vehicle: CONFIG_AT_LIFTOFF,
     propulsion: INITIAL_PROPULSION,
-    ascentEngines: ['SRB', 'RS25'],
+    ascentEngines: ['RS25'],
     ascentTan: null,
     burn: null,
     // En la plataforma el cohete apunta hacia arriba.
@@ -323,18 +343,18 @@ export function createInitialState(params: MissionParams, opts: InitOptions = {}
       MAN: maneuver('MAN', null, 'MAIN', null, ZERO_DV, 'prograde'),
     },
     autoBurns: {
-      E4: { id: 'E4', met: b.E4.met, dv: b.E4.dv, status: 'pending' },
-      E5: { id: 'E5', met: b.E5.met, dv: b.E5.dv, status: 'pending' },
+      E4: { id: 'E4', met: b.E4.met, dv: b.E4.dv, hold: b.E4.hold ?? false, status: 'pending' },
+      E5: { id: 'E5', met: b.E5.met, dv: b.E5.dv, hold: b.E5.hold ?? false, status: 'pending' },
     },
     proc: { activeId: 'SEP_ICPS', cursor: null, skipped: [], advanced: false },
     oneShots: [],
-    comms: commsStatus(ship.r, 0, eph),
+    comms: commsStatus(ship.r, INITIAL_MET, eph),
     prediction: null,
     predictionDirty: false,
     alarms: [],
-    log: [{ t: 0, level: 'EVENT', text: 'E1 · Cohete en la plataforma LC‑39B. Listo para el lanzamiento.', eventId: 'E1' }],
-    markers: [{ eventId: 'E1', n: 1, t: 0, r: ship.r }],
-    trail: [{ t: 0, r: ship.r, alt: 0, phase: 'ASCENSO', net: 'NSN', prox: false }],
+    log: [{ t: INITIAL_MET, level: 'EVENT', text: tr('log.pad'), eventId: 'E1' }],
+    markers: [],
+    trail: [{ t: INITIAL_MET, r: ship.r, alt: 0, phase: 'ASCENSO', net: 'NSN', prox: false }],
     trailNextT: 0,
     debris: [],
     record: { apsides: [], perilune: null, ei: null, tliAt: null, icpsSepAt: null, cmSepAt: null, insertion: null, maxQ: null },

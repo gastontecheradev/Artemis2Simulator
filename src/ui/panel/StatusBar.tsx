@@ -1,8 +1,9 @@
 import { ackAlarms, selectProcedure } from '../../sim/commands';
 import { formatDuration, formatMet } from '../../sim/format';
-import { PHASE_LABEL } from '../../sim/mission/phases';
+import { phaseLabel } from '../../sim/mission/phases';
 import { nextEvent } from '../../sim/mission/timeline';
 import { ProcedureId, SimState } from '../../sim/state';
+import { useT } from '../i18n';
 import { act } from '../store';
 
 /** Procedimiento que atiende cada alarma, si hay uno. */
@@ -14,23 +15,27 @@ function procedureFor(alarmId: string, s: SimState): ProcedureId | null {
   return null;
 }
 
+/** Día de vuelo (FD01 el día del lanzamiento), como en el cronograma de NASA. */
+const flightDay = (t: number): number => Math.max(1, Math.floor(t / 86400) + 1);
+
 /** Barra de estado: MET, fase, COMM, velocidad de simulación, próximo evento y Master Alarm. */
 export function StatusBar({ s }: { s: SimState }): JSX.Element {
+  const t = useT();
   const comm = s.comms.los ? 'LOS' : s.comms.network;
   const pending = s.alarms.filter((a) => !a.acked);
   const level = pending.some((a) => a.level === 'WARNING') ? 'warning' : pending.length > 0 ? 'caution' : 'off';
-  const run = s.outcome ? 'FIN' : s.clock.running ? 'RUN' : 'PAUSA';
+  const run = s.outcome ? t('st.run.end') : s.clock.running ? t('st.run.run') : t('st.run.pause');
   const next = nextEvent(s);
   return (
     <header className="status" data-tour="status">
       <div className="status-row">
         <div className="st-cell">
-          <span className="st-label">MET</span>
+          <span className="st-label">MET · {t('st.fd')}{String(flightDay(s.t)).padStart(2, '0')}</span>
           <span className="st-value">{formatMet(s.t)}</span>
         </div>
         <div className="st-cell">
-          <span className="st-label">FASE</span>
-          <span className="st-value">{PHASE_LABEL[s.phase]}</span>
+          <span className="st-label">{t('st.phase')}</span>
+          <span className="st-value">{phaseLabel(s.phase)}</span>
         </div>
         <div className="st-cell">
           <span className="st-label">COMM</span>
@@ -44,16 +49,13 @@ export function StatusBar({ s }: { s: SimState }): JSX.Element {
         </div>
         {next && (
           <div className="st-cell">
-            <span className="st-label">PRÓX · {next.id} {next.short}</span>
+            <span className="st-label">
+              {t('st.next')} · {next.id} {next.short}
+            </span>
             <span className="st-value cmd">T−{formatDuration(next.t - s.t)}</span>
           </div>
         )}
-        <button
-          className={`master-alarm ${level}`}
-          onClick={() => act(ackAlarms)}
-          title="Master Alarm: clic para reconocer"
-          aria-label="Master Alarm"
-        >
+        <button className={`master-alarm ${level}`} onClick={() => act(ackAlarms)} title={t('st.masterAlarm')} aria-label="Master Alarm">
           <span className="ma-warning">WARNING</span>
           <span className="ma-caution">CAUTION</span>
         </button>
@@ -65,7 +67,7 @@ export function StatusBar({ s }: { s: SimState }): JSX.Element {
             const proc = procedureFor(a.id, s);
             // Como en la cabina real, la alarma lleva al procedimiento que la atiende.
             return proc ? (
-              <button key={a.id} className={`${cls} link`} title="Abrir el procedimiento en Procs" onClick={() => act((x) => selectProcedure(x, proc))}>
+              <button key={a.id} className={`${cls} link`} title={t('st.openProc')} onClick={() => act((x) => selectProcedure(x, proc))}>
                 {a.text} ▸
               </button>
             ) : (

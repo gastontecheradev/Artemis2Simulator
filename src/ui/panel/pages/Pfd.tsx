@@ -5,7 +5,9 @@ import { formatNumber } from '../../../sim/format';
 import { angleBetween, cross, dot, length, normalize, sub } from '../../../sim/math/vec3';
 import { forces } from '../../../sim/power';
 import { SimState, ephemerisOf } from '../../../sim/state';
+import { skinTemperature } from '../../../sim/thermal';
 import { ENGINES, G0, totalMass } from '../../../sim/vehicle';
+import { useT } from '../../i18n';
 
 const DEG = 180 / Math.PI;
 const Z = { x: 0, y: 0, z: 1 };
@@ -32,14 +34,14 @@ function AttitudeBall({ pitch, command, prograde }: { pitch: number; command: nu
         {[-1, 0, 1].map((k) => (
           <rect key={k} x={-R} y={-y(180 + 360 * k)} width={R * 2} height={3 * R} className="adi-sky" />
         ))}
-        {ticks.map((t) => {
-          const d = wrap(t);
+        {ticks.map((tk) => {
+          const d = wrap(tk);
           return (
-            <g key={t} transform={`translate(0 ${-y(d)})`}>
-              <path d={t === 0 ? `M ${-R} 0 H ${R}` : 'M -14 0 H 14'} className="adi-line" />
-              {t !== 0 && (
+            <g key={tk} transform={`translate(0 ${-y(d)})`}>
+              <path d={tk === 0 ? `M ${-R} 0 H ${R}` : 'M -14 0 H 14'} className="adi-line" />
+              {tk !== 0 && (
                 <text x="18" y="2.5" className="adi-num">
-                  {Math.abs(t) > 90 ? 180 - Math.abs(t) : Math.abs(t)}
+                  {Math.abs(tk) > 90 ? 180 - Math.abs(tk) : Math.abs(tk)}
                 </text>
               )}
             </g>
@@ -70,6 +72,7 @@ function Readout({ label, value, unit, cls = 'val' }: { label: string; value: st
  * pantalla de vuelo principal de la cabina). Todo sale del estado simulado.
  */
 export function Pfd({ s }: { s: SimState }): JSX.Element {
+  const t = useT();
   const eph = ephemerisOf(s);
   const earth = eph.earth(s.t);
   const up = normalize(sub(s.ship.r, earth.r));
@@ -90,21 +93,23 @@ export function Pfd({ s }: { s: SimState }): JSX.Element {
     ? ((G0 * ENGINES[burn.system === 'ICPS' ? 'RL10' : burn.system].ispVac) / 1000) *
       Math.log(burn.massStart / totalMass(s.vehicle, s.propulsion.prop))
     : 0;
+  const temp = skinTemperature(s);
   return (
     <div className="page pfd">
       <AttitudeBall pitch={elevation(s.attitude.dir)} command={elevation(cmd)} prograde={elevation(vRel)} />
       <div className="rows">
         <Readout label="DAP" value={s.attitude.mode} cls={s.attitude.mode === 'AUTO' ? 'val' : 'warn'} />
-        <Readout label="CABECEO" value={formatNumber(elevation(s.attitude.dir), 1)} unit="°" />
-        <Readout label="ERROR ACT" value={formatNumber(error * DEG, 1)} unit="°" cls={error < ATTITUDE_TOLERANCE ? 'val' : 'warn'} />
-        <Readout label="ACEL" value={formatNumber(f ? f.thrustAccel / G0 : 0, 2)} unit="g" />
-        <Readout label="EMPUJE" value={formatNumber(f ? f.thrust / 1000 : 0, 0)} unit="kN" />
-        <Readout label="MASA" value={formatNumber(totalMass(s.vehicle, s.propulsion.prop) / 1000, 1)} unit="t" />
-        {altitude < 200 && <Readout label="PRES DIN Q" value={formatNumber(f ? f.q / 1000 : 0, 1)} unit="kPa" />}
-        {altitude < 200 && <Readout label="V REL TIERRA" value={formatNumber(vAir, 3)} unit="km/s" />}
-        <Readout label="MOTORES" value={engines.length > 0 ? engines.join(' ') : 'APAGADOS'} cls={engines.length > 0 ? 'cmd' : 'val dim'} />
-        {burn && <Readout label="ΔV ENTREGADO" value={formatNumber(delivered * 1000, 1)} unit="m/s" cls="cmd" />}
-        {burn && <Readout label="CORTE EN" value={formatNumber(Math.max(0, burn.tEnd - s.t), 0)} unit="s" cls="cmd" />}
+        <Readout label={t('pg.pitch')} value={formatNumber(elevation(s.attitude.dir), 1)} unit="°" />
+        <Readout label={t('pg.attErr')} value={formatNumber(error * DEG, 1)} unit="°" cls={error < ATTITUDE_TOLERANCE ? 'val' : 'warn'} />
+        <Readout label={t('pg.accel')} value={formatNumber(f ? f.thrustAccel / G0 : 0, 2)} unit="g" />
+        <Readout label={t('pg.thrust')} value={formatNumber(f ? f.thrust / 1000 : 0, 0)} unit="kN" />
+        <Readout label={t('pg.mass')} value={formatNumber(totalMass(s.vehicle, s.propulsion.prop) / 1000, 1)} unit="t" />
+        {altitude < 200 && <Readout label={t('pg.dynQ')} value={formatNumber(f ? f.q / 1000 : 0, 1)} unit="kPa" />}
+        {altitude < 200 && <Readout label={t('pg.vRel')} value={formatNumber(vAir, 3)} unit="km/s" />}
+        <Readout label={t('pg.temp')} value={formatNumber(temp.kelvin - 273.15, 0)} unit="°C" cls={temp.aerodynamic ? 'warn' : 'val'} />
+        <Readout label={t('pg.engines')} value={engines.length > 0 ? engines.join(' ') : t('pg.enginesOff')} cls={engines.length > 0 ? 'cmd' : 'val dim'} />
+        {burn && <Readout label={t('pg.dvDelivered')} value={formatNumber(delivered * 1000, 1)} unit="m/s" cls="cmd" />}
+        {burn && <Readout label={t('pg.cutoffIn')} value={formatNumber(Math.max(0, burn.tEnd - s.t), 0)} unit="s" cls="cmd" />}
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import { runningEngines } from '../sim/advance';
-import { BodyState } from '../sim/bodies';
 import { R_EARTH, R_MOON } from '../sim/constants';
-import { Vec3, ZERO, add, cross, dot, length, normalize, rotateZ, scale, sub } from '../sim/math/vec3';
+import { getLocale } from '../sim/i18n';
+import { Vec3, ZERO, add, cross, length, normalize, rotateZ, scale } from '../sim/math/vec3';
+import nominalRaw from '../sim/mission/nominal-path.json';
 import { MissionParams } from '../sim/mission/params';
 import { timeline } from '../sim/mission/timeline';
 import { Prediction } from '../sim/propagate';
@@ -16,10 +17,15 @@ import { TrailColorMode, createTrails } from './trails';
 import { createDebrisModels, createVehicleModel, debrisLength, vehicleExtent, vehicleIconSvg } from './vehicle';
 import { KM_TO_SCENE, ViewFrame, toDisplayFrame, worldToScene } from './worldToScene';
 
-/** 'auto' elige el encuadre según la fase de la misión (2D) o sigue a la nave de cerca (3D). */
+/** 'auto' sigue a la nave de cerca (3D). Los modos fijos encuadran la nave, la Tierra, la Luna o el conjunto. */
 export type CameraMode = 'auto' | 'overview' | 'ship' | 'earth' | 'moon';
 type FixedMode = Exclude<CameraMode, 'auto'>;
-export type ViewDim = '2d' | '3d';
+/**
+ * Tres vistas: el mapa 2D (estático, marco rotante, escala fija que abarca toda la
+ * misión), el recuadro del entorno terrestre (estático, centrado en la Tierra) y la
+ * vista 3D en perspectiva.
+ */
+export type ViewDim = '2d' | 'inset' | '3d';
 
 export interface ViewSettings {
   readonly cameraMode: CameraMode;
@@ -36,22 +42,30 @@ export interface TrajectoryViewDeps {
   onFrame?(dt: number): void;
 }
 
+/** Plan nominal muestreado por scripts/nominal-path.ts: [MET, x, y] en km inerciales. */
+const NOMINAL_PATH = nominalRaw as unknown as readonly (readonly [number, number, number])[];
+
 const Z: Vec3 = { x: 0, y: 0, z: 1 };
 /** 1 m en unidades de escena. */
 const M_TO_SCENE = KM_TO_SCENE / 1000;
 /** Tamaño mínimo aparente de la nave: fracción del semialto de la vista. */
 const MIN_APPARENT = 0.28;
+/** Agrandamiento de los cuerpos en el mapa (en 3D se usa EXAGGERATION). */
+const MAP_EXAGGERATION = 3;
+/** Radios fijos del recuadro del entorno terrestre (km): fase de órbita baja y después. */
+const INSET_RADIUS_LOW = 9000;
+const INSET_RADIUS_HIGH = 95000;
 
 /** Primer plano de la nave en 3D: entra completa a escala real. */
 const closeRadius = (cfg: VehicleConfig): number => Math.max(0.006, (vehicleExtent(cfg).length * 0.72) / 1000);
 
-/** Semialto visible por defecto (km) para cada modo de cámara. */
-function defaultRadius(mode: FixedMode, rotating: boolean, dim: ViewDim, cfg: VehicleConfig): number {
+/** Semialto visible por defecto (km) para cada modo de cámara en 3D. */
+function defaultRadius(mode: FixedMode, rotating: boolean, cfg: VehicleConfig): number {
   switch (mode) {
     case 'overview':
       return rotating ? 290000 : 470000;
     case 'ship':
-      return dim === '3d' ? closeRadius(cfg) : 25000;
+      return closeRadius(cfg);
     case 'earth':
       return 95000;
     case 'moon':
@@ -59,35 +73,43 @@ function defaultRadius(mode: FixedMode, rotating: boolean, dim: ViewDim, cfg: Ve
   }
 }
 
-/** Encuadre automático de la vista 2D: sigue lo que importa en cada fase. */
-function autoCamera(s: SimState, earth: BodyState): { mode: FixedMode; radius?: number } {
-  switch (s.phase) {
-    case 'ASCENSO':
-      return { mode: 'ship', radius: s.t < 140 ? 160 : 1100 };
-    case 'INSERCION':
-    case 'ORBITA_BAJA':
-      return { mode: 'earth', radius: 13000 };
-    case 'ORBITA_ALTA':
-      return { mode: 'earth' };
-    case 'TRANSITO_IDA':
-      return { mode: 'overview' };
-    case 'SOBREVUELO':
-      return { mode: 'moon', radius: 85000 };
-    case 'REGRESO': {
-      const rel = sub(s.ship.r, earth.r);
-      const inbound = dot(rel, sub(s.ship.v, earth.v)) < 0;
-      return inbound && length(rel) < 70000 ? { mode: 'earth', radius: 80000 } : { mode: 'overview' };
-    }
-    case 'ENTRADA':
-      return { mode: 'earth', radius: 20000 };
-  }
-}
-
 const cssVar = (el: Element, name: string): string => getComputedStyle(el).getPropertyValue(name).trim() || '#888888';
 
-/** Crea una vista de trayectoria (2D cenital o 3D en perspectiva) dentro de `container` y arranca su loop de dibujo. */
+/**
+ * Encuadre del mapa: el rectángulo que contiene el plan nominal completo y los dos
+ * cuerpos, en el marco rotante, con un margen. Devuelve el centro y el semialto que
+ * hace entrar todo con la relación de aspecto dada.
+ */
+function mapFraming(eph: ReturnType<typeof ephemerisOf>, aspect: number): { center: Vec3; radius: number } {
+  let xMin = Infinity;
+  let xMax = -Infinity;
+  let yMin = Infinity;
+  let yMax = -Infinity;
+  const frame: ViewFrame = { eph, rotating: true, origin: ZERO };
+  const take = (p: Vec3): void => {
+    xMin = Math.min(xMin, p.x);
+    xMax = Math.max(xMax, p.x);
+    yMin = Math.min(yMin, p.y);
+    yMax = Math.max(yMax, p.y);
+  };
+  for (const [t, x, y] of NOMINAL_PATH) take(toDisplayFrame({ x, y, z: 0 }, t, frame));
+  const earth = toDisplayFrame(eph.earth(0).r, 0, frame);
+  const moon = toDisplayFrame(eph.moon(0).r, 0, frame);
+  take(add(earth, { x: -R_EARTH * MAP_EXAGGERATION, y: 0, z: 0 }));
+  take(add(moon, { x: R_MOON * MAP_EXAGGERATION * 2, y: 0, z: 0 }));
+  const halfW = (xMax - xMin) / 2;
+  const halfH = (yMax - yMin) / 2;
+  const a = Math.max(0.2, aspect);
+  // La cámara ortográfica aplica el radio a la dimensión más chica (ver camera.ts).
+  const radius = a >= 1 ? Math.max(halfH, halfW / a) : Math.max(halfW, halfH * a);
+  return { center: { x: (xMin + xMax) / 2, y: (yMin + yMax) / 2, z: 0 }, radius: radius * 1.12 };
+}
+
+/** Crea una vista de trayectoria dentro de `container` y arranca su loop de dibujo. */
 export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps: TrajectoryViewDeps): { dispose(): void } {
   const is3d = dim === '3d';
+  const isMap = dim === '2d';
+  const isInset = dim === 'inset';
   const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(cssVar(container, '--c-screen'));
@@ -132,15 +154,22 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   scene.add(bodies.group, trails.group, model.group, debrisGroup);
   const overlay = createOverlay(container);
   const rig: CameraRig = is3d ? createPerspectiveRig(renderer.domElement) : createOrthoRig(renderer.domElement);
+  // El mapa y el recuadro son estáticos: sin rueda ni pellizco.
+  if (!is3d) rig.setActive(false);
 
+  // Clave del último encuadre aplicado (se invalida al cambiar el tamaño).
+  let lastCameraKey = '';
   let width = 1;
   let height = 1;
+  let aspect = 1;
   const resize = (): void => {
     width = Math.max(1, container.clientWidth);
     height = Math.max(1, container.clientHeight);
+    aspect = width / height;
     renderer.setSize(width, height);
     rig.resize(width, height);
     trails.setResolution(width, height);
+    lastCameraKey = '';
   };
   const observer = new ResizeObserver(resize);
   observer.observe(container);
@@ -148,15 +177,17 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
 
   // Cachés para no reconstruir geometrías sin necesidad.
   let lastSettings: ViewSettings | null = null;
-  let lastCameraKey = '';
+  let lastBodyScale = 0;
   let lastTrail: TrailPoint[] | null = null;
   let lastTrailKey = '';
   let lastPrediction: Prediction | null | undefined;
   let lastPredictionKey = '';
+  let lastNominalKey = '';
   let lastIconKey = '';
   let lastEngines = '';
   let lastParams: MissionParams | null = null;
   let eventNames: ReadonlyMap<string, string> = new Map();
+  let mapCenter: Vec3 = ZERO;
   let frameCount = 0;
   let lastTime = performance.now();
   let raf = 0;
@@ -184,32 +215,56 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     const s = deps.getState();
     const settings = deps.getSettings();
     const eph = ephemerisOf(s);
-    const rotating = settings.frame === 'rotating';
+    // El mapa y el recuadro viven en el marco rotante: la Tierra y la Luna no se mueven.
+    const rotating = is3d ? settings.frame === 'rotating' : true;
     const earth = eph.earth(s.t);
     const moon = eph.moon(s.t);
     const frameAngle = rotating ? eph.moonAngle(s.t) : 0;
     /** Dirección inercial llevada al marco de dibujo. */
     const displayDir = (d: Vec3): Vec3 => (rotating ? rotateZ(d, -frameAngle) : d);
 
-    if (settings !== lastSettings) {
-      bodies.setExaggerated(settings.exaggerate);
+    const bodyScale = isInset ? 1 : settings.exaggerate ? (is3d ? EXAGGERATION : MAP_EXAGGERATION) : 1;
+    if (settings !== lastSettings || bodyScale !== lastBodyScale) {
+      bodies.setBodyScale(bodyScale);
       lastSettings = settings;
+      lastBodyScale = bodyScale;
     }
 
     // --- Cámara: modo efectivo y encuadre ---
-    const camera: { mode: FixedMode; radius?: number } =
-      settings.cameraMode !== 'auto' ? { mode: settings.cameraMode } : is3d ? { mode: 'ship' } : autoCamera(s, earth);
-    const radius = camera.radius ?? defaultRadius(camera.mode, rotating, dim, s.vehicle);
-    const cameraKey = `${settings.cameraMode}|${camera.mode}|${radius}|${settings.frame}`;
-    if (cameraKey !== lastCameraKey) {
-      // Solo se reencuadra cuando cambia el modo o la etapa: mientras tanto se respeta el zoom manual.
-      rig.setViewRadius(radius);
-      lastCameraKey = cameraKey;
+    const base: ViewFrame = { eph, rotating, origin: ZERO };
+    let camera: { mode: FixedMode; radius: number };
+    if (isMap) {
+      const key = `map|${aspect.toFixed(3)}|${s.params.moonAngle0Deg}`;
+      if (key !== lastCameraKey) {
+        const f = mapFraming(eph, aspect);
+        mapCenter = f.center;
+        rig.setViewRadius(f.radius);
+        lastCameraKey = key;
+      }
+      camera = { mode: 'overview', radius: rig.getViewRadius() };
+    } else if (isInset) {
+      const high = s.autoBurns.E5.status === 'done' || s.autoBurns.E5.status === 'burning' || s.vehicle.icpsSeparated;
+      camera = { mode: 'earth', radius: high ? INSET_RADIUS_HIGH : INSET_RADIUS_LOW };
+      const key = `inset|${camera.radius}`;
+      if (key !== lastCameraKey) {
+        rig.setViewRadius(camera.radius);
+        lastCameraKey = key;
+      }
+    } else {
+      const mode: FixedMode = settings.cameraMode !== 'auto' ? settings.cameraMode : 'ship';
+      const radius = defaultRadius(mode, rotating, s.vehicle);
+      camera = { mode, radius };
+      const cameraKey = `${settings.cameraMode}|${mode}|${radius}|${settings.frame}`;
+      if (cameraKey !== lastCameraKey) {
+        // Solo se reencuadra cuando cambia el modo o la etapa: mientras tanto se respeta el zoom manual.
+        rig.setViewRadius(radius);
+        lastCameraKey = cameraKey;
+      }
     }
 
     // --- Marco de dibujo y origen flotante ---
-    const base: ViewFrame = { eph, rotating, origin: ZERO };
     const focus = (): Vec3 => {
+      if (isMap) return mapCenter;
       if (camera.mode === 'ship') return toDisplayFrame(s.ship.r, s.t, base);
       if (camera.mode === 'earth') return toDisplayFrame(earth.r, s.t, base);
       if (camera.mode === 'moon') return toDisplayFrame(moon.r, s.t, base);
@@ -228,7 +283,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
 
     // --- Trazos ---
     const tip = { t: s.t, r: s.ship.r };
-    const viewKey = `${settings.frame}|${settings.colorMode}|${camera.mode}`;
+    const viewKey = `${rotating}|${settings.colorMode}|${camera.mode}`;
     const trailEvery = s.trail.length > 6000 ? 6 : 1;
     const trailKey = `${viewKey}|${s.trail.length}|${s.t}`;
     if (s.trail !== lastTrail || (trailKey !== lastTrailKey && frameCount % trailEvery === 0)) {
@@ -241,6 +296,14 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       trails.setPredicted(s.prediction ? s.prediction.points : [], tip, frame);
       lastPrediction = s.prediction;
       lastPredictionKey = predictionKey;
+    }
+    // El plan nominal solo se dibuja en el mapa y el recuadro, y solo se reconstruye si cambia el origen.
+    if (!is3d) {
+      const nominalKey = `${frame.origin.x.toFixed(0)}|${frame.origin.y.toFixed(0)}|${s.params.moonAngle0Deg}`;
+      if (nominalKey !== lastNominalKey) {
+        trails.setNominal(NOMINAL_PATH, frame);
+        lastNominalKey = nominalKey;
+      }
     }
     trails.place(frame);
     const viewRadiusScene = rig.getViewRadius() * KM_TO_SCENE;
@@ -291,7 +354,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     rig.update();
     rig.camera.updateMatrixWorld();
     const pxPerScene = Math.min(width, height) / 2 / viewRadiusScene;
-    const k = settings.exaggerate ? EXAGGERATION : 1;
+    const es = getLocale() === 'es';
     overlay.update(rig.camera, width, height, frame, {
       earth: earth.r,
       moon: moon.r,
@@ -300,13 +363,14 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       shipAngle: Math.atan2(shipDir.y, shipDir.x),
       showIcons: !is3d,
       radiusPx: {
-        earth: R_EARTH * k * KM_TO_SCENE * pxPerScene,
-        moon: R_MOON * k * KM_TO_SCENE * pxPerScene,
+        earth: R_EARTH * bodyScale * KM_TO_SCENE * pxPerScene,
+        moon: R_MOON * bodyScale * KM_TO_SCENE * pxPerScene,
       },
       debris: s.debris.map((item) => {
         const d = displayDir(item.dir);
         return { item, angle: Math.atan2(d.y, d.x) };
       }),
+      labels: { earth: es ? 'TIERRA' : 'EARTH', moon: es ? 'LUNA' : 'MOON' },
     });
 
     // --- Dibujo: fondo de estrellas y, encima, la escena ---

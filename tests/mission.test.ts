@@ -2,15 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { fly, flyFrom, withBurn } from '../scripts/lib/calibration';
 import { advance, executeManeuver, powerInputOf, produce, setManeuver } from '../src/sim/advance';
 import { airVelocity } from '../src/sim/atmosphere';
+import { dvMagnitude } from '../src/sim/burns';
 import * as cmd from '../src/sim/commands';
 import {
+  ASCENT_TABLE,
+  CM_SEP_LEAD_TIME,
+  CUBESAT_DEPLOYMENTS,
+  E7_BURN_DURATION,
   ENTRY_CORRIDOR,
   FLYBY_ALTITUDE_TARGET,
+  HEO_ORBIT,
   INSERTION_ALTITUDE,
+  INSERTION_ORBIT,
   INSERTION_SPEED_REL,
   MECO_ALTITUDE,
   MET_E4_PERIGEE_RAISE,
   MET_E5_APOGEE_RAISE,
+  MET_E7_DEPARTURE,
+  MET_ICPS_SPLASHDOWN,
+  ORBIT_TABLE,
+  POST_ARB_ORBIT,
+  POST_PRM_ORBIT,
   R_EARTH,
   TLI_HALF_BURN,
 } from '../src/sim/constants';
@@ -20,9 +32,10 @@ import { ASCENT_SEQUENCE } from '../src/sim/mission/ascent';
 import { MISSION_PARAMS } from '../src/sim/mission/params';
 import { procedureView } from '../src/sim/mission/procedures';
 import { nextEvent, timelineStatus } from '../src/sim/mission/timeline';
+import { earthElements } from '../src/sim/orbit';
 import { forces } from '../src/sim/power';
-import { SimState, altitudeOf, createInitialState, ephemerisOf } from '../src/sim/state';
-import { ENGINES, FULL_TANKS, G0, MASS, TANK, burnDuration, totalMass } from '../src/sim/vehicle';
+import { INITIAL_MET, SimState, altitudeOf, createInitialState, ephemerisOf } from '../src/sim/state';
+import { ENGINES, FULL_TANKS, G0, MASS, SRB_ISP, TANK, burnDuration, totalMass } from '../src/sim/vehicle';
 
 const P = MISSION_PARAMS;
 const DAY = 86400;
@@ -31,6 +44,9 @@ const S = ASCENT_SEQUENCE;
 const launch = (): SimState => createInitialState(P, { headless: true, autoCrew: true });
 /** Velocidad relativa a la Tierra en rotación (la de las tablas de ascenso). */
 const speedRel = (s: SimState): number => length(sub(s.ship.v, airVelocity(s.ship.r, ephemerisOf(s).earth(s.t))));
+/** Velocidad inercial respecto de la Tierra (la de las tablas en órbita). */
+const speedIn = (s: SimState): number => length(sub(s.ship.v, ephemerisOf(s).earth(s.t).v));
+const elements = (s: SimState) => earthElements(s.ship, s.t, ephemerisOf(s));
 
 /** Corre el bucle de frames como lo hace la app. `crew` actúa cuando la sim se pausa. */
 function runFrames(s0: SimState, crew: (s: SimState) => SimState, until = Infinity, maxFrames = 400000): SimState {
@@ -67,12 +83,14 @@ describe('ascenso simulado (E1–E3)', () => {
     // Torre despejada: 468 ft y 70 mph publicados.
     expect(altitudeOf(s)).toBeGreaterThan(0.08);
     expect(altitudeOf(s)).toBeLessThan(0.2);
-    expect(speedRel(s)).toBeCloseTo(0.031, 2);
+    // 70 mph publicados; la aceleración inicial depende de la rampa de empuje de los boosters (supuesta).
+    expect(Math.abs(speedRel(s) - 0.031)).toBeLessThan(0.01);
     // Separación de los boosters: 45,2 km y 1,34 km/s publicados (no son objetivo del ajuste).
+    // Los primeros dos minutos salen ~10 % más rápidos que lo publicado (ver process.md).
     s = flyFrom(s, S.srbSeparation);
     expect(s.vehicle.srbSeparated).toBe(true);
     expect(Math.abs(altitudeOf(s) - 45.23)).toBeLessThan(8);
-    expect(Math.abs(speedRel(s) - 1.344)).toBeLessThan(0.15);
+    expect(Math.abs(speedRel(s) - 1.344)).toBeLessThan(0.1);
     expect(s.propulsion.prop[TANK.SRB]).toBe(0);
     // MECO y separación de la etapa central: los tres datos que sí ajusta el guiado.
     s = flyFrom(s, S.meco);
@@ -87,11 +105,11 @@ describe('ascenso simulado (E1–E3)', () => {
     expect(s.markers.map((m) => m.eventId)).toEqual(['E1', 'E2', 'E3']);
   });
 
-  it('Max Q cae en el primer minuto y medio, y la aceleración respeta el límite de los RS‑25', () => {
+  it('Max Q cae cerca del instante publicado, y la aceleración respeta el límite de los RS‑25', () => {
     let s = flyFrom(launch(), 100);
     const q = s.record.maxQ!;
-    expect(q.t).toBeGreaterThan(40);
-    expect(q.t).toBeLessThan(90);
+    // Publicado: 00:01:11. El perfil de empuje de los boosters tiene su mínimo ahí.
+    expect(Math.abs(q.t - 71)).toBeLessThan(15);
     expect(q.q).toBeGreaterThan(15000);
     expect(q.q).toBeLessThan(45000);
     expect(s.log.some((l) => l.text.startsWith('Max Q'))).toBe(true);
@@ -99,15 +117,52 @@ describe('ascenso simulado (E1–E3)', () => {
     s = flyFrom(s, 470);
     const f = forces(powerInputOf(s)!, s.t, s.ship.r, s.ship.v, s.propulsion.prop);
     expect(f.thrustAccel).toBeCloseTo(P.ascent.gLimit, 3);
-    expect(f.thrustAccel / G0).toBeLessThan(3.2);
+    expect(f.thrustAccel / G0).toBeLessThan(4);
+    // Los últimos 5 s van al 67 %: la aceleración baja.
+    const end = flyFrom(s, 484);
+    const fe = forces(powerInputOf(end)!, end.t, end.ship.r, end.ship.v, end.propulsion.prop);
+    // (el límite de aceleración ya tenía los motores cerca del 70 %, así que la bajada es chica)
+    expect(fe.thrustAccel).toBeLessThan(f.thrustAccel);
+    expect(fe.thrust / f.thrust).toBeLessThan(0.95);
   });
 
-  it('en la plataforma la masa es la de despegue publicada y el empuje supera al peso', () => {
-    const s = launch();
-    expect(totalMass(s.vehicle, s.propulsion.prop) / 1e6).toBeCloseTo(2.61, 1);
+  it('cuenta regresiva: los RS‑25 arrancan en T‑6 s sujetos a la plataforma; los boosters en T‑0', () => {
+    const pad = launch();
+    expect(pad.t).toBe(INITIAL_MET);
+    expect(pad.ascentEngines).toEqual(['RS25']);
+    // Masa en la plataforma: 2.604 t del SLS cargado + Orion (guías de NASA; el modelo suma sus partes).
+    expect(totalMass(pad.vehicle, pad.propulsion.prop) / 1e6).toBeCloseTo(2.63, 1);
+    const s = flyFrom(pad, 0);
+    expect(s.t).toBe(0);
+    expect(altitudeOf(s)).toBeCloseTo(0, 6);
+    expect(s.ascentEngines).toEqual(['SRB', 'RS25']);
+    // Seis segundos de RS‑25 gastan propelente de la etapa central antes de despegar.
+    expect(MASS.coreProp - s.propulsion.prop[TANK.CORE]).toBeGreaterThan(4000);
+    expect(MASS.coreProp - s.propulsion.prop[TANK.CORE]).toBeLessThan(9000);
+    // Empuje al despegue publicado: 36.787 kN.
     const f = forces(powerInputOf(s)!, 0, s.ship.r, s.ship.v, s.propulsion.prop);
+    expect(f.thrust / 1e3).toBeCloseTo(36787, -3);
     expect(f.thrustAccel / G0).toBeGreaterThan(1.2);
     expect(f.thrustAccel / G0).toBeLessThan(1.7);
+    // El impulso específico efectivo de los boosters sale de la curva y el propelente publicados.
+    expect(SRB_ISP).toBeGreaterThan(255);
+    expect(SRB_ISP).toBeLessThan(275);
+  });
+
+  it('la tabla de eventos publicada del ascenso y la órbita se reproduce sin haberla ajustado', () => {
+    let s = launch();
+    for (const row of ASCENT_TABLE.slice(1)) {
+      s = flyFrom(s, row.met);
+      // Altitud dentro de 3 km o del 15 %; velocidad relativa dentro de 0,1 km/s o del 7 %.
+      // En los primeros dos minutos el modelo va ~10 % más rápido que la tabla (ver process.md).
+      expect(Math.abs(altitudeOf(s) - row.altitude)).toBeLessThan(Math.max(3, 0.15 * row.altitude));
+      expect(Math.abs(speedRel(s) - row.speed)).toBeLessThan(Math.max(0.1, 0.07 * row.speed));
+    }
+    for (const row of ORBIT_TABLE) {
+      s = flyFrom(s, row.met);
+      expect(Math.abs(altitudeOf(s) - row.altitude)).toBeLessThan(Math.max(30, 0.05 * row.altitude));
+      expect(Math.abs(speedIn(s) - row.speed)).toBeLessThan(0.05 * row.speed);
+    }
   });
 
   it('con un guiado malo el cohete no llega a la órbita', () => {
@@ -131,31 +186,57 @@ describe('H6 · fase en órbita terrestre', () => {
     expect(e4.t).toBe(MET_E4_PERIGEE_RAISE);
     expect(e5.t).toBe(MET_E5_APOGEE_RAISE);
     expect(s.propulsion.icpsBurns).toBe(2);
-    expect(s.propulsion.icpsDvUsed).toBeCloseTo(P.burns.E4.dv.prograde + P.burns.E5.dv.prograde, 6);
+    expect(s.propulsion.icpsDvUsed).toBeCloseTo(dvMagnitude(P.burns.E4.dv) + dvMagnitude(P.burns.E5.dv), 6);
     expect(s.autoBurns.E5.status).toBe('done');
   });
 
-  it('el encendido de E5 dura lo que dice la ecuación del cohete y queda centrado en el perigeo', () => {
+  it('las órbitas publicadas: inserción 28 × 2.222, tras E4 185 × 2.222, tras E5 0 × 74.080 y tras E8 185 × 74.080 km', () => {
+    const ins = elements(fly(P, 700));
+    expect(Math.abs(ins.rp - R_EARTH - INSERTION_ORBIT.perigee)).toBeLessThan(15);
+    expect(Math.abs(ins.ra - R_EARTH - INSERTION_ORBIT.apogee)).toBeLessThan(60);
+    const prm = elements(fly(P, MET_E4_PERIGEE_RAISE + 400));
+    expect(prm.rp - R_EARTH).toBeCloseTo(POST_PRM_ORBIT.perigee, 1);
+    expect(Math.abs(prm.ra - R_EARTH - POST_PRM_ORBIT.apogee)).toBeLessThan(60);
+    const arb = fly(P, MET_E5_APOGEE_RAISE + 1900);
+    expect(arb.burn).toBeNull();
+    expect(Math.abs(elements(arb).rp - R_EARTH - POST_ARB_ORBIT.perigee)).toBeLessThan(1);
+    // Al ICPS le queda margen: el encendido no terminó por agotamiento.
+    expect(arb.propulsion.prop[TANK.ICPS]).toBeGreaterThan(500);
+    const afterE7 = elements(fly(P, MET_E7_DEPARTURE + E7_BURN_DURATION + 60));
+    expect(afterE7.ra - R_EARTH).toBeCloseTo(POST_ARB_ORBIT.apogee, -1);
+    const heo = elements(fly(P, P.burns.E8.met + 600));
+    expect(heo.rp - R_EARTH).toBeCloseTo(HEO_ORBIT.perigee, 1);
+    expect(heo.ra - R_EARTH).toBeCloseTo(HEO_ORBIT.apogee, -1);
+  });
+
+  it('las duraciones: E4 ~30 s, E5 ~20 min y E7 2 min, como publica NASA', () => {
+    const e4 = fly(P, MET_E4_PERIGEE_RAISE + 1).burn!;
+    expect(e4.tEnd - e4.tStart).toBeGreaterThan(20);
+    expect(e4.tEnd - e4.tStart).toBeLessThan(40);
     const before = fly(P, MET_E5_APOGEE_RAISE);
     const mass = totalMass(before.vehicle, before.propulsion.prop);
-    const duration = burnDuration(ENGINES.RL10, mass, P.burns.E5.dv.prograde);
+    const duration = burnDuration(ENGINES.RL10, mass, dvMagnitude(P.burns.E5.dv));
     expect(before.burn!.tEnd - before.burn!.tStart).toBeCloseTo(duration, 6);
-    expect(duration).toBeGreaterThan(600);
-    // Sin E5, el perigeo de esa órbita cae en el medio del encendido.
-    const coast = fly(withBurn(P, 'E5', { prograde: 0 }), MET_E5_APOGEE_RAISE + 3000);
-    const peri = coast.record.apsides.find((a) => a.type === 'periapsis' && a.t > MET_E4_PERIGEE_RAISE + 600)!;
-    expect(Math.abs(peri.t - (MET_E5_APOGEE_RAISE + duration / 2))).toBeLessThan(5);
+    expect(duration / 60).toBeGreaterThan(15);
+    expect(duration / 60).toBeLessThan(21);
+    // E5 mantiene la actitud inercial de la ignición.
+    expect(before.burn!.fixedDir).not.toBeNull();
+    const e7 = fly(P, MET_E7_DEPARTURE + 1).burn!;
+    expect(e7.tEnd - e7.tStart).toBeCloseTo(E7_BURN_DURATION, 3);
   });
 
   it('la órbita alta es estable durante el chequeo y vuelve al perigeo para el TLI', () => {
     expect(s.outcome).toBeNull();
     expect(s.phase).toBe('ORBITA_ALTA');
     const high = apsides.find((a) => a.type === 'apoapsis' && a.t > MET_E5_APOGEE_RAISE + 3000)!;
-    expect(high.radius - R_EARTH).toBeGreaterThan(60000);
+    expect(high.radius - R_EARTH).toBeGreaterThan(70000);
     const next = fly(withBurn(P, 'E9', { prograde: 0 }), P.burns.E9.met + 1200);
     const peri = next.record.apsides.find((a) => a.type === 'periapsis' && a.t > high.t)!;
     expect(Math.abs(peri.t - (P.burns.E9.met + TLI_HALF_BURN))).toBeLessThan(5);
-    expect(peri.radius - R_EARTH).toBeGreaterThan(300);
+    expect(peri.radius - R_EARTH).toBeGreaterThan(150);
+    // Sin E8, Orion reentra en el perigeo: la órbita publicada tras E5 tiene el perigeo a altitud cero.
+    const noE8 = fly(withBurn(withBurn(P, 'E8', { prograde: 0 }), 'E9', { prograde: 0 }), P.burns.E9.met + 3600);
+    expect(noE8.outcome?.kind).toBe('reentry-early');
   });
 });
 
@@ -200,10 +281,15 @@ describe('H7 · retorno libre', () => {
     // Antes de separar el módulo de servicio, el propelente gastado es el de la ecuación del cohete.
     const pre = fly(P, P.nominal.eiMet - 2 * 3600);
     const used = FULL_TANKS[TANK.ESM] - pre.propulsion.prop[TANK.ESM];
-    const m0 = MASS.cm + MASS.smDry + MASS.esmProp;
+    const m0 = MASS.cm + MASS.cmProp + MASS.smDry + MASS.esmProp;
     const ideal = m0 * (1 - Math.exp((-orion * 1000) / (G0 * ENGINES.MAIN.ispVac)));
     expect(used / ideal).toBeGreaterThan(0.98);
     expect(used / ideal).toBeLessThan(1.02);
+  });
+
+  it('la separación CM/SM ocurre 20 min antes de la interfaz de entrada, como en el cronograma de NASA', () => {
+    expect(s.record.cmSepAt).not.toBeNull();
+    expect(Math.abs(s.record.ei!.t - s.record.cmSepAt! - CM_SEP_LEAD_TIME)).toBeLessThan(25);
   });
 
   it('da el mismo resultado avanzando frame a frame con warp ×10000', () => {
@@ -285,15 +371,21 @@ describe('partes que se desprenden', () => {
     expect(s.debris.some((d) => d.kind === 'SRB')).toBe(false);
     expect(s.debris.some((d) => d.kind === 'CORE')).toBe(false);
     expect(s.log.some((l) => l.text.startsWith('Los boosters caen'))).toBe(true);
-    expect(s.log.some((l) => l.text.startsWith('La etapa central reingresa'))).toBe(true);
+    expect(s.log.some((l) => l.text.includes('etapa central') && l.text.includes('reingresa'))).toBe(true);
   });
 
-  it('el ICPS queda en la órbita alta después de la separación', () => {
+  it('el ICPS libera los CubeSats y reentra en su primer perigeo, unas 25 h después del lanzamiento', () => {
     let s = cmd.play(createInitialState(P, { autoCrew: true }));
     s = flyFrom(s, 6 * 3600);
     const icps = s.debris.find((d) => d.kind === 'ICPS')!;
     expect(icps).toBeDefined();
     expect(length(sub(icps.ship.r, ephemerisOf(s).earth(icps.t).r)) - R_EARTH).toBeGreaterThan(10000);
+    expect(s.debris.filter((d) => d.kind === 'CUBESAT').length).toBe(CUBESAT_DEPLOYMENTS.length);
+    expect(s.log.some((l) => l.text.includes('eliminación'))).toBe(true);
+    s = flyFrom(s, 27 * 3600);
+    expect(s.debris.some((d) => d.kind === 'ICPS')).toBe(false);
+    const fall = s.log.find((l) => l.text.includes('(ICPS) reingresa'))!;
+    expect(Math.abs(fall.t - MET_ICPS_SPLASHDOWN)).toBeLessThan(3 * 3600);
   });
 });
 
@@ -334,8 +426,8 @@ describe('actitud y controladores manuales', () => {
     // Nave girada 180° y actitud fija: el encendido "prograde" de E7 frena en vez de acelerar.
     let s = flyFrom(cmd.setRhc(cmd.setDapMode(base, 'MAN'), 1), base.t + 60);
     s = cmd.setDapMode(cmd.setRhc(s, 0), 'INRTL');
-    const good = fly(P, P.burns.E7.met + 60);
-    const wrong = flyFrom(s, P.burns.E7.met + 60);
+    const good = fly(P, P.burns.E7.met + E7_BURN_DURATION + 10);
+    const wrong = flyFrom(s, P.burns.E7.met + E7_BURN_DURATION + 10);
     expect(wrong.maneuvers.E7.status).toBe('done');
     const eph = ephemerisOf(good);
     const vGood = length(sub(good.ship.v, eph.earth(good.t).v));
@@ -387,7 +479,8 @@ describe('guiado de correcciones', () => {
 describe('línea de tiempo y warp', () => {
   it('el próximo evento sale del plan y, tras el TLI, de la predicción', () => {
     const start = cmd.reset(P);
-    expect(nextEvent(start)).toMatchObject({ id: 'E2', t: 128 });
+    expect(nextEvent(start)).toMatchObject({ id: 'E1', t: 0 });
+    expect(nextEvent(flyFrom(start, 1))).toMatchObject({ id: 'E2', t: 128 });
     let s = cmd.play(createInitialState(P, { autoCrew: true }));
     while (s.record.tliAt === null) s = advance(s, 600, Infinity);
     const next = nextEvent(s)!;

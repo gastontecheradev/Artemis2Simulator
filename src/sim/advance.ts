@@ -6,25 +6,30 @@ import {
   ATTITUDE_SLEW_RATE,
   BURN_LEAD_TIME,
   BURN_WINDOW_TOLERANCE,
-  CM_SEP_AUTO_ALTITUDE,
-  CM_SEP_PROMPT_ALTITUDE,
+  CM_SEP_LEAD_TIME,
+  CM_SEP_PROMPT_LEAD_TIME,
+  CUBESAT_DEPLOYMENTS,
+  CUBESAT_DEPLOY_SPEED,
   EARTH_MOON_DISTANCE,
   ENTRY_CORRIDOR,
+  ICPS_DISPOSAL_DV,
   LOST_DISTANCE,
   MET_E6_PROX_OPS_END,
   MET_E6_PROX_OPS_START,
+  MET_ICPS_DISPOSAL,
   RHC_RATE,
   R_EARTH,
 } from './constants';
 import { SimEvent, integrateWithEvents } from './events';
 import { formatDvMs, formatMet, formatNumber } from './format';
+import { tr } from './i18n';
 import { ShipState, integrate } from './integrator';
 import { Vec3, add, angleBetween, cross, distance, length, normalize, rotateAbout, scale, sub } from './math/vec3';
 import { ASCENT_SEQUENCE, airPathTangent, ascentDirection } from './mission/ascent';
 import { isPostTli } from './mission/phases';
 import { MANEUVER_TITLE, firstIncompleteProcedure, procedureComplete } from './mission/procedures';
 import { EventId, eventNumber } from './mission/timeline';
-import { earthElements } from './orbit';
+import { earthElements, timeToEntry } from './orbit';
 import { PowerInput, forces, makeDrag, makePower } from './power';
 import { Prediction, entryInterfaceOf, periluneOf, propagate, sampleInterval } from './propagate';
 import { PropSystem, SYSTEM_ENGINE, burnBlocker } from './propulsion';
@@ -38,8 +43,9 @@ import {
   Outcome,
   SimState,
   ephemerisOf,
+  padState,
 } from './state';
-import { ENGINES, EngineId, G0, MASS, PropLoad, TANK, burnDuration, totalMass } from './vehicle';
+import { ENGINES, EngineId, G0, MASS, PropLoad, SRB_SEPARATION_SPEED, TANK, TANK_COUNT, burnDuration, totalMass } from './vehicle';
 
 /** Copia de trabajo de un estado: se muta localmente y se devuelve como estado nuevo. */
 export type Draft = { -readonly [K in keyof SimState]: SimState[K] };
@@ -86,16 +92,23 @@ function autoPause(d: Draft): void {
 }
 
 const setProp = (d: Draft, prop: readonly number[]): void => {
-  d.propulsion = { ...d.propulsion, prop: [prop[0], prop[1], prop[2], prop[3]] as PropLoad };
+  const next = Array.from({ length: TANK_COUNT }, (_, i) => prop[i] ?? 0) as unknown as PropLoad;
+  d.propulsion = { ...d.propulsion, prop: next };
 };
 
 // ---------- Fuerzas y actitud ----------
+
+/** Propulsores de traslación disponibles: los del módulo de servicio o, sin él, los de la cápsula. */
+export const thcEngine = (s: SimState): EngineId => (s.vehicle.cmSeparated ? 'CMRCS' : 'RCS');
 
 /** Motores encendidos en este instante. */
 export function runningEngines(s: SimState): EngineId[] {
   const engines: EngineId[] = s.phase === 'ASCENSO' ? [...s.ascentEngines] : [];
   if (s.burn) engines.push(SYSTEM_ENGINE[s.burn.system]);
-  if (s.thc !== 0 && s.vehicle.icpsSeparated && !s.vehicle.cmSeparated && !engines.includes('RCS')) engines.push('RCS');
+  if (s.thc !== 0 && s.vehicle.icpsSeparated) {
+    const e = thcEngine(s);
+    if (!engines.includes(e)) engines.push(e);
+  }
   return engines;
 }
 
@@ -108,11 +121,14 @@ export function powerInputOf(s: SimState): PowerInput | null {
   const engines = runningEngines(s);
   if (engines.length === 0 && distance(s.ship.r, eph.earth(s.t).r) - R_EARTH > ATMOSPHERE_TOP + 20) return null;
   const hold = s.attitude.dir;
+  const fixed = s.burn?.fixedDir ?? null;
   const direction =
     s.phase === 'ASCENSO'
       ? ascentDirection(s.params.ascent, s.ascentTan, eph)
       : s.burn && s.attitude.mode === 'AUTO'
-        ? burnDirection(s.burn.dv, eph)
+        ? fixed
+          ? () => fixed
+          : burnDirection(s.burn.dv, eph)
         : () => hold;
   return { eph, cfg: s.vehicle, engines, direction, srbIgnition: 0, gLimit: s.params.ascent.gLimit, rcsSign: s.thc };
 }
@@ -137,6 +153,7 @@ function attitudeTargetDv(s: SimState): DeltaV | null {
 export function commandedDirection(s: SimState): Vec3 {
   const eph = ephemerisOf(s);
   if (s.phase === 'ASCENSO') return ascentDirection(s.params.ascent, s.ascentTan, eph)(s.t, s.ship.r, s.ship.v);
+  if (s.burn?.fixedDir) return s.burn.fixedDir;
   const dv = attitudeTargetDv(s);
   if (dv) return burnDirection(dv, eph)(s.t, s.ship.r, s.ship.v);
   return normalize(sub(s.ship.v, referenceBody(s.ship, s.t, eph).v));
@@ -164,20 +181,12 @@ function updateAttitude(d: Draft, dt: number): void {
 
 // ---------- Partes que se desprenden ----------
 
-/** Aviso del log cuando una parte desprendida termina su caída. */
-const DEBRIS_FALL: Readonly<Record<DebrisKind, string>> = {
-  SRB: 'Los boosters caen al océano.',
-  LAS: 'La torre de escape cae al océano.',
-  FAIRING: 'Los paneles del módulo de servicio caen al océano.',
-  CORE: 'La etapa central reingresa y cae al océano.',
-  ICPS: 'La etapa superior (ICPS) reingresa y cae.',
-  SM: 'El módulo de servicio reingresa y cae.',
-};
 
 /**
- * Suelta una parte con una velocidad relativa (m/s) a lo largo del eje de la nave y
- * de costado. SUPUESTO: las velocidades de separación y los coeficientes balísticos
- * (Cd·A/m, en m²/kg) son órdenes de magnitud, no datos publicados.
+ * Suelta una parte con una velocidad relativa (m/s) a lo largo de un eje y de costado.
+ * Las velocidades de separación de los boosters salen de sus motores de separación
+ * publicados; el resto, y los coeficientes balísticos (Cd·A/m, en m²/kg), son
+ * SUPUESTOS: órdenes de magnitud, no datos publicados.
  */
 function spawnDebris(
   d: Draft,
@@ -188,13 +197,38 @@ function spawnDebris(
   /** Dónde queda el centro de la parte respecto del centro de la nave (m): a lo largo del eje y de costado. */
   offset: readonly [number, number],
   ballistic: number,
+  from: { readonly ship: ShipState; readonly dir: Vec3 } = { ship: d.ship, dir: d.attitude.dir },
+  name?: string,
 ): void {
   if (d.headless) return;
-  const dir = d.attitude.dir;
+  const dir = from.dir;
   const side = normalize(cross(Z, dir));
-  const r = add(d.ship.r, add(scale(dir, offset[0] / 1e3), scale(side, offset[1] / 1e3)));
-  const v = add(d.ship.v, add(scale(dir, speed[0] / 1000), scale(side, speed[1] / 1000)));
-  d.debris = [...d.debris, { id, kind, ship: { r, v }, t: d.t, hNext: 0.5, ballistic, since: d.t, dir }];
+  const r = add(from.ship.r, add(scale(dir, offset[0] / 1e3), scale(side, offset[1] / 1e3)));
+  const v = add(from.ship.v, add(scale(dir, speed[0] / 1000), scale(side, speed[1] / 1000)));
+  d.debris = [...d.debris, { id, kind, name, ship: { r, v }, t: d.t, hNext: 0.5, ballistic, since: d.t, dir }];
+}
+
+/** [SLS] Encendido de eliminación del ICPS: un impulso retrógrado chico sobre la etapa ya desprendida (Δv supuesto). */
+function icpsDisposalBurn(d: Draft): void {
+  const icps = d.debris.find((b) => b.kind === 'ICPS');
+  logTo(d, 'INFO', tr('log.icpsDisposal'));
+  if (!icps) return;
+  const eph = ephemerisOf(d);
+  const prograde = normalize(sub(icps.ship.v, eph.earth(icps.t).v));
+  const ship = { r: icps.ship.r, v: sub(icps.ship.v, scale(prograde, ICPS_DISPOSAL_DV / 1000)) };
+  d.debris = d.debris.map((b) => (b === icps ? { ...b, ship, hNext: 0.5 } : b));
+}
+
+/** [SLS] Liberación de un CubeSat desde el adaptador que quedó con el ICPS. */
+function deployCubesat(d: Draft, i: number): void {
+  const { name } = CUBESAT_DEPLOYMENTS[i];
+  const icps = d.debris.find((b) => b.kind === 'ICPS');
+  logTo(d, 'INFO', tr('log.cubesat', { name }));
+  if (!icps) return;
+  // Salen por el adaptador, hacia adelante respecto de la etapa, cada uno un poco de costado.
+  const sideways = [0.6, -0.6, 0.3, -0.3][i] * CUBESAT_DEPLOY_SPEED;
+  // 26 kg, cara de 0,37 × 0,24 m y Cd ≈ 2,2 (SUPUESTO para el coeficiente balístico).
+  spawnDebris(d, 'CUBESAT', `CUBESAT-${i}`, [CUBESAT_DEPLOY_SPEED, sideways], [8, 0], 7.5e-3, { ship: icps.ship, dir: icps.dir }, name);
 }
 
 /** Propaga las partes desprendidas hasta el instante actual (gravedad + arrastre). */
@@ -225,7 +259,7 @@ function advanceDebris(d: Draft): void {
       if (cur.id !== 'SRB-R' && cur.kind !== 'FAIRING') {
         const at = d.t;
         d.t = cur.t;
-        logTo(d, 'INFO', DEBRIS_FALL[cur.kind]);
+        logTo(d, 'INFO', tr(`fall.${cur.kind}` as const, { name: cur.name ?? cur.id }));
         d.t = at;
       }
       continue;
@@ -237,33 +271,33 @@ function advanceDebris(d: Draft): void {
 
 // ---------- Encendidos ----------
 
-const AUTO_TITLE = { E4: 'Elevación del perigeo', E5: 'Elevación del apogeo a órbita alta' } as const;
-const burnTitle = (id: 'E4' | 'E5' | ManeuverId): string => (id === 'E4' || id === 'E5' ? AUTO_TITLE[id] : MANEUVER_TITLE[id]);
+const burnTitle = (id: 'E4' | 'E5' | ManeuverId): string => (id === 'E4' || id === 'E5' ? tr(`burn.${id}`) : MANEUVER_TITLE[id]);
 
 /**
  * Enciende un motor para entregar el Δv pedido. El encendido dura lo que tarda ese
  * motor, con la masa actual, en dar ese Δv; se apaga solo al final (ver `endBurn`).
  * Devuelve false (y lo anota en el log) si está inhibido.
  */
-export function startBurn(d: Draft, id: 'E4' | 'E5' | ManeuverId, system: PropSystem, dv: DeltaV, eventId: EventId | null): boolean {
+export function startBurn(d: Draft, id: 'E4' | 'E5' | ManeuverId, system: PropSystem, dv: DeltaV, eventId: EventId | null, hold = false): boolean {
   const title = burnTitle(id);
   const mag = dvMagnitude(dv);
-  const blocker = d.burn ? 'Hay otro encendido en curso' : mag <= 0 ? 'Δv nulo' : burnBlocker(system, mag, d.propulsion, d.vehicle);
+  const blocker = d.burn ? tr('burn.blockerOther') : mag <= 0 ? tr('burn.blockerZero') : burnBlocker(system, mag, d.propulsion, d.vehicle);
   if (blocker) {
-    logTo(d, 'WARNING', `${title}: encendido inhibido. ${blocker}.`);
+    logTo(d, 'WARNING', tr('burn.inhibited', { title, reason: blocker }));
     return false;
   }
   const engine = ENGINES[SYSTEM_ENGINE[system]];
   const mass = totalMass(d.vehicle, d.propulsion.prop);
   const duration = burnDuration(engine, mass, mag);
-  d.burn = { id, system, tStart: d.t, tEnd: d.t + duration, dv, massStart: mass, propStart: d.propulsion.prop[engine.tank] };
+  const fixedDir = hold ? burnDirection(dv, ephemerisOf(d))(d.t, d.ship.r, d.ship.v) : null;
+  d.burn = { id, system, tStart: d.t, tEnd: d.t + duration, dv, massStart: mass, propStart: d.propulsion.prop[engine.tank], fixedDir };
   d.hNext = Math.min(d.hNext, 1);
   pushTrail(d, d.t, d.ship);
   if (eventId) mark(d, eventId, d.ship.r, d.t);
   logTo(
     d,
     'EVENT',
-    `${eventId ? `${eventId} · ` : ''}${title}: ignición (${system}). Δv ${formatDvMs(mag)} m/s en ${formatNumber(duration, 0)} s.`,
+    tr('burn.ignition', { prefix: eventId ? `${eventId} · ` : '', title, system, dv: formatDvMs(mag), dur: formatNumber(duration, 0) }),
     eventId ?? undefined,
   );
   return true;
@@ -289,8 +323,8 @@ export function endBurn(d: Draft, reason: 'complete' | 'cutoff'): void {
   d.predictionDirty = true;
   const planned = dvMagnitude(b.dv);
   const short = delivered < planned - 1e-4;
-  const why = reason === 'cutoff' ? 'Corte manual' : short ? 'Propelente agotado' : 'Fin del encendido';
-  logTo(d, short ? 'CAUTION' : 'INFO', `${b.id} · ${why}: Δv entregado ${formatDvMs(delivered)} m/s en ${formatNumber(d.t - b.tStart, 0)} s.`);
+  const why = tr(reason === 'cutoff' ? 'burn.cutoffManual' : short ? 'burn.depleted' : 'burn.complete');
+  logTo(d, short ? 'CAUTION' : 'INFO', tr('burn.end', { id: b.id, why, dv: formatDvMs(delivered), dur: formatNumber(d.t - b.tStart, 0) }));
   if (b.id === 'E4' || b.id === 'E5') {
     d.autoBurns = { ...d.autoBurns, [b.id]: { ...d.autoBurns[b.id], status: 'done' } };
     d.phase = b.id === 'E4' ? 'ORBITA_BAJA' : 'ORBITA_ALTA';
@@ -328,18 +362,19 @@ export function executeManeuver(d: Draft, id: ManeuverId): boolean {
 function separateSrb(d: Draft): void {
   d.vehicle = { ...d.vehicle, srbSeparated: true };
   const p = d.propulsion.prop;
-  setProp(d, [0, p[1], p[2], p[3]]);
-  spawnDebris(d, 'SRB', 'SRB-L', [-6, 9], [-20, 6.3], 1.0e-4);
-  spawnDebris(d, 'SRB', 'SRB-R', [-6, -9], [-20, -6.3], 1.0e-4);
+  setProp(d, [0, p[1], p[2], p[3], p[4]]);
+  // Los 8 motores de separación de cada booster lo empujan de costado (~7 m/s); el resto es el empuje de los RS‑25 que sigue.
+  spawnDebris(d, 'SRB', 'SRB-L', [-1, SRB_SEPARATION_SPEED], [-20, 6.3], 1.0e-4);
+  spawnDebris(d, 'SRB', 'SRB-R', [-1, -SRB_SEPARATION_SPEED], [-20, -6.3], 1.0e-4);
   mark(d, 'E2', d.ship.r, d.t);
-  logTo(d, 'EVENT', 'E2 · Separación de los boosters.', 'E2');
+  logTo(d, 'EVENT', tr('log.srbSep'), 'E2');
 }
 
 function jettisonLas(d: Draft): void {
   d.vehicle = { ...d.vehicle, lasJettisoned: true };
   spawnDebris(d, 'LAS', 'LAS', [45, 12], [49, 0], 2.8e-3);
   spawnDebris(d, 'FAIRING', 'FAIRING', [-4, -10], [40, 0], 2e-2);
-  logTo(d, 'EVENT', 'E2 · Eyección de la torre de escape (LAS) y de los paneles del módulo de servicio.', 'E2');
+  logTo(d, 'EVENT', tr('log.las'), 'E2');
 }
 
 function separateCore(d: Draft): void {
@@ -347,19 +382,14 @@ function separateCore(d: Draft): void {
   d.vehicle = { ...d.vehicle, coreSeparated: true };
   const p = d.propulsion.prop;
   spawnDebris(d, 'CORE', 'CORE', [-1.5, 0], [-45, 0], 5.5e-4);
-  setProp(d, [p[0], 0, p[2], p[3]]);
+  setProp(d, [p[0], 0, p[2], p[3], p[4]]);
   d.phase = 'INSERCION';
   d.ascentEngines = [];
   const el = earthElements(d.ship, d.t, eph);
   const speedRel = length(sub(d.ship.v, airVelocity(d.ship.r, eph.earth(d.t))));
   d.record = { ...d.record, insertion: { t: d.t, altitude: el.r - R_EARTH, speed: el.speed, speedRel, fpaDeg: el.fpaDeg } };
   mark(d, 'E3', d.ship.r, d.t);
-  logTo(
-    d,
-    'EVENT',
-    `E3 · Separación de la etapa central a ${formatNumber(el.r - R_EARTH, 1)} km y ${formatNumber(el.speed, 3)} km/s inerciales. Orion y el ICPS siguen en órbita.`,
-    'E3',
-  );
+  logTo(d, 'EVENT', tr('log.coreSep', { alt: formatNumber(el.r - R_EARTH, 1), speed: formatNumber(el.speed, 3) }), 'E3');
   d.predictionDirty = true;
 }
 
@@ -371,13 +401,13 @@ export function separateIcps(d: Draft): void {
   d.switches = { ...d.switches, icpsSepArm: false };
   spawnDebris(d, 'ICPS', 'ICPS', [-0.6, 0], [-11, 0], 5e-3);
   const p = d.propulsion.prop;
-  setProp(d, [p[0], p[1], 0, p[3]]);
+  setProp(d, [p[0], p[1], 0, p[3], p[4]]);
   mark(d, 'E6', d.ship.r, d.t);
-  logTo(d, 'EVENT', 'E6 · Separación Orion/ICPS. Demo de operaciones de proximidad.', 'E6');
+  logTo(d, 'EVENT', tr('log.icpsSep'), 'E6');
   for (const id of ['E4', 'E5'] as const) {
     if (d.autoBurns[id].status === 'pending') {
       d.autoBurns = { ...d.autoBurns, [id]: { ...d.autoBurns[id], status: 'cancelled' } };
-      logTo(d, 'WARNING', `${id}: encendido del ICPS cancelado, la etapa ya se separó.`);
+      logTo(d, 'WARNING', tr('log.icpsBurnCancelled', { id }));
     }
   }
   d.predictionDirty = true;
@@ -392,9 +422,9 @@ export function separateCm(d: Draft): void {
   d.thc = 0;
   spawnDebris(d, 'SM', 'SM', [-1.2, 0], [-4.3, 0], 1.7e-3);
   const p = d.propulsion.prop;
-  setProp(d, [p[0], p[1], p[2], 0]);
+  setProp(d, [p[0], p[1], p[2], 0, p[4]]);
   mark(d, 'E13', d.ship.r, d.t);
-  logTo(d, 'EVENT', 'E13 · Separación CM/SM. La nave es solo la cápsula.', 'E13');
+  logTo(d, 'EVENT', tr('log.cmSep'), 'E13');
 }
 
 function finish(d: Draft, kind: Outcome['kind'], text: string): void {
@@ -419,8 +449,7 @@ function handleEvent(d: Draft, ev: SimEvent): void {
         apsides: [...d.record.apsides.slice(-49), { type: ev.type, t: ev.t, radius: el.r, energy: el.energy }],
       };
       if (!isPostTli(d.phase) && d.phase !== 'ASCENSO') {
-        const name = ev.type === 'periapsis' ? 'Perigeo' : 'Apogeo';
-        logTo(d, 'INFO', `${name}: ${formatNumber(el.r - R_EARTH, 0)} km de altitud.`);
+        logTo(d, 'INFO', tr(ev.type === 'periapsis' ? 'log.perigee' : 'log.apogee', { alt: formatNumber(el.r - R_EARTH, 0) }));
       }
       break;
     }
@@ -428,37 +457,37 @@ function handleEvent(d: Draft, ev: SimEvent): void {
       const p = periluneOf(ev, eph);
       if (!d.record.perilune || p.altitude < d.record.perilune.altitude) d.record = { ...d.record, perilune: p };
       mark(d, 'E11', ev.state.r, ev.t);
-      logTo(d, 'EVENT', `E11 · Sobrevuelo lunar: máximo acercamiento a ${formatNumber(p.altitude, 0)} km de altitud.`, 'E11');
+      logTo(d, 'EVENT', tr('log.flyby', { alt: formatNumber(p.altitude, 0) }), 'E11');
       break;
     }
     case 'soi-enter':
       d.phase = 'SOBREVUELO';
-      logTo(d, 'INFO', 'Entrada a la esfera de influencia lunar.');
+      logTo(d, 'INFO', tr('log.soiEnter'));
       break;
     case 'soi-exit':
       d.phase = 'REGRESO';
       mark(d, 'E12', ev.state.r, ev.t);
-      logTo(d, 'INFO', 'E12 · Salida de la esfera de influencia lunar. Regreso a la Tierra.', 'E12');
+      logTo(d, 'INFO', tr('log.soiExit'), 'E12');
       break;
     case 'los':
-      logTo(d, 'CAUTION', 'LOS · Pérdida de señal: la Luna bloquea el enlace con la Tierra.');
+      logTo(d, 'CAUTION', tr('log.los'));
       break;
     case 'aos':
-      logTo(d, 'INFO', 'AOS · Señal recuperada.');
+      logTo(d, 'INFO', tr('log.aos'));
       break;
     case 'net-dsn':
-      logTo(d, 'INFO', 'COMM · Cambio a Deep Space Network (DSN).');
+      logTo(d, 'INFO', tr('log.netDsn'));
       break;
     case 'net-nsn':
-      logTo(d, 'INFO', 'COMM · Cambio a Near Space Network (NSN).');
+      logTo(d, 'INFO', tr('log.netNsn'));
       break;
     case 'moon-impact':
-      logTo(d, 'WARNING', 'Impacto contra la superficie lunar.');
-      finish(d, 'moon-impact', 'La nave impactó contra la Luna.');
+      logTo(d, 'WARNING', tr('log.moonImpact'));
+      finish(d, 'moon-impact', tr('out.moonImpact'));
       break;
     case 'surface':
-      logTo(d, 'WARNING', 'Impacto contra la superficie terrestre.');
-      finish(d, 'crash', 'La nave cayó a la superficie sin alcanzar la órbita.');
+      logTo(d, 'WARNING', tr('log.surface'));
+      finish(d, 'crash', tr('out.crash'));
       break;
     case 'ei': {
       const el = earthElements(ev.state, ev.t, eph);
@@ -467,19 +496,19 @@ function handleEvent(d: Draft, ev: SimEvent): void {
       const postTli = isPostTli(d.phase);
       d.phase = 'ENTRADA';
       mark(d, 'E14', ev.state.r, ev.t);
-      const data = `γ = ${formatNumber(ei.fpaDeg, 2)}°, V = ${formatNumber(ei.speed, 3)} km/s`;
-      logTo(d, 'EVENT', `E14 · Interfaz de entrada: ${data}. Fin de la física.`, 'E14');
+      const data = tr('log.eiData', { fpa: formatNumber(ei.fpaDeg, 2), v: formatNumber(ei.speed, 3) });
+      logTo(d, 'EVENT', tr('log.ei', { data }), 'E14');
       if (!postTli) {
-        finish(d, 'reentry-early', 'La nave reentró a la atmósfera antes de la inyección translunar.');
+        finish(d, 'reentry-early', tr('out.reentryEarly'));
       } else if (!d.vehicle.cmSeparated) {
-        finish(d, 'entry-no-sep', 'Entrada sin separar el módulo de servicio: la cápsula no puede orientar el escudo térmico.');
+        finish(d, 'entry-no-sep', tr('out.noSep'));
       } else if (ei.fpaDeg > ENTRY_CORRIDOR.max) {
-        finish(d, 'entry-shallow', `Entrada demasiado rasante (${data}): la cápsula rebota en la atmósfera.`);
+        finish(d, 'entry-shallow', tr('out.shallow', { data }));
       } else if (ei.fpaDeg < ENTRY_CORRIDOR.min) {
-        finish(d, 'entry-steep', `Entrada demasiado empinada (${data}): desaceleración y calor excesivos.`);
+        finish(d, 'entry-steep', tr('out.steep', { data }));
       } else {
-        logTo(d, 'EVENT', 'E15 · Amerizaje en el Pacífico y recuperación (el descenso atmosférico no se simula).', 'E15');
-        finish(d, 'success', `Entrada dentro del corredor (${data}). Amerizaje en el Pacífico.`);
+        logTo(d, 'EVENT', tr('log.e15'), 'E15');
+        finish(d, 'success', tr('out.success', { data }));
       }
       break;
     }
@@ -501,13 +530,18 @@ function breakpoints(d: Draft): Breakpoint[] {
   };
   if (d.phase === 'ASCENSO') {
     const S = ASCENT_SEQUENCE;
-    once('asc:liftoff', 0, (x) => logTo(x, 'EVENT', 'E1 · Ignición y despegue.', 'E1'));
-    once('asc:pitch', S.pitchStart, (x) => logTo(x, 'INFO', 'Torre despejada. Maniobra de cabeceo.'));
+    once('asc:liftoff', 0, (x) => {
+      // T‑0: encienden los boosters, se sueltan los umbilicales y el cohete empieza a subir.
+      x.ascentEngines = ['SRB', 'RS25'];
+      mark(x, 'E1', x.ship.r, 0);
+      logTo(x, 'EVENT', tr('log.liftoff'), 'E1');
+    });
+    once('asc:pitch', S.pitchStart, (x) => logTo(x, 'INFO', tr('log.pitch')));
     // Solo corta el tramo: la ley de guiado cambia de forma en ese instante.
     once('asc:turn', S.pitchEnd, () => undefined);
     once('asc:burnout', S.srbBurnout, (x) => {
       x.ascentEngines = x.ascentEngines.filter((e) => e !== 'SRB');
-      logTo(x, 'INFO', 'Boosters agotados.');
+      logTo(x, 'INFO', tr('log.srbBurnout'));
     });
     once('asc:srb', S.srbSeparation, separateSrb);
     once('asc:lt', S.linearTangentStart, (x) => {
@@ -517,7 +551,7 @@ function breakpoints(d: Draft): Breakpoint[] {
     once('asc:meco', S.meco, (x) => {
       x.ascentEngines = [];
       const left = x.propulsion.prop[TANK.CORE];
-      logTo(x, 'EVENT', `MECO: corte de los motores de la etapa central. Propelente restante: ${formatNumber((100 * left) / MASS.coreProp, 1)} %.`);
+      logTo(x, 'EVENT', tr('log.meco', { pct: formatNumber((100 * left) / MASS.coreProp, 1) }));
     });
     once('asc:core', S.coreSeparation, separateCore);
   }
@@ -540,7 +574,7 @@ function breakpoints(d: Draft): Breakpoint[] {
       x.clock = { ...x.clock, warp: 10 };
     });
     once(`burn:${id}`, ab.met, (x) => {
-      const ok = startBurn(x, id, 'ICPS', x.autoBurns[id].dv, id);
+      const ok = startBurn(x, id, 'ICPS', x.autoBurns[id].dv, id, x.autoBurns[id].hold);
       x.autoBurns = { ...x.autoBurns, [id]: { ...x.autoBurns[id], status: ok ? 'burning' : 'cancelled' } };
     });
   }
@@ -550,13 +584,17 @@ function breakpoints(d: Draft): Breakpoint[] {
       separateIcps(x);
     } else {
       x.proc = { ...x.proc, activeId: 'SEP_ICPS', cursor: null };
-      logTo(x, 'INFO', 'Ventana de separación Orion/ICPS abierta. Acción de la tripulación requerida.');
+      logTo(x, 'INFO', tr('log.e6Window'));
       autoPause(x);
     }
   });
   once('e6:end', MET_E6_PROX_OPS_END, (x) => {
-    if (x.vehicle.icpsSeparated) logTo(x, 'INFO', 'Fin de la demo de operaciones de proximidad.');
+    if (x.vehicle.icpsSeparated) logTo(x, 'INFO', tr('log.e6End'));
   });
+  if (d.vehicle.icpsSeparated && !d.headless) {
+    once('icps:disposal', MET_ICPS_DISPOSAL, icpsDisposalBurn);
+    CUBESAT_DEPLOYMENTS.forEach((c, i) => once(`cubesat:${i}`, c.met, (x) => deployCubesat(x, i)));
+  }
   for (const id of ['E7', 'E8', 'E9'] as const) {
     const m = d.maneuvers[id];
     if (m.tig === null || m.status === 'done' || m.status === 'burning') continue;
@@ -564,26 +602,26 @@ function breakpoints(d: Draft): Breakpoint[] {
     once(`lead:${id}`, m.tig - BURN_LEAD_TIME, (x) => {
       if (x.switches.autoCrew) return;
       x.proc = { ...x.proc, activeId: id, cursor: null };
-      logTo(x, 'INFO', `${id} · ${title}: ventana abierta, ignición en ${BURN_LEAD_TIME} s.`);
+      logTo(x, 'INFO', tr('log.lead', { id, title, s: BURN_LEAD_TIME }));
       autoPause(x);
     });
     once(`tig:${id}`, m.tig, (x) => {
       const cur = x.maneuvers[id];
       if (cur.status === 'committed' || x.switches.autoCrew) executeManeuver(x, id);
-      else logTo(x, 'CAUTION', `${id} · ${title}: pasó el instante de ignición (TIG ${formatMet(cur.tig ?? 0)}) sin encender.`);
+      else logTo(x, 'CAUTION', tr('log.tigNoFire', { id, title, tig: formatMet(cur.tig ?? 0) }));
     });
     once(`miss:${id}`, m.tig + BURN_WINDOW_TOLERANCE, (x) => {
       const cur = x.maneuvers[id];
       if (cur.status === 'done' || cur.status === 'burning') return;
       setManeuver(x, id, { status: 'missed' });
-      logTo(x, 'WARNING', `${id} · ${title}: ventana de encendido perdida.`);
+      logTo(x, 'WARNING', tr('log.windowLost', { id, title }));
     });
   }
   const tli = d.record.tliAt;
   if (tli !== null) {
     once('e10:mark', tli + DAY, (x) => {
       mark(x, 'E10', x.ship.r, x.t);
-      logTo(x, 'INFO', 'E10 · Tránsito de ida: correcciones de trayectoria (OTC) disponibles en Procs.', 'E10');
+      logTo(x, 'INFO', tr('log.e10'), 'E10');
     });
   }
   return list;
@@ -601,25 +639,26 @@ function stateTriggers(d: Draft, input: PowerInput | null): void {
       d.record = { ...d.record, maxQ: { t: d.t, q, logged: false } };
     } else if (!peak.logged && peak.q > 5000 && q < 0.97 * peak.q) {
       d.record = { ...d.record, maxQ: { ...peak, logged: true } };
-      logTo(d, 'INFO', `Max Q: presión dinámica máxima de ${formatNumber(peak.q / 1000, 1)} kPa en MET ${formatMet(peak.t)}.`);
+      logTo(d, 'INFO', tr('log.maxQ', { q: formatNumber(peak.q / 1000, 1), met: formatMet(peak.t) }));
     }
   }
   if (el.r > LOST_DISTANCE) {
-    logTo(d, 'WARNING', 'La nave se aleja sin retorno del sistema Tierra‑Luna.');
-    finish(d, 'lost', 'Órbita perdida: la nave escapó del sistema Tierra‑Luna.');
+    logTo(d, 'WARNING', tr('log.lost'));
+    finish(d, 'lost', tr('out.lost'));
     return;
   }
-  const alt = el.r - R_EARTH;
   if (!isPostTli(d.phase) || d.vehicle.cmSeparated || el.radialSpeed >= 0) return;
-  if (alt < CM_SEP_PROMPT_ALTITUDE && !d.oneShots.includes('cm:prompt')) {
+  // Tiempo hasta la interfaz de entrada según la órbita osculante (válido cerca de la Tierra).
+  const tEi = timeToEntry(d);
+  if (tEi <= CM_SEP_PROMPT_LEAD_TIME && !d.oneShots.includes('cm:prompt')) {
     d.oneShots = [...d.oneShots, 'cm:prompt'];
     if (!d.switches.autoCrew) {
       d.proc = { ...d.proc, activeId: 'SEP_CM', cursor: null };
-      logTo(d, 'INFO', 'E13 · Separación CM/SM requerida antes de la interfaz de entrada.');
+      logTo(d, 'INFO', tr('log.cmPrompt', { min: formatNumber(tEi / 60, 0) }));
       autoPause(d);
     }
   }
-  if (d.switches.autoCrew && alt < CM_SEP_AUTO_ALTITUDE) separateCm(d);
+  if (d.switches.autoCrew && tEi <= CM_SEP_LEAD_TIME) separateCm(d);
 }
 
 /**
@@ -633,7 +672,34 @@ function maxChunk(d: Draft): number {
   if (d.phase === 'ASCENSO') return 5;
   if (!isPostTli(d.phase) || d.vehicle.cmSeparated) return Infinity;
   const el = earthElements(d.ship, d.t, ephemerisOf(d));
-  return el.radialSpeed < 0 && el.r < 80000 ? 120 : 1800;
+  if (el.radialSpeed >= 0 || el.r > 80000) return 1800;
+  return timeToEntry(d) < 2 * CM_SEP_PROMPT_LEAD_TIME ? 20 : 120;
+}
+
+/**
+ * Cuenta regresiva: los RS‑25 arrancan con el cohete sujeto a la plataforma. Hasta T‑0
+ * la nave sigue a la plataforma y solo cambia el propelente (el consumo depende del
+ * tiempo, así que se integra con la regla de Simpson).
+ */
+function holdDown(d: Draft, until: number): void {
+  const eph = ephemerisOf(d);
+  const input = powerInputOf(d);
+  const t0 = d.t;
+  const t1 = Math.min(until, 0);
+  if (input && t1 > t0) {
+    const n = Math.max(2, 2 * Math.ceil((t1 - t0) / 0.1));
+    const h = (t1 - t0) / n;
+    const used = new Array<number>(TANK_COUNT).fill(0);
+    for (let i = 0; i <= n; i++) {
+      const t = t0 + i * h;
+      const w = i === 0 || i === n ? 1 : i % 2 === 1 ? 4 : 2;
+      const f = forces(input, t, d.ship.r, d.ship.v, d.propulsion.prop);
+      for (let k = 0; k < TANK_COUNT; k++) used[k] += w * f.dprop[k];
+    }
+    setProp(d, d.propulsion.prop.map((p, k) => Math.max(0, p + (h / 3) * used[k])));
+  }
+  d.t = t1;
+  d.ship = padState(t1, eph);
 }
 
 /** Calcula la trayectoria predicha (sin encendidos futuros) desde el estado actual. */
@@ -663,7 +729,7 @@ function mergeAlarms(d: Draft): void {
     } else {
       next.push({ ...c, since: d.t, acked: false });
       // La LOS ya queda en el log como evento de comunicaciones.
-      if (c.id !== 'los') logTo(d, c.level, `${c.level} · ${c.text}`);
+      if (c.id !== 'los') logTo(d, c.level, tr('log.alarm', { level: c.level, text: c.text }));
     }
   }
   if (next.length !== d.alarms.length || next.some((a, i) => a !== d.alarms[i])) d.alarms = next;
@@ -718,6 +784,11 @@ export function advance(state: SimState, dtSim: number, maxSteps = DEFAULT_MAX_S
         continue;
       }
       const tb = Math.min(target, bp ? bp.t : Infinity, d.t + maxChunk(d));
+      if (d.t < 0) {
+        holdDown(d, tb);
+        budget -= 1;
+        continue;
+      }
       const input = powerInputOf(d);
       const t0 = d.t;
       const res = integrateWithEvents(d.ship, d.t, tb, eph, {
@@ -734,12 +805,13 @@ export function advance(state: SimState, dtSim: number, maxSteps = DEFAULT_MAX_S
       d.t = res.t;
       d.hNext = res.hNext;
       if (input) {
-        const before = d.propulsion.prop[TANK.ESM];
+        const rcs = ENGINES[thcEngine(d)];
+        const before = d.propulsion.prop[rcs.tank];
         setProp(d, res.prop);
         // El propelente que gasta la traslación con RCS también cuenta como Δv de Orion.
-        if (d.thc !== 0 && !d.burn && before > res.prop[TANK.ESM]) {
+        if (d.thc !== 0 && !d.burn && before > res.prop[rcs.tank]) {
           const m1 = totalMass(d.vehicle, d.propulsion.prop);
-          const dv = ((G0 * ENGINES.RCS.ispVac) / 1000) * Math.log((m1 + before - res.prop[TANK.ESM]) / m1);
+          const dv = ((G0 * rcs.ispVac) / 1000) * Math.log((m1 + before - res.prop[rcs.tank]) / m1);
           d.propulsion = { ...d.propulsion, rcsDvUsed: d.propulsion.rcsDvUsed + dv, orionDvUsed: d.propulsion.orionDvUsed + dv };
           d.predictionDirty = true;
         }

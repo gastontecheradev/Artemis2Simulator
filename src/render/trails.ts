@@ -25,6 +25,8 @@ export interface Trails {
   setTraveled(points: readonly TrailPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame, mode: TrailColorMode): void;
   /** Trayectoria predicha (punteada), desde la nave hacia adelante. */
   setPredicted(points: readonly TrajectoryPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame): void;
+  /** Plan nominal completo (tenue), dibujado desde el inicio. `points` = [t, x, y] en km inerciales. */
+  setNominal(points: readonly (readonly [number, number, number])[], frame: ViewFrame): void;
   /** Reubica las geometrías según el origen flotante actual. */
   place(frame: ViewFrame): void;
   setResolution(width: number, height: number): void;
@@ -46,8 +48,17 @@ export function createTrails(colors: TrailColors): Trails {
     transparent: true,
     opacity: 0.75,
   });
+  const nominalMaterial = new LineMaterial({
+    color: new THREE.Color(colors.predicted).getHex(),
+    linewidth: 1.2,
+    worldUnits: false,
+    transparent: true,
+    opacity: 0.28,
+  });
   let traveled: Line2 | null = null;
   let predicted: Line2 | null = null;
+  let nominal: Line2 | null = null;
+  let nominalAnchor: Vec3 = { x: 0, y: 0, z: 0 };
   // Cada geometría se construye relativa al origen flotante del momento: así los vértices
   // (float32) son números chicos cerca de la nave y el trazo no tiembla en los primeros planos.
   let traveledAnchor: Vec3 = { x: 0, y: 0, z: 0 };
@@ -116,14 +127,26 @@ export function createTrails(colors: TrailColors): Trails {
       }
       predicted = replace(predicted, positions, null, predictedMaterial);
     },
+    setNominal(points, frame) {
+      nominalAnchor = frame.origin;
+      const positions: number[] = [];
+      for (const [t, x, y] of points) {
+        worldToScene({ x, y, z: 0 }, t, frame, v);
+        positions.push(v.x, v.y, v.z);
+      }
+      nominal = replace(nominal, positions, null, nominalMaterial);
+      if (nominal) nominal.renderOrder = -1;
+    },
     place(frame) {
       const o = frame.origin;
       traveled?.position.set((traveledAnchor.x - o.x) * KM_TO_SCENE, (traveledAnchor.y - o.y) * KM_TO_SCENE, (traveledAnchor.z - o.z) * KM_TO_SCENE);
       predicted?.position.set((predictedAnchor.x - o.x) * KM_TO_SCENE, (predictedAnchor.y - o.y) * KM_TO_SCENE, (predictedAnchor.z - o.z) * KM_TO_SCENE);
+      nominal?.position.set((nominalAnchor.x - o.x) * KM_TO_SCENE, (nominalAnchor.y - o.y) * KM_TO_SCENE, (nominalAnchor.z - o.z) * KM_TO_SCENE);
     },
     setResolution(width, height) {
       traveledMaterial.resolution.set(width, height);
       predictedMaterial.resolution.set(width, height);
+      nominalMaterial.resolution.set(width, height);
     },
     setDashScale(viewRadiusScene) {
       predictedMaterial.dashScale = 45 / Math.max(1e-9, viewRadiusScene);
@@ -131,8 +154,10 @@ export function createTrails(colors: TrailColors): Trails {
     dispose() {
       traveled?.geometry.dispose();
       predicted?.geometry.dispose();
+      nominal?.geometry.dispose();
       traveledMaterial.dispose();
       predictedMaterial.dispose();
+      nominalMaterial.dispose();
     },
   };
 }
