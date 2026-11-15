@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { CameraMode, ViewDim, createTrajectoryView } from '../render/scene';
+import { CameraMode, ViewDim, createTrajectoryView, insetTarget } from '../render/scene';
 import { tick } from '../sim/commands';
 import { useT } from './i18n';
 import { MapHud } from './panel/MapHud';
@@ -93,7 +93,9 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
           </div>
         </div>
         <div className="legend">
-          <span className="hint">{t(view.mapFrame === 'rotating' ? 'vw.hintMap' : 'vw.hintMapInertial')}</span>
+          <span className="hint" title={t(view.mapFrame === 'rotating' ? 'vw.hintMap' : 'vw.hintMapInertial')}>
+            {t('vw.hintMapZoom')}
+          </span>
         </div>
       </section>
       <section className="pane pane-3d" data-tour="view-3d">
@@ -101,7 +103,7 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
         {/* El recuadro del entorno terrestre va sobre la vista 3D para no tapar la Luna del mapa. */}
         <div className="map-inset" data-tour="inset">
           <Canvas dim="inset" className="view-canvas-host" />
-          <span className="inset-title">{t('map.inset')}</span>
+          <span className="inset-title">{t(insetTarget(s) === 'moon' ? 'map.insetMoon' : 'map.inset')}</span>
         </div>
         <div className="toolbar">
           <span className="pane-title">{t('vw.3d')}</span>

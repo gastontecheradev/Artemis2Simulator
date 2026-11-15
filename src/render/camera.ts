@@ -14,6 +14,12 @@ export interface CameraRig {
   /** Semialto visible en km (2D) o radio encuadrado (3D). */
   getViewRadius(): number;
   setViewRadius(km: number): void;
+  /**
+   * Desplazamiento manual del centro de la vista (km, en los ejes de pantalla). Solo lo
+   * mueve la cámara 2D (arrastre y zoom hacia el cursor); en 3D es siempre cero.
+   */
+  getPan(): { x: number; y: number };
+  setPan(x: number, y: number): void;
   /** Solo la cámara activa atiende la rueda y los gestos. */
   setActive(on: boolean): void;
   update(): void;
@@ -25,7 +31,10 @@ const MIN_RADIUS = 0.004; // km
 const MAX_RADIUS = 3e6;
 const clampRadius = (km: number): number => Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, km));
 
-/** Cámara ortográfica cenital con zoom por rueda y pellizco. */
+/**
+ * Cámara ortográfica cenital (mira desde +z, con +x a la derecha y +y arriba: nunca
+ * espeja). Rueda y pellizco hacen zoom hacia el cursor; arrastrar desplaza la vista.
+ */
 export function createOrthoRig(dom: HTMLElement): CameraRig {
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 4000);
   camera.position.set(0, 0, 2000);
@@ -34,23 +43,42 @@ export function createOrthoRig(dom: HTMLElement): CameraRig {
   let radius = 300000;
   let aspect = 1;
   let active = true;
+  let panX = 0;
+  let panY = 0;
 
+  /** Semialto visible en km (el radio se aplica a la dimensión más chica). */
+  const halfHeight = (): number => radius * (aspect >= 1 ? 1 : 1 / aspect);
   const apply = (): void => {
-    const h = radius * KM_TO_SCENE;
-    // El radio se aplica a la dimensión más chica para que siempre entre completo.
-    const k = aspect >= 1 ? 1 : 1 / aspect;
-    camera.top = h * k;
-    camera.bottom = -h * k;
-    camera.left = -h * k * aspect;
-    camera.right = h * k * aspect;
+    const h = halfHeight() * KM_TO_SCENE;
+    camera.top = h;
+    camera.bottom = -h;
+    camera.left = -h * aspect;
+    camera.right = h * aspect;
     camera.updateProjectionMatrix();
+  };
+  /** km por píxel de pantalla. */
+  const kmPerPx = (): number => (2 * halfHeight()) / Math.max(1, dom.clientHeight);
+  /** Punto de pantalla relativo al centro de la vista, en km (y hacia arriba). */
+  const offsetKm = (clientX: number, clientY: number): { x: number; y: number } => {
+    const rect = dom.getBoundingClientRect();
+    const f = kmPerPx();
+    return { x: (clientX - rect.left - rect.width / 2) * f, y: -(clientY - rect.top - rect.height / 2) * f };
+  };
+  /** Cambia el radio dejando fijo el punto de la pantalla que está bajo (clientX, clientY). */
+  const zoomAt = (next: number, clientX: number, clientY: number): void => {
+    const before = offsetKm(clientX, clientY);
+    const r = clampRadius(next);
+    const keep = 1 - r / radius;
+    panX += before.x * keep;
+    panY += before.y * keep;
+    radius = r;
+    apply();
   };
 
   const onWheel = (e: WheelEvent): void => {
     if (!active) return;
     e.preventDefault();
-    radius = clampRadius(radius * Math.exp(e.deltaY * 0.0015));
-    apply();
+    zoomAt(radius * Math.exp(e.deltaY * 0.0015), e.clientX, e.clientY);
   };
   const touches = new Map<number, { x: number; y: number }>();
   let pinchStart = 0;
@@ -60,22 +88,31 @@ export function createOrthoRig(dom: HTMLElement): CameraRig {
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
   const onDown = (e: PointerEvent): void => {
+    if (!active) return;
     touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    dom.setPointerCapture?.(e.pointerId);
     if (touches.size === 2) {
       pinchStart = spread();
       radiusStart = radius;
     }
   };
   const onMove = (e: PointerEvent): void => {
-    if (!touches.has(e.pointerId)) return;
+    const last = touches.get(e.pointerId);
+    if (!last || !active) return;
     touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (active && touches.size === 2 && pinchStart > 0) {
-      radius = clampRadius((radiusStart * pinchStart) / Math.max(1, spread()));
-      apply();
+    if (touches.size === 2 && pinchStart > 0) {
+      const [a, b] = [...touches.values()];
+      zoomAt((radiusStart * pinchStart) / Math.max(1, spread()), (a.x + b.x) / 2, (a.y + b.y) / 2);
+    } else if (touches.size === 1) {
+      // Arrastrar: el punto agarrado sigue al puntero.
+      const f = kmPerPx();
+      panX -= (e.clientX - last.x) * f;
+      panY += (e.clientY - last.y) * f;
     }
   };
   const onUp = (e: PointerEvent): void => {
     touches.delete(e.pointerId);
+    if (touches.size < 2) pinchStart = 0;
   };
   dom.addEventListener('wheel', onWheel, { passive: false });
   dom.addEventListener('pointerdown', onDown);
@@ -95,8 +132,14 @@ export function createOrthoRig(dom: HTMLElement): CameraRig {
       radius = clampRadius(km);
       apply();
     },
+    getPan: () => ({ x: panX, y: panY }),
+    setPan(x, y) {
+      panX = x;
+      panY = y;
+    },
     setActive(on) {
       active = on;
+      if (!on) touches.clear();
     },
     update: () => undefined,
     dispose() {
@@ -141,6 +184,8 @@ export function createPerspectiveRig(dom: HTMLElement): CameraRig {
       camera.position.setLength(distanceFor(clampRadius(km)));
       controls.update();
     },
+    getPan: () => ({ x: 0, y: 0 }),
+    setPan: () => undefined,
     setActive(on) {
       controls.enabled = on;
     },

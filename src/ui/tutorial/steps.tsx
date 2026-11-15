@@ -167,12 +167,12 @@ const STEPS_EN = (): TourStep[] => [
   {
     target: 'view-2d',
     title: '2D MAP',
-    body: <p>A fixed map of the Earth‑Moon system seen from above, in the rotating frame: the Earth and the Moon stay still and the spacecraft moves along the faint nominal plan. With <b>FRAME · INERTIAL</b> you see it from a fixed point in space instead: the Moon travels along its orbit, and the dotted outline shows where it will be when the spacecraft arrives.</p>,
+    body: <p>A map of the Earth‑Moon system seen from above (from the north), with the Earth on the right and the Moon on the left. In the rotating frame the Earth and the Moon stay still and the spacecraft moves along the faint nominal plan. Use the wheel to zoom, drag to pan and double‑click to see the whole mission again. With <b>FRAME · INERTIAL</b> you see it from a fixed point in space instead: the Moon travels along its orbit, and the dotted outline shows where it will be when the spacecraft arrives.</p>,
   },
   {
     target: 'view-3d',
     title: '3D VIEW',
-    body: <p>The spacecraft up close and at real scale. Here you can watch the boosters, the launch abort system and each stage come off. Drag to orbit the camera. The inset in the corner shows the Earth vicinity, seen from above.</p>,
+    body: <p>The spacecraft up close and at real scale. Here you can watch the boosters, the launch abort system and each stage come off. Drag to orbit the camera. The column on the right shows the Earth vicinity seen from above; when the spacecraft gets close to the Moon it switches to the lunar vicinity.</p>,
   },
   {
     target: 'time',
@@ -323,12 +323,12 @@ const STEPS_ES = (): TourStep[] => [
   {
     target: 'view-2d',
     title: 'MAPA 2D',
-    body: <p>Un mapa fijo del sistema Tierra‑Luna visto desde arriba, en el marco rotante: la Tierra y la Luna quedan quietas y la nave avanza sobre el plan nominal, dibujado tenue. Con <b>MARCO · INERCIAL</b> se ve desde un punto fijo del espacio: la Luna recorre su órbita y el contorno punteado marca dónde va a estar cuando llegue la nave.</p>,
+    body: <p>Un mapa del sistema Tierra‑Luna visto desde arriba (desde el norte), con la Tierra a la derecha y la Luna a la izquierda. En el marco rotante la Tierra y la Luna quedan quietas y la nave avanza sobre el plan nominal, dibujado tenue. Con la rueda se hace zoom, arrastrando se mueve y con doble clic se vuelve a ver toda la misión. Con <b>MARCO · INERCIAL</b> se ve desde un punto fijo del espacio: la Luna recorre su órbita y el contorno punteado marca dónde va a estar cuando llegue la nave.</p>,
   },
   {
     target: 'view-3d',
     title: 'VISTA 3D',
-    body: <p>La nave de cerca y a escala real. Acá se ve cómo se desprenden los boosters, la torre de escape y cada etapa. Arrastrá para girar la cámara. El recuadro de la esquina muestra el entorno terrestre visto desde arriba.</p>,
+    body: <p>La nave de cerca y a escala real. Acá se ve cómo se desprenden los boosters, la torre de escape y cada etapa. Arrastrá para girar la cámara. La columna de la derecha muestra el entorno terrestre visto desde arriba; cuando la nave se acerca a la Luna pasa al entorno lunar.</p>,
   },
   {
     target: 'time',
