@@ -11,12 +11,10 @@ export function LanguageScreen(): JSX.Element {
           <button className="guide-btn lang-btn" onClick={() => chooseLanguage('en')}>
             <span className="guide-n">EN</span>
             ENGLISH
-            <small>Default</small>
           </button>
           <button className="guide-btn lang-btn" onClick={() => chooseLanguage('es')}>
             <span className="guide-n">ES</span>
             ESPAÑOL
-            <small>Rioplatense</small>
           </button>
         </div>
         <p className="dim intro-foot">Educational project, not affiliated with or endorsed by NASA · Proyecto educativo, no afiliado ni avalado por NASA.</p>
