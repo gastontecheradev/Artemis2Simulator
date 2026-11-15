@@ -10,8 +10,9 @@ export interface ViewFrame {
   /** true = marco rotante Tierra‑Luna (la Luna queda fija sobre +x). */
   readonly rotating: boolean;
   /**
-   * Solo en el marco inercial: giro fijo (rad) que se le resta al dibujo. El mapa
-   * inercial lo usa para dejar el sobrevuelo arriba; 0 o ausente = ejes inerciales tal cual.
+   * Giro fijo (rad) que se le resta al dibujo, en cualquiera de los dos marcos (en el
+   * rotante, además del giro de la Luna). El mapa 2D lo usa para orientarse; 0 o
+   * ausente = ejes tal cual.
    */
   readonly angle?: number;
   /**
@@ -23,8 +24,8 @@ export interface ViewFrame {
 
 /** Posición en el marco de dibujo (km): inercial (con su giro fijo), o rotada según la Luna en t. */
 export function toDisplayFrame(p: Vec3, t: number, frame: ViewFrame): Vec3 {
-  if (frame.rotating) return rotateZ(p, -frame.eph.moonAngle(t));
-  return frame.angle ? rotateZ(p, -frame.angle) : p;
+  const a = (frame.rotating ? frame.eph.moonAngle(t) : 0) + (frame.angle ?? 0);
+  return a ? rotateZ(p, -a) : p;
 }
 
 /**
