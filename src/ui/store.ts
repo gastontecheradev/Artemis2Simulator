@@ -111,14 +111,17 @@ const CAMERAS = ['auto', 'overview', 'ship', 'earth', 'moon'] as const;
 /** Ajustes compartidos por las dos vistas, más la cámara de cada una. */
 export interface ViewState {
   readonly frame: ViewSettings['frame'];
+  readonly mapFrame: ViewSettings['mapFrame'];
   readonly colorMode: ViewSettings['colorMode'];
   readonly exaggerate: boolean;
   readonly camera: Readonly<Record<ViewDim, CameraMode>>;
 }
 
-// También por URL: ?cam3d=earth, ?frame=rotating (solo la vista 3D), ?color=network, ?real (cuerpos a escala real)
+// También por URL: ?cam3d=earth, ?frame=rotating (solo la vista 3D), ?map=inertial (solo el mapa 2D),
+// ?color=network, ?real (cuerpos a escala real)
 const view = createValue<ViewState>({
   frame: pick('frame', ['inertial', 'rotating'] as const, 'inertial'),
+  mapFrame: pick('map', ['inertial', 'rotating'] as const, 'rotating'),
   colorMode: pick('color', ['phase', 'network'] as const, 'phase'),
   exaggerate: !query.has('real'),
   camera: { '2d': 'overview', '3d': pick('cam3d', CAMERAS, 'auto'), inset: 'earth' },
@@ -135,7 +138,7 @@ export function getViewSettings(dim: ViewDim): ViewSettings {
   const v = view.get();
   const hit = settingsCache[dim];
   if (hit && hit.from === v) return hit.value;
-  const value: ViewSettings = { cameraMode: v.camera[dim], frame: v.frame, colorMode: v.colorMode, exaggerate: v.exaggerate };
+  const value: ViewSettings = { cameraMode: v.camera[dim], frame: v.frame, mapFrame: v.mapFrame, colorMode: v.colorMode, exaggerate: v.exaggerate };
   settingsCache[dim] = { from: v, value };
   return value;
 }

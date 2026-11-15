@@ -21,8 +21,8 @@ import { KM_TO_SCENE, ViewFrame, toDisplayFrame, worldToScene } from './worldToS
 export type CameraMode = 'auto' | 'overview' | 'ship' | 'earth' | 'moon';
 type FixedMode = Exclude<CameraMode, 'auto'>;
 /**
- * Tres vistas: el mapa 2D (estático, marco rotante, escala fija que abarca toda la
- * misión), el recuadro del entorno terrestre (estático, centrado en la Tierra) y la
+ * Tres vistas: el mapa 2D (estático, escala fija que abarca toda la misión, en el
+ * marco rotante o en el inercial), el recuadro del entorno terrestre (estático, centrado en la Tierra) y la
  * vista 3D en perspectiva.
  */
 export type ViewDim = '2d' | 'inset' | '3d';
@@ -30,6 +30,8 @@ export type ViewDim = '2d' | 'inset' | '3d';
 export interface ViewSettings {
   readonly cameraMode: CameraMode;
   readonly frame: 'inertial' | 'rotating';
+  /** Marco del mapa 2D: rotante (Tierra y Luna quietas) o inercial (la Luna recorre su órbita). */
+  readonly mapFrame: 'inertial' | 'rotating';
   readonly colorMode: TrailColorMode;
   readonly exaggerate: boolean;
 }
@@ -77,15 +79,19 @@ const cssVar = (el: Element, name: string): string => getComputedStyle(el).getPr
 
 /**
  * Encuadre del mapa: el rectángulo que contiene el plan nominal completo y los dos
- * cuerpos, en el marco rotante, con un margen. Devuelve el centro y el semialto que
- * hace entrar todo con la relación de aspecto dada.
+ * cuerpos (en el marco inercial, la Luna en todo su recorrido durante la misión), con
+ * un margen. Devuelve el centro y el semialto que hace entrar todo en una vista de
+ * `px.width` × `px.height`, dejando libres `px.top` y `px.bottom` píxeles.
  */
-function mapFraming(eph: ReturnType<typeof ephemerisOf>, aspect: number): { center: Vec3; radius: number } {
+function mapFraming(
+  eph: ReturnType<typeof ephemerisOf>,
+  px: { width: number; height: number; top: number; bottom: number },
+  frame: ViewFrame,
+): { center: Vec3; radius: number } {
   let xMin = Infinity;
   let xMax = -Infinity;
   let yMin = Infinity;
   let yMax = -Infinity;
-  const frame: ViewFrame = { eph, rotating: true, origin: ZERO };
   const take = (p: Vec3): void => {
     xMin = Math.min(xMin, p.x);
     xMax = Math.max(xMax, p.x);
@@ -94,16 +100,35 @@ function mapFraming(eph: ReturnType<typeof ephemerisOf>, aspect: number): { cent
   };
   for (const [t, x, y] of NOMINAL_PATH) take(toDisplayFrame({ x, y, z: 0 }, t, frame));
   const earth = toDisplayFrame(eph.earth(0).r, 0, frame);
-  const moon = toDisplayFrame(eph.moon(0).r, 0, frame);
   take(add(earth, { x: -R_EARTH * MAP_EXAGGERATION, y: 0, z: 0 }));
-  take(add(moon, { x: R_MOON * MAP_EXAGGERATION * 2, y: 0, z: 0 }));
-  const halfW = (xMax - xMin) / 2;
-  const halfH = (yMax - yMin) / 2;
-  const a = Math.max(0.2, aspect);
+  if (frame.rotating) {
+    const moon = toDisplayFrame(eph.moon(0).r, 0, frame);
+    take(add(moon, { x: R_MOON * MAP_EXAGGERATION * 2, y: 0, z: 0 }));
+  } else {
+    // La Luna se mueve: entra su arco completo, del lanzamiento al final del plan.
+    const tEnd = NOMINAL_PATH.length ? NOMINAL_PATH[NOMINAL_PATH.length - 1][0] : 0;
+    const r = R_MOON * MAP_EXAGGERATION * 2;
+    for (let i = 0; i <= 64; i++) {
+      const m = toDisplayFrame(eph.moon((tEnd * i) / 64).r, 0, frame);
+      take(add(m, { x: r, y: r, z: 0 }));
+      take(add(m, { x: -r, y: -r, z: 0 }));
+    }
+  }
+  // Píxeles por km: el rectángulo (con margen) entra a lo ancho y en el alto libre entre
+  // la barra de herramientas y el HUD.
+  const boxW = Math.max(1, xMax - xMin) * 1.12;
+  const boxH = Math.max(1, yMax - yMin) * 1.12;
+  const k = Math.min(px.width / boxW, Math.max(1, px.height - px.top - px.bottom) / boxH);
   // La cámara ortográfica aplica el radio a la dimensión más chica (ver camera.ts).
-  const radius = a >= 1 ? Math.max(halfH, halfW / a) : Math.max(halfW, halfH * a);
-  return { center: { x: (xMin + xMax) / 2, y: (yMin + yMax) / 2, z: 0 }, radius: radius * 1.12 };
+  const radius = Math.min(px.width, px.height) / 2 / k;
+  // El centro de la vista se corre para que el rectángulo quede centrado en el alto libre.
+  const cy = (yMin + yMax) / 2 + (px.top - px.bottom) / (2 * k);
+  return { center: { x: (xMin + xMax) / 2, y: cy, z: 0 }, radius };
 }
+
+/** Alto que tapan la barra de herramientas y el HUD del mapa (px), cuando el encuadre lo necesita. */
+const MAP_PAD_TOP = 40;
+const MAP_PAD_BOTTOM = 100;
 
 /** Crea una vista de trayectoria dentro de `container` y arranca su loop de dibujo. */
 export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps: TrajectoryViewDeps): { dispose(): void } {
@@ -161,11 +186,9 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   let lastCameraKey = '';
   let width = 1;
   let height = 1;
-  let aspect = 1;
   const resize = (): void => {
     width = Math.max(1, container.clientWidth);
     height = Math.max(1, container.clientHeight);
-    aspect = width / height;
     renderer.setSize(width, height);
     rig.resize(width, height);
     trails.setResolution(width, height);
@@ -215,13 +238,17 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     const s = deps.getState();
     const settings = deps.getSettings();
     const eph = ephemerisOf(s);
-    // El mapa y el recuadro viven en el marco rotante: la Tierra y la Luna no se mueven.
-    const rotating = is3d ? settings.frame === 'rotating' : true;
+    // El recuadro vive en el marco rotante; el mapa, en el que se elija (rotante por defecto).
+    const rotating = is3d ? settings.frame === 'rotating' : isMap ? settings.mapFrame === 'rotating' : true;
     const earth = eph.earth(s.t);
     const moon = eph.moon(s.t);
-    const frameAngle = rotating ? eph.moonAngle(s.t) : 0;
+    // Mapa inercial: giro fijo que deja la Luna del sobrevuelo nominal arriba, así el
+    // arco que recorre la Luna durante la misión pasa de derecha a izquierda por encima de la Tierra.
+    const flybyMet = s.params.nominal.flybyMet;
+    const mapAngle = isMap && !rotating ? eph.moonAngle(flybyMet) - Math.PI / 2 : 0;
+    const frameAngle = rotating ? eph.moonAngle(s.t) : mapAngle;
     /** Dirección inercial llevada al marco de dibujo. */
-    const displayDir = (d: Vec3): Vec3 => (rotating ? rotateZ(d, -frameAngle) : d);
+    const displayDir = (d: Vec3): Vec3 => (frameAngle ? rotateZ(d, -frameAngle) : d);
 
     const bodyScale = isInset ? 1 : settings.exaggerate ? (is3d ? EXAGGERATION : MAP_EXAGGERATION) : 1;
     if (settings !== lastSettings || bodyScale !== lastBodyScale) {
@@ -231,12 +258,14 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     }
 
     // --- Cámara: modo efectivo y encuadre ---
-    const base: ViewFrame = { eph, rotating, origin: ZERO };
+    const base: ViewFrame = { eph, rotating, angle: mapAngle, origin: ZERO };
     let camera: { mode: FixedMode; radius: number };
     if (isMap) {
-      const key = `map|${aspect.toFixed(3)}|${s.params.moonAngle0Deg}`;
+      const key = `map|${settings.mapFrame}|${width}x${height}|${s.params.moonAngle0Deg}`;
       if (key !== lastCameraKey) {
-        const f = mapFraming(eph, aspect);
+        // El rotante es apaisado y le sobra alto; el inercial es más alto y necesita los márgenes.
+        const pad = rotating ? { top: 0, bottom: 0 } : { top: MAP_PAD_TOP, bottom: MAP_PAD_BOTTOM };
+        const f = mapFraming(eph, { width, height, ...pad }, base);
         mapCenter = f.center;
         rig.setViewRadius(f.radius);
         lastCameraKey = key;
@@ -270,7 +299,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       if (camera.mode === 'moon') return toDisplayFrame(moon.r, s.t, base);
       return rotating ? scale(add(toDisplayFrame(earth.r, s.t, base), toDisplayFrame(moon.r, s.t, base)), 0.5) : ZERO;
     };
-    const frame: ViewFrame = { eph, rotating, origin: focus() };
+    const frame: ViewFrame = { eph, rotating, angle: mapAngle, origin: focus() };
 
     // --- Cuerpos y referencias ---
     worldToScene(earth.r, s.t, frame, bodies.earth.position);
@@ -299,7 +328,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     }
     // El plan nominal solo se dibuja en el mapa y el recuadro, y solo se reconstruye si cambia el origen.
     if (!is3d) {
-      const nominalKey = `${frame.origin.x.toFixed(0)}|${frame.origin.y.toFixed(0)}|${s.params.moonAngle0Deg}`;
+      const nominalKey = `${rotating}|${frame.origin.x.toFixed(0)}|${frame.origin.y.toFixed(0)}|${s.params.moonAngle0Deg}`;
       if (nominalKey !== lastNominalKey) {
         trails.setNominal(NOMINAL_PATH, frame);
         lastNominalKey = nominalKey;
@@ -371,6 +400,16 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
         return { item, angle: Math.atan2(d.y, d.x) };
       }),
       labels: { earth: es ? 'TIERRA' : 'EARTH', moon: es ? 'LUNA' : 'MOON' },
+      // Mapa inercial: dónde va a estar la Luna cuando llegue la nave (sobrevuelo nominal).
+      ghost:
+        isMap && !rotating && s.t < flybyMet
+          ? {
+              r: eph.moon(flybyMet).r,
+              t: flybyMet,
+              radiusPx: R_MOON * bodyScale * KM_TO_SCENE * pxPerScene,
+              label: es ? 'LUNA EN EL SOBREVUELO' : 'MOON AT FLYBY',
+            }
+          : null,
     });
 
     // --- Dibujo: fondo de estrellas y, encima, la escena ---

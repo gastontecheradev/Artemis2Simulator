@@ -1315,6 +1315,16 @@ button.softkey:active {
 .body-dot.moon {
   background: color-mix(in srgb, var(--c-body-moon) 70%, white);
 }
+/* Mapa inercial: dónde va a estar la Luna en el sobrevuelo nominal. */
+.moon-ghost {
+  border: 1px dashed color-mix(in srgb, var(--c-body-moon) 70%, white);
+  border-radius: 50%;
+  opacity: 0.7;
+}
+.body-label.ghost {
+  color: color-mix(in srgb, var(--c-body-moon) 70%, white);
+  opacity: 0.8;
+}
 .event-marker {
   pointer-events: auto;
   cursor: help;

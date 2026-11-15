@@ -20,6 +20,8 @@ export interface OverlayAnchors {
   readonly debris: readonly { readonly item: Debris; readonly angle: number }[];
   /** Etiquetas de los cuerpos en el idioma actual. */
   readonly labels: { readonly earth: string; readonly moon: string };
+  /** Posición futura de la Luna (contorno punteado con etiqueta), o null para ocultarla. */
+  readonly ghost?: { readonly r: Vec3; readonly t: number; readonly radiusPx: number; readonly label: string } | null;
 }
 
 /**
@@ -58,6 +60,8 @@ export function createOverlay(root: HTMLElement): Overlay {
   const moonDot = make('body-dot moon');
   const earthLabel = make('body-label');
   const moonLabel = make('body-label');
+  const ghostRing = make('moon-ghost');
+  const ghostLabel = make('body-label ghost');
   const burnFlash = make('burn-flash');
   const ship = make('ship-marker');
 
@@ -114,6 +118,21 @@ export function createOverlay(root: HTMLElement): Overlay {
       if (moonLabel.textContent !== a.labels.moon) moonLabel.textContent = a.labels.moon;
       body(a.earth, a.radiusPx.earth, earthDot, earthLabel);
       body(a.moon, a.radiusPx.moon, moonDot, moonLabel);
+
+      // Luna futura (mapa inercial).
+      const g = a.ghost;
+      if (g) {
+        worldToScene(g.r, g.t, frame, v);
+        const p = project(camera, w, h);
+        const d = Math.max(2 * MIN_VISIBLE_RADIUS_PX, 2 * g.radiusPx);
+        ghostRing.style.width = ghostRing.style.height = `${d.toFixed(1)}px`;
+        put(ghostRing, p, 'translate(-50%, -50%)');
+        if (ghostLabel.textContent !== g.label) ghostLabel.textContent = g.label;
+        put(ghostLabel, p, `translate(-50%, ${(-d / 2 - 18).toFixed(1)}px)`);
+      } else {
+        ghostRing.style.display = 'none';
+        ghostLabel.style.display = 'none';
+      }
 
       // Partes desprendidas.
       for (const { item, angle } of a.debris) {
