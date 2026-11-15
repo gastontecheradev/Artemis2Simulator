@@ -56,9 +56,9 @@ const MAP_EXAGGERATION = 3;
 const INSET_RADIUS_LOW = 9000;
 const INSET_RADIUS_HIGH = 95000;
 /**
- * En el regreso, por debajo de esta distancia al centro de la Tierra (km) el recuadro
- * vuelve a la escala del inicio para ver la llegada. Con 0,9 × el radio la nave ya entra
- * en la vista (unos 8 min antes de la interfaz de entrada en el plan nominal).
+ * En el regreso el recuadro vuelve a la escala del inicio desde la separación CM/SM (E13)
+ * o, si no se separa, por debajo de esta distancia al centro de la Tierra (km), con la
+ * nave ya dentro de la vista.
  */
 const INSET_LANDING_DISTANCE = 0.9 * INSET_RADIUS_LOW;
 /**
@@ -370,8 +370,10 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
           lastCameraKey = 'inset|moon';
         }
       } else {
+        // Desde E13 (separación CM/SM) o, si la tripulación no separa, cerca de la Tierra.
         const landing =
-          (s.phase === 'REGRESO' || s.phase === 'ENTRADA') && length(sub(s.ship.r, earth.r)) < INSET_LANDING_DISTANCE;
+          (s.phase === 'REGRESO' || s.phase === 'ENTRADA') &&
+          (s.vehicle.cmSeparated || length(sub(s.ship.r, earth.r)) < INSET_LANDING_DISTANCE);
         const high = !landing && (s.autoBurns.E5.status === 'done' || s.autoBurns.E5.status === 'burning' || s.vehicle.icpsSeparated);
         camera = { mode: 'earth', radius: high ? INSET_RADIUS_HIGH : INSET_RADIUS_LOW };
         const key = `inset|${camera.radius}`;

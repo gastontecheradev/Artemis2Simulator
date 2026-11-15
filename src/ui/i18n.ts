@@ -190,6 +190,7 @@ const EN = {
   'gd.ship': 'About the spacecraft',
   // Fin
   'panel.conceptual': 'Conceptual panel inspired by the Orion cockpit: it is not an exact replica of the real one.',
+  'end.page': 'Mission.End',
   'end.success': 'MISSION COMPLETED SUCCESSFULLY',
   'end.failure': 'MISSION FAILED',
   'end.t.success': 'SPLASHDOWN',
@@ -401,6 +402,7 @@ const ES: Readonly<Record<UiKey, string>> = {
   'gd.power': 'Manejo de energía',
   'gd.ship': 'Acerca de la nave',
   'panel.conceptual': 'Panel conceptual inspirado en la cabina de Orion: no es una réplica exacta del real.',
+  'end.page': 'Mission.End',
   'end.success': 'MISIÓN FINALIZADA CON ÉXITO',
   'end.failure': 'MISIÓN FALLIDA',
   'end.t.success': 'AMERIZAJE',

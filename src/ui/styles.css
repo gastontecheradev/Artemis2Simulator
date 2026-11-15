@@ -1174,7 +1174,8 @@ button.softkey:active {
   display: flex;
   gap: 8px;
 }
-/* Cartel de fin de misión: verde (éxito) o rojo (fallida), sobre las vistas sin taparlas. */
+/* Cartel de fin de misión: una Display Unit (bisel, pantalla negra, barra de título) con un
+   anunciador iluminado en verde (éxito) o rojo (fallida), como el Master Alarm. */
 .end-banner-wrap {
   position: absolute;
   inset: 0;
@@ -1186,50 +1187,82 @@ button.softkey:active {
   pointer-events: none;
 }
 .end-banner {
-  width: min(560px, 100%);
-  padding: 16px 20px 14px;
-  text-align: center;
-  color: var(--c-screen);
-  border: 2px solid var(--c-screen);
-  border-radius: 4px;
-  box-shadow: 0 0 0 1px var(--c-frame), 0 10px 40px color-mix(in srgb, var(--c-screen) 70%, transparent);
+  position: relative;
+  width: min(520px, 100%);
+  padding: 14px;
+  background: linear-gradient(180deg, var(--c-panel-hi), var(--c-panel) 40%, var(--c-panel-lo));
+  border: 1px solid var(--c-frame);
+  border-radius: 6px;
+  box-shadow: inset 0 1px 0 var(--c-key), 0 10px 40px color-mix(in srgb, var(--c-screen) 75%, transparent);
   pointer-events: auto;
 }
-.end-banner.ok {
+.end-banner-screen {
+  background: var(--c-screen);
+  border: 4px solid var(--c-bezel);
+  outline: 2px solid var(--c-frame);
+}
+.end-banner-title {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 8px;
+  line-height: 20px;
+  font-size: 11px;
+  text-transform: none;
+  color: var(--c-label);
+  background: var(--c-title-bar);
+  border-bottom: 1px solid var(--c-title-bar-hi);
+}
+.end-banner.fail .end-banner-title {
+  background: var(--c-warning-dim);
+  border-bottom-color: var(--c-warning);
+}
+.end-banner-met {
+  color: var(--c-label-dim);
+  font-size: 10px;
+}
+.end-banner-body {
+  padding: 14px 16px 12px;
+  text-align: center;
+}
+.end-annunciator {
+  padding: 10px 12px;
+  border: 2px solid var(--c-key-lo);
+  border-radius: 3px;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--c-screen);
+}
+.end-banner.ok .end-annunciator {
   background: var(--c-value);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--c-value) 55%, transparent), inset 0 0 0 1px var(--c-value-hi);
 }
-.end-banner.fail {
+.end-banner.fail .end-annunciator {
   background: var(--c-warning);
-}
-.end-banner h1 {
-  margin: 0 0 4px;
-  font-size: 24px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--c-warning) 55%, transparent), inset 0 0 0 1px var(--c-warning-dim);
 }
 .end-banner-kind {
   display: block;
+  margin-top: 10px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.12em;
 }
-.end-banner p {
-  margin: 8px 0 12px;
+.end-banner.ok .end-banner-kind {
+  color: var(--c-value-hi);
+}
+.end-banner.fail .end-banner-kind {
+  color: var(--c-warning);
+}
+.end-banner-body p {
+  margin: 6px 0 14px;
   font-size: 11px;
-  line-height: 1.4;
+  line-height: 1.45;
   text-transform: none;
+  color: var(--c-label);
 }
 .end-banner .end-actions {
   justify-content: center;
-}
-.end-banner .tb-btn {
-  color: var(--c-label);
-  background: var(--c-screen);
-  border-color: var(--c-screen);
-}
-.end-banner .tb-btn.on {
-  color: var(--c-screen);
-  background: var(--c-label);
 }
 .credit-list {
   margin: 0 0 10px;
