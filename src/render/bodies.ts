@@ -37,8 +37,13 @@ function circle(radius: number, segments: number, closed: boolean): THREE.Buffer
  * dependen de imágenes. Las texturas de NASA (Blue Marble, CGI Moon Kit) quedan
  * pendientes hasta que estén elegidas y registradas en ASSETS.md.
  */
-export function createBodies(colors: { earth: string; moon: string; orbit: string; ei: string }): BodyMeshes {
+export function createBodies(
+  colors: { earth: string; moon: string; orbit: string; ei: string },
+  /** Mapa 2D: Luna aclarada (mezcla con blanco, sin matices nuevos) y órbita más visible. */
+  contrast = false,
+): BodyMeshes {
   const group = new THREE.Group();
+  const moonColor = contrast ? `#${new THREE.Color(colors.moon).lerp(new THREE.Color(0xffffff), 0.35).getHexString()}` : colors.moon;
   const geometry = new THREE.SphereGeometry(1, 192, 96);
   // Los polos de la esfera van sobre z (perpendicular al plano orbital).
   geometry.rotateX(Math.PI / 2);
@@ -48,13 +53,13 @@ export function createBodies(colors: { earth: string; moon: string; orbit: strin
     lit: new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0 }),
   });
   const earthMat = make(colors.earth);
-  const moonMat = make(colors.moon);
+  const moonMat = make(moonColor);
   const earth: THREE.Mesh = new THREE.Mesh(geometry, earthMat.flat);
   const moon: THREE.Mesh = new THREE.Mesh(geometry, moonMat.flat);
 
   const mu = GM_MOON / (GM_EARTH + GM_MOON);
   const orbitGeometry = circle((1 - mu) * EARTH_MOON_DISTANCE * KM_TO_SCENE, 256, true);
-  const orbitMaterial = new THREE.LineBasicMaterial({ color: colors.orbit, transparent: true, opacity: 0.18 });
+  const orbitMaterial = new THREE.LineBasicMaterial({ color: colors.orbit, transparent: true, opacity: contrast ? 0.42 : 0.18 });
   const moonOrbit = new THREE.LineLoop(orbitGeometry, orbitMaterial);
 
   const eiGeometry = circle((R_EARTH + EI_ALTITUDE) * KM_TO_SCENE, 720, true);
@@ -62,7 +67,7 @@ export function createBodies(colors: { earth: string; moon: string; orbit: strin
   const eiRing = new THREE.LineLoop(eiGeometry, eiMaterial);
 
   const soiGeometry = circle(MOON_SOI * KM_TO_SCENE, 180, false);
-  const soiMaterial = new THREE.LineDashedMaterial({ color: colors.orbit, transparent: true, opacity: 0.3, dashSize: 2.2, gapSize: 2.4 });
+  const soiMaterial = new THREE.LineDashedMaterial({ color: colors.orbit, transparent: true, opacity: contrast ? 0.5 : 0.3, dashSize: 2.2, gapSize: 2.4 });
   const soiRing = new THREE.Line(soiGeometry, soiMaterial);
   soiRing.computeLineDistances();
 

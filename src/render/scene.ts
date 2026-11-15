@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { runningEngines } from '../sim/advance';
-import { R_EARTH, R_MOON } from '../sim/constants';
+import { MOON_SOI, R_EARTH, R_MOON } from '../sim/constants';
 import { getLocale } from '../sim/i18n';
 import { Vec3, ZERO, add, cross, length, normalize, rotateZ, scale } from '../sim/math/vec3';
 import nominalRaw from '../sim/mission/nominal-path.json';
@@ -102,8 +102,10 @@ function mapFraming(
   const earth = toDisplayFrame(eph.earth(0).r, 0, frame);
   take(add(earth, { x: -R_EARTH * MAP_EXAGGERATION, y: 0, z: 0 }));
   if (frame.rotating) {
+    // La Luna con su esfera de influencia (punteada) completa.
     const moon = toDisplayFrame(eph.moon(0).r, 0, frame);
-    take(add(moon, { x: R_MOON * MAP_EXAGGERATION * 2, y: 0, z: 0 }));
+    take(add(moon, { x: MOON_SOI, y: MOON_SOI, z: 0 }));
+    take(add(moon, { x: -MOON_SOI, y: -MOON_SOI, z: 0 }));
   } else {
     // La Luna se mueve: entra su arco completo, del lanzamiento al final del plan.
     const tEnd = NOMINAL_PATH.length ? NOMINAL_PATH[NOMINAL_PATH.length - 1][0] : 0;
@@ -161,7 +163,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     moon: cssVar(container, '--c-body-moon'),
     orbit: cssVar(container, '--c-label'),
     ei: cssVar(container, '--c-caution'),
-  });
+  }, isMap);
   bodies.setLit(is3d);
   const trails = createTrails({
     out: cssVar(container, '--c-trail-out'),
@@ -242,11 +244,13 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     const rotating = is3d ? settings.frame === 'rotating' : isMap ? settings.mapFrame === 'rotating' : true;
     const earth = eph.earth(s.t);
     const moon = eph.moon(s.t);
-    // Mapa inercial: giro fijo que deja la Luna del sobrevuelo nominal arriba, así el
-    // arco que recorre la Luna durante la misión pasa de derecha a izquierda por encima de la Tierra.
+    // Mapa 2D: giro fijo de 90° en sentido horario respecto de la orientación base. En el
+    // rotante la Luna queda abajo de la Tierra; en el inercial, la Luna del sobrevuelo
+    // nominal queda a la derecha (antes del giro estaba arriba).
     const flybyMet = s.params.nominal.flybyMet;
-    const mapAngle = isMap && !rotating ? eph.moonAngle(flybyMet) - Math.PI / 2 : 0;
-    const frameAngle = rotating ? eph.moonAngle(s.t) : mapAngle;
+    const MAP_TURN = Math.PI / 2;
+    const mapAngle = isMap ? (rotating ? 0 : eph.moonAngle(flybyMet) - Math.PI / 2) + MAP_TURN : 0;
+    const frameAngle = rotating ? eph.moonAngle(s.t) + mapAngle : mapAngle;
     /** Dirección inercial llevada al marco de dibujo. */
     const displayDir = (d: Vec3): Vec3 => (frameAngle ? rotateZ(d, -frameAngle) : d);
 
@@ -263,8 +267,8 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     if (isMap) {
       const key = `map|${settings.mapFrame}|${width}x${height}|${s.params.moonAngle0Deg}`;
       if (key !== lastCameraKey) {
-        // El rotante es apaisado y le sobra alto; el inercial es más alto y necesita los márgenes.
-        const pad = rotating ? { top: 0, bottom: 0 } : { top: MAP_PAD_TOP, bottom: MAP_PAD_BOTTOM };
+        // Con el giro, el rotante queda vertical: los dos marcos necesitan los márgenes.
+        const pad = { top: MAP_PAD_TOP, bottom: MAP_PAD_BOTTOM };
         const f = mapFraming(eph, { width, height, ...pad }, base);
         mapCenter = f.center;
         rig.setViewRadius(f.radius);

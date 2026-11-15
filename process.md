@@ -45,10 +45,10 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 15. **Separación CM/SM:** se pide a EI − 40 min y la tripulación automática la hace a EI − 20 min (cronograma de NASA), con el tiempo a la entrada calculado por Kepler (`timeToEntry`).
 16. **Guiado de correcciones:** secante sobre el eje radial, estimando con un impulso instantáneo.
 17. **Idiomas:** inglés por defecto y español. Textos de la simulación en `sim/i18n.ts` (`tr`), de la interfaz en `ui/i18n.ts` (`useT`). Siglas de cabina en inglés en los dos. Los tests comparan en español.
-18. **Mapa 2D fijo:** marco rotante por defecto o inercial a elección (sesión 7), encuadre calculado del plan nominal (`nominal-path.json`), sin zoom; cuerpos ×3. El inercial va girado para que la Luna del sobrevuelo nominal quede arriba y muestra esa posición futura con un contorno punteado. La vista 3D conserva cámara y marco y comparte su área con el recuadro del entorno terrestre, en una columna de alto completo a la derecha (centrado en la Tierra, ±9.000 km hasta E5, ±95.000 km después); estaba sobre el mapa y se movió en la sesión 6 para no tapar la Luna.
+18. **Mapa 2D fijo:** marco rotante por defecto o inercial a elección (sesión 7), encuadre calculado del plan nominal (`nominal-path.json`), sin zoom; cuerpos ×3. El inercial va girado para que la Luna del sobrevuelo nominal quede a la derecha y muestra esa posición futura con un contorno punteado. Desde la sesión 8 los dos marcos van girados 90° en sentido horario (`MAP_TURN` en `render/scene.ts`): en el rotante la Tierra queda arriba y la Luna abajo. En el mapa la Luna va aclarada (35 % de blanco) y su órbita y su esfera de influencia más opacas. La vista 3D conserva cámara y marco y comparte su área con el recuadro del entorno terrestre, en una columna de alto completo a la derecha (centrado en la Tierra, ±9.000 km hasta E5, ±95.000 km después); estaba sobre el mapa y se movió en la sesión 6 para no tapar la Luna.
 19. **Control de misión (CAPCOM):** función pura del estado (`sim/capcom.ts`), sin guardarse en `SimState`; los mensajes dentro de una LOS no llegan.
 20. **Guías** con números tomados del modelo (`vehicle.ts`, `params.json`); costo del programa del informe IG‑22‑003 de la OIG de NASA. La de energía aclara que el sistema eléctrico no se simula.
-21. **La plataforma está sobre +y** ("arriba" en el mapa); la fase lunar se mide desde ahí.
+21. **La plataforma está sobre +y** inercial; la fase lunar se mide desde ahí. (En el mapa 2D ya no queda "arriba": el mapa va girado 90°.)
 22. **Estrellas decorativas** con semilla fija; no es un catálogo.
 23. **`CLAUDE.md` no se commitea** (está en `.gitignore`).
 
@@ -89,6 +89,12 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - **Difiere:** 6 teclas por lado horizontal (la referencia tiene 8) y sin perillas; interruptores SVG planos; la guarda es una tapa translúcida con botón; los controladores manuales son botones, no palancas; el indicador de actitud solo cabecea; la barra de estado superior no existe en la cabina real; no hay dispositivo de cursor.
 
 ## Historial de sesiones
+
+## Sesión 8 — 2026-11-15 — Mapa 2D girado y Luna con más contraste
+**Hecho:** el mapa 2D gira 90° en sentido horario en los dos marcos (`MAP_TURN` en `render/scene.ts`; `toDisplayFrame` en `render/worldToScene.ts` ahora aplica el giro fijo también en el rotante). El encuadre usa los márgenes de barra y HUD en los dos marcos y, en el rotante, incluye la esfera de influencia lunar completa (antes tocaba el HUD). `createBodies` (`render/bodies.ts`) recibe `contrast`: en el mapa la Luna se mezcla con 35 % de blanco y la órbita lunar (0,18 → 0,42) y la esfera de influencia (0,3 → 0,5) son más opacas. La 3D y el recuadro no cambian.
+**Decisiones:** el contraste se deriva mezclando la paleta con blanco (regla de la paleta), no con un color nuevo.
+**Tests:** 49 en verde; build sin errores; capturas headless en MET 200.000 s (español) de los dos marcos.
+**Próximo paso:** el mismo de "Estado actual".
 
 ## Sesión 7 — 2026-11-15 — Mapa 2D en marco inercial
 **Hecho:** selector MARCO (rotante / inercial) en la barra del mapa 2D (`ui/TrajectoryView.tsx`, `mapFrame` en `ui/store.ts`, `?map=inertial`). En el inercial la Luna recorre su órbita (se ve la circunferencia), el dibujo va girado un ángulo fijo (`angle` en `ViewFrame`, `render/worldToScene.ts`) para que la Luna del sobrevuelo nominal quede arriba, y un contorno punteado con la etiqueta "LUNA EN EL SOBREVUELO" marca dónde va a estar la Luna cuando llegue la nave (`render/markers.ts`, se oculta pasado el sobrevuelo). `mapFraming` (`render/scene.ts`) incluye el arco de la Luna durante la misión y deja libres 40 px arriba (barra) y 100 px abajo (HUD) en el inercial; el rotante queda igual. Textos de ayuda y paso del tutorial del mapa en los dos idiomas.
