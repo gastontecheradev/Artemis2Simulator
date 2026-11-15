@@ -12,12 +12,14 @@ export interface OverlayAnchors {
   readonly t: number;
   /** Rumbo del eje de la nave en pantalla (rad, antihorario). */
   readonly shipAngle: number;
+  /** Largo de la nave en pantalla (px) en 3D; por debajo de unos píxeles se marca con un punto. */
+  readonly shipPx: number;
   /** Íconos 2D de la nave y de las partes desprendidas (en 3D se dibujan como modelos). */
   readonly showIcons: boolean;
   /** Radio en pantalla de cada cuerpo (px). */
   readonly radiusPx: { readonly earth: number; readonly moon: number };
   /** Partes desprendidas, con el rumbo en pantalla de cada una. */
-  readonly debris: readonly { readonly item: Debris; readonly angle: number }[];
+  readonly debris: readonly { readonly item: Debris; readonly angle: number; readonly px: number }[];
   /** Etiquetas de los cuerpos en el idioma actual. */
   readonly labels: { readonly earth: string; readonly moon: string };
   /** Posición futura de la Luna (contorno punteado con etiqueta), o null para ocultarla. */
@@ -64,6 +66,7 @@ export function createOverlay(root: HTMLElement): Overlay {
   const ghostLabel = make('body-label ghost');
   const burnFlash = make('burn-flash');
   const ship = make('ship-marker');
+  const shipDot = make('ship-dot');
 
   let markers: readonly Marker[] = [];
   const markerEls = new Map<string, HTMLDivElement>();
@@ -135,7 +138,7 @@ export function createOverlay(root: HTMLElement): Overlay {
       }
 
       // Partes desprendidas.
-      for (const { item, angle } of a.debris) {
+      for (const { item, angle, px } of a.debris) {
         let el = debrisEls.get(item.id);
         if (!el) {
           el = make('debris-marker');
@@ -143,7 +146,10 @@ export function createOverlay(root: HTMLElement): Overlay {
           debrisEls.set(item.id, el);
         }
         worldToScene(item.ship.r, item.t, frame, v);
-        put(el, project(camera, w, h), spin(angle), a.showIcons);
+        // En 3D el modelo va a escala real: si se ve más chico que unos píxeles, un punto.
+        const dot = !a.showIcons && px < MIN_VISIBLE_RADIUS_PX;
+        el.classList.toggle('dot', dot);
+        put(el, project(camera, w, h), dot ? 'translate(-50%, -50%)' : spin(angle), a.showIcons || dot);
       }
       for (const [id, el] of debrisEls) {
         if (!a.debris.some((x) => x.item.id === id)) {
@@ -156,6 +162,7 @@ export function createOverlay(root: HTMLElement): Overlay {
       const p = project(camera, w, h);
       put(burnFlash, p, 'translate(-50%, -50%)');
       put(ship, p, spin(a.shipAngle), a.showIcons);
+      put(shipDot, p, 'translate(-50%, -50%)', !a.showIcons && a.shipPx < MIN_VISIBLE_RADIUS_PX);
     },
     setShipIcon(svg) {
       ship.innerHTML = svg;

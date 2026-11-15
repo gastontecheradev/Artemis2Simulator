@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { runningEngines } from '../sim/advance';
-import { MOON_SOI, R_EARTH, R_MOON } from '../sim/constants';
+import { EARTH_ROTATION_IN_PLANE, MOON_SOI, R_EARTH, R_MOON } from '../sim/constants';
 import { getLocale } from '../sim/i18n';
 import { Vec3, ZERO, add, cross, length, normalize, rotateZ, scale, sub } from '../sim/math/vec3';
 import nominalRaw from '../sim/mission/nominal-path.json';
@@ -9,7 +9,7 @@ import { timeline } from '../sim/mission/timeline';
 import { Prediction } from '../sim/propagate';
 import { SimState, TrailPoint, ephemerisOf } from '../sim/state';
 import { VehicleConfig } from '../sim/vehicle';
-import { EXAGGERATION, createBodies } from './bodies';
+import { createBodies } from './bodies';
 import { CameraRig, createOrthoRig, createPerspectiveRig } from './camera';
 import { createOverlay } from './markers';
 import { createStars } from './stars';
@@ -50,16 +50,17 @@ const NOMINAL_PATH = nominalRaw as unknown as readonly (readonly [number, number
 const Z: Vec3 = { x: 0, y: 0, z: 1 };
 /** 1 m en unidades de escena. */
 const M_TO_SCENE = KM_TO_SCENE / 1000;
-/** Tamaño mínimo aparente de la nave: fracción del semialto de la vista. */
-const MIN_APPARENT = 0.28;
-/** Agrandamiento de los cuerpos en el mapa (en 3D se usa EXAGGERATION). */
+/** Agrandamiento de los cuerpos en el mapa. La vista 3D y el recuadro van siempre a escala real. */
 const MAP_EXAGGERATION = 3;
 /** Radios fijos del recuadro del entorno terrestre (km): fase de órbita baja y después. */
 const INSET_RADIUS_LOW = 9000;
 const INSET_RADIUS_HIGH = 95000;
-/** Recuadro del entorno lunar: el radio sigue la distancia a la Luna entre estos topes (km). */
-const LUNAR_RADIUS_MIN = 12000;
-const LUNAR_RADIUS_MAX = MOON_SOI * 1.1;
+/**
+ * Recuadro del entorno lunar: radio fijo (km), a mitad de camino entre el encuadre al
+ * entrar en la esfera de influencia (1,1 × SOI) y el del sobrevuelo (12.000 km). Antes
+ * seguía la distancia de la nave y se veía como un zoom continuo.
+ */
+const LUNAR_RADIUS = (12000 + MOON_SOI * 1.1) / 2;
 
 /**
  * Qué muestra el recuadro: el entorno terrestre o, dentro de la esfera de influencia
@@ -92,10 +93,11 @@ function defaultRadius(mode: FixedMode, rotating: boolean, cfg: VehicleConfig): 
       return rotating ? 290000 : 470000;
     case 'ship':
       return closeRadius(cfg);
+    // Cuerpos a escala real en 3D: encuadres de unas tres veces su radio más la órbita baja.
     case 'earth':
-      return 95000;
+      return 22000;
     case 'moon':
-      return 30000;
+      return 7000;
   }
 }
 
@@ -261,6 +263,31 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     object.quaternion.setFromRotationMatrix(basis);
   };
 
+  /**
+   * Encuadre inicial de la nave en 3D: de costado (tangente a la vertical local) y desde
+   * arriba del plano orbital, con un poco de altura. Mirando desde el lado del planeta la
+   * cámara quedaría bajo tierra en la plataforma.
+   */
+  const aimFromSide = (pos: THREE.Vector3, s: SimState): void => {
+    const eph = ephemerisOf(s);
+    const e = eph.earth(s.t).r;
+    const m = eph.moon(s.t).r;
+    const body = length(sub(s.ship.r, m)) < MOON_SOI ? m : e;
+    const rotating = deps.getSettings().frame === 'rotating';
+    const f: ViewFrame = { eph, rotating, origin: ZERO };
+    const up = normalize(sub(toDisplayFrame(s.ship.r, s.t, f), toDisplayFrame(body, s.t, f)));
+    const side = normalize(cross(Z, up));
+    const d = add(add(scale(side, -0.72), scale(Z, 0.62)), scale(up, 0.3));
+    const dist = pos.length();
+    pos.set(d.x, d.y, d.z).setLength(dist);
+  };
+  const tmp = new THREE.Vector3();
+  const keepOutside = (pos: THREE.Vector3, center: THREE.Vector3, radius: number): void => {
+    tmp.subVectors(pos, center);
+    const min = radius * (1 + 1e-6) + pos.length() * 0.05;
+    if (tmp.length() < min) pos.copy(center).addScaledVector(tmp.normalize(), min);
+  };
+
   const draw = (now: number): void => {
     raf = requestAnimationFrame(draw);
     const dt = Math.min(0.1, (now - lastTime) / 1000);
@@ -282,7 +309,9 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     /** Dirección inercial llevada al marco de dibujo. */
     const displayDir = (d: Vec3): Vec3 => (frameAngle ? rotateZ(d, -frameAngle) : d);
 
-    const bodyScale = isInset ? 1 : settings.exaggerate ? (is3d ? EXAGGERATION : MAP_EXAGGERATION) : 1;
+    // En 3D todo va a escala real (cuerpos y nave): con la Tierra agrandada, la nave en
+    // órbita baja quedaba adentro del planeta.
+    const bodyScale = isMap && settings.exaggerate ? MAP_EXAGGERATION : 1;
     if (settings !== lastSettings || bodyScale !== lastBodyScale) {
       bodies.setBodyScale(bodyScale);
       lastSettings = settings;
@@ -306,11 +335,12 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       camera = { mode: 'overview', radius: rig.getViewRadius() };
     } else if (isInset) {
       if (insetTarget(s) === 'moon') {
-        // Entorno lunar: centrado en la Luna; el radio acompaña a la nave para que siempre entre.
-        const d = length(sub(s.ship.r, moon.r));
-        camera = { mode: 'moon', radius: Math.min(LUNAR_RADIUS_MAX, Math.max(LUNAR_RADIUS_MIN, d * 1.35)) };
-        rig.setViewRadius(camera.radius);
-        lastCameraKey = 'inset|moon';
+        // Entorno lunar: centrado en la Luna, con escala fija.
+        camera = { mode: 'moon', radius: LUNAR_RADIUS };
+        if (lastCameraKey !== 'inset|moon') {
+          rig.setViewRadius(camera.radius);
+          lastCameraKey = 'inset|moon';
+        }
       } else {
         const high = s.autoBurns.E5.status === 'done' || s.autoBurns.E5.status === 'burning' || s.vehicle.icpsSeparated;
         camera = { mode: 'earth', radius: high ? INSET_RADIUS_HIGH : INSET_RADIUS_LOW };
@@ -328,17 +358,24 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       if (cameraKey !== lastCameraKey) {
         // Solo se reencuadra cuando cambia el modo o la etapa: mientras tanto se respeta el zoom manual.
         rig.setViewRadius(radius);
+        if (mode === 'ship') aimFromSide(rig.camera.position, s);
         lastCameraKey = cameraKey;
       }
     }
 
     // --- Marco de dibujo y origen flotante ---
+    const cfg = s.vehicle;
+    const shipDir = displayDir(s.attitude.dir);
+    // Mientras sigue la etapa central, el modelo se apoya en su base (las toberas) para que
+    // en la plataforma el cohete quede sobre el suelo; la cámara mira a su centro.
+    const anchorBase = !cfg.coreSeparated;
+    const shipCenterKm = anchorBase ? vehicleExtent(cfg).length / 2 / 1000 : 0;
     const focus = (): Vec3 => {
       if (isMap) {
         const pan = rig.getPan();
         return { x: mapCenter.x + pan.x, y: mapCenter.y + pan.y, z: 0 };
       }
-      if (camera.mode === 'ship') return toDisplayFrame(s.ship.r, s.t, base);
+      if (camera.mode === 'ship') return add(toDisplayFrame(s.ship.r, s.t, base), scale(shipDir, shipCenterKm));
       if (camera.mode === 'earth') return toDisplayFrame(earth.r, s.t, base);
       if (camera.mode === 'moon') return toDisplayFrame(moon.r, s.t, base);
       return rotating ? scale(add(toDisplayFrame(earth.r, s.t, base), toDisplayFrame(moon.r, s.t, base)), 0.5) : ZERO;
@@ -348,6 +385,9 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     // --- Cuerpos y referencias ---
     worldToScene(earth.r, s.t, frame, bodies.earth.position);
     worldToScene(moon.r, s.t, frame, bodies.moon.position);
+    // La Tierra gira con la plataforma: así el sitio de lanzamiento cae siempre sobre un
+    // vértice de la esfera y el cohete apoya en el suelo, no en una faceta más abajo.
+    bodies.earth.rotation.z = EARTH_ROTATION_IN_PLANE * s.t - frameAngle;
     bodies.eiRing.position.copy(bodies.earth.position);
     bodies.soiRing.position.copy(bodies.moon.position);
     worldToScene(ZERO, s.t, frame, bodies.moonOrbit.position);
@@ -385,15 +425,14 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     // --- Nave: orientada según su actitud, con las partes de la etapa actual ---
     const engines = runningEngines(s);
     const enginesKey = engines.join(',');
-    const cfg = s.vehicle;
     const iconKey = `${cfg.srbSeparated}${cfg.lasJettisoned}${cfg.coreSeparated}${cfg.icpsSeparated}${cfg.cmSeparated}|${enginesKey}`;
-    const shipDir = displayDir(s.attitude.dir);
+    let shipLengthM = 0;
     if (is3d) {
-      const lengthM = model.update(cfg, engines);
+      shipLengthM = model.update(cfg, engines, anchorBase);
       worldToScene(s.ship.r, s.t, frame, model.group.position);
       orient(model.group, shipDir);
-      // A escala real de cerca; de lejos se agranda para que no desaparezca.
-      model.group.scale.setScalar(M_TO_SCENE * Math.max(1, (viewRadiusScene * MIN_APPARENT) / (lengthM * M_TO_SCENE)));
+      // Siempre a escala real; cuando mide menos de unos píxeles, la capa HTML la marca con un punto.
+      model.group.scale.setScalar(M_TO_SCENE);
     } else if (iconKey !== lastIconKey) {
       overlay.setShipIcon(vehicleIconSvg(cfg, engines));
     }
@@ -414,7 +453,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
         }
         worldToScene(b.ship.r, b.t, frame, g.position);
         orient(g, displayDir(b.dir));
-        g.scale.setScalar(M_TO_SCENE * Math.max(1, (viewRadiusScene * MIN_APPARENT * 0.6) / (debrisLength(b.id) * M_TO_SCENE)));
+        g.scale.setScalar(M_TO_SCENE);
       }
     }
 
@@ -425,6 +464,12 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     }
     overlay.setMarkers(s.markers, eventNames);
     rig.update();
+    if (is3d) {
+      // La cámara nunca queda adentro de un cuerpo (a escala real, cerca de la nave en
+      // órbita baja, la superficie está a metros): se la empuja afuera, sobre la vertical.
+      keepOutside(rig.camera.position, bodies.earth.position, R_EARTH * KM_TO_SCENE);
+      keepOutside(rig.camera.position, bodies.moon.position, R_MOON * KM_TO_SCENE);
+    }
     rig.camera.updateMatrixWorld();
     const pxPerScene = Math.min(width, height) / 2 / viewRadiusScene;
     const es = getLocale() === 'es';
@@ -434,6 +479,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       ship: s.ship.r,
       t: s.t,
       shipAngle: Math.atan2(shipDir.y, shipDir.x),
+      shipPx: is3d ? shipLengthM * M_TO_SCENE * pxPerScene : Infinity,
       showIcons: !is3d,
       radiusPx: {
         earth: R_EARTH * bodyScale * KM_TO_SCENE * pxPerScene,
@@ -441,7 +487,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       },
       debris: s.debris.map((item) => {
         const d = displayDir(item.dir);
-        return { item, angle: Math.atan2(d.y, d.x) };
+        return { item, angle: Math.atan2(d.y, d.x), px: is3d ? debrisLength(item.id) * M_TO_SCENE * pxPerScene : Infinity };
       }),
       labels: { earth: es ? 'TIERRA' : 'EARTH', moon: es ? 'LUNA' : 'MOON' },
       // Mapa inercial: dónde va a estar la Luna cuando llegue la nave (sobrevuelo nominal).

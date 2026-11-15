@@ -191,10 +191,13 @@ function createKit(colors: VehicleColors): Kit & { dispose(): void } {
 }
 
 export interface VehicleModel {
-  /** Grupo a orientar y ubicar. Su origen es el centro del vehículo en la configuración actual. */
+  /**
+   * Grupo a orientar y ubicar. Su origen es el centro del vehículo en la configuración
+   * actual o, con `anchorBase`, la base (las toberas), para que el cohete apoye en la plataforma.
+   */
   readonly group: THREE.Group;
   /** Muestra las partes unidas y las llamas de los motores encendidos. Devuelve el largo actual (m). */
-  update(cfg: VehicleConfig, running: readonly EngineId[]): number;
+  update(cfg: VehicleConfig, running: readonly EngineId[], anchorBase?: boolean): number;
   dispose(): void;
 }
 
@@ -223,7 +226,7 @@ export function createVehicleModel(colors: VehicleColors): VehicleModel {
 
   return {
     group,
-    update(cfg, running) {
+    update(cfg, running, anchorBase = false) {
       const present = partsOf(cfg);
       for (const [id, g] of parts) g.visible = present.includes(id);
       // Los paneles solares se despliegan ya en órbita, sin los paneles protectores.
@@ -233,7 +236,7 @@ export function createVehicleModel(colors: VehicleColors): VehicleModel {
       });
       for (const [id, list] of Object.entries(flames)) for (const f of list) f.visible = running.includes(id as EngineId);
       const ext = vehicleExtent(cfg);
-      stack.position.x = -ext.center;
+      stack.position.x = anchorBase ? -ext.x0 : -ext.center;
       return ext.length;
     },
     dispose: kit.dispose,

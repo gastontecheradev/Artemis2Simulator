@@ -292,6 +292,13 @@ describe('H7 · retorno libre', () => {
     expect(Math.abs(s.record.ei!.t - s.record.cmSepAt! - CM_SEP_LEAD_TIME)).toBeLessThan(25);
   });
 
+  it('después de la separación CM/SM la cápsula va con el escudo térmico por delante', () => {
+    const cm = fly(P, P.nominal.eiMet - 600);
+    expect(cm.vehicle.cmSeparated).toBe(true);
+    const retro = normalize(sub(ephemerisOf(cm).earth(cm.t).v, cm.ship.v));
+    expect(angleBetween(cm.attitude.dir, retro)).toBeLessThan(0.01);
+  });
+
   it('da el mismo resultado avanzando frame a frame con warp ×10000', () => {
     let f = cmd.setWarp(cmd.play(launch()), 10000);
     for (let i = 0; i < 400000 && !f.outcome; i++) f = cmd.tick(f, 1 / 60);
