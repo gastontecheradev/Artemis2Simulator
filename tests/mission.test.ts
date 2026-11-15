@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fly, flyFrom, withBurn } from '../scripts/lib/calibration';
-import { advance, executeManeuver, powerInputOf, produce, setManeuver } from '../src/sim/advance';
+import { advance, cruiseSense, executeManeuver, powerInputOf, produce, setManeuver } from '../src/sim/advance';
 import { airVelocity } from '../src/sim/atmosphere';
 import { dvMagnitude } from '../src/sim/burns';
 import * as cmd from '../src/sim/commands';
@@ -297,6 +297,16 @@ describe('H7 · retorno libre', () => {
     expect(cm.vehicle.cmSeparated).toBe(true);
     const retro = normalize(sub(ephemerisOf(cm).earth(cm.t).v, cm.ship.v));
     expect(angleBetween(cm.attitude.dir, retro)).toBeLessThan(0.01);
+  });
+
+  it('crucero: prograde en el tránsito, retrógrado con la cápsula sola y nada durante un encendido o su orientación previa', () => {
+    expect(cruiseSense(fly(P, 3 * 86400))).toBe(1);
+    expect(cruiseSense(fly(P, P.nominal.eiMet - 600))).toBe(-1);
+    // El TLI enciende 185 s antes del perigeo; 60 s antes de su TIG la nave ya se orienta.
+    const tig = P.burns.E9.met;
+    expect(cruiseSense(fly(P, tig - 60))).toBe(0);
+    expect(cruiseSense(fly(P, tig + 60))).toBe(0);
+    expect(cruiseSense(fly(P, 300))).toBe(0);
   });
 
   it('da el mismo resultado avanzando frame a frame con warp ×10000', () => {

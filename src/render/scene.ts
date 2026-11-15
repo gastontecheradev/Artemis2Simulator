@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { runningEngines } from '../sim/advance';
+import { cruiseSense, runningEngines } from '../sim/advance';
 import { sunDirection } from '../sim/bodies';
 import { EARTH_ROTATION_IN_PLANE, MOON_SOI, R_EARTH, R_MOON } from '../sim/constants';
 import { getLocale } from '../sim/i18n';
-import { Vec3, ZERO, add, cross, length, normalize, rotateZ, scale, sub } from '../sim/math/vec3';
+import { Vec3, ZERO, add, angleBetween, cross, length, normalize, rotateAbout, rotateZ, scale, sub } from '../sim/math/vec3';
 import nominalRaw from '../sim/mission/nominal-path.json';
 import { MissionParams } from '../sim/mission/params';
 import { timeline } from '../sim/mission/timeline';
@@ -14,7 +14,7 @@ import { createBodies } from './bodies';
 import { CameraRig, createOrthoRig, createPerspectiveRig } from './camera';
 import { createOverlay } from './markers';
 import { createStars } from './stars';
-import { TrailColorMode, createTrails } from './trails';
+import { createTrails } from './trails';
 import { createDebrisModels, createVehicleModel, debrisLength, vehicleExtent, vehicleIconSvg } from './vehicle';
 import { KM_TO_SCENE, ViewFrame, toDisplayFrame, worldToScene } from './worldToScene';
 
@@ -33,7 +33,6 @@ export interface ViewSettings {
   readonly frame: 'inertial' | 'rotating';
   /** Marco del mapa 2D: rotante (Tierra y Luna quietas) o inercial (la Luna recorre su órbita). */
   readonly mapFrame: 'inertial' | 'rotating';
-  readonly colorMode: TrailColorMode;
   readonly exaggerate: boolean;
 }
 
@@ -56,6 +55,12 @@ const MAP_EXAGGERATION = 3;
 /** Radios fijos del recuadro del entorno terrestre (km): fase de órbita baja y después. */
 const INSET_RADIUS_LOW = 9000;
 const INSET_RADIUS_HIGH = 95000;
+/**
+ * En el regreso, por debajo de esta distancia al centro de la Tierra (km) el recuadro
+ * vuelve a la escala del inicio para ver la llegada. Con 0,9 × el radio la nave ya entra
+ * en la vista (unos 8 min antes de la interfaz de entrada en el plan nominal).
+ */
+const INSET_LANDING_DISTANCE = 0.9 * INSET_RADIUS_LOW;
 /**
  * Recuadro del entorno lunar: radio fijo (km), a mitad de camino entre el encuadre al
  * entrar en la esfera de influencia (1,1 × SOI) y el del sobrevuelo (12.000 km). Antes
@@ -82,6 +87,26 @@ export function insetTarget(s: SimState): 'earth' | 'moon' {
  */
 function mapAngleFor(rotating: boolean, eph: ReturnType<typeof ephemerisOf>, flybyMet: number): number {
   return rotating ? Math.PI : eph.moonAngle(flybyMet) + Math.PI;
+}
+
+/** Constante de tiempo (s reales) con la que el dibujo de la nave gira hacia su rumbo. */
+const HEADING_SMOOTHING = 0.12;
+
+/**
+ * Dirección del trazo tal como se dibuja: la velocidad en el marco de dibujo (en el
+ * rotante incluye el arrastre del marco). Se deriva numéricamente con un paso de 1 s.
+ */
+function displayVelocityDir(r: Vec3, v: Vec3, t: number, frame: ViewFrame): Vec3 {
+  return normalize(sub(toDisplayFrame(add(r, v), t + 1, frame), toDisplayFrame(r, t, frame)));
+}
+
+/** Gira `from` hacia `to` una fracción `k` del ángulo entre los dos. */
+function turnToward(from: Vec3, to: Vec3, k: number): Vec3 {
+  const angle = angleBetween(from, to);
+  if (angle < 1e-6 || k >= 1) return to;
+  const n = cross(from, to);
+  const axis = length(n) > 1e-9 ? normalize(n) : Z;
+  return normalize(rotateAbout(from, axis, angle * k));
 }
 
 /** Primer plano de la nave en 3D: entra completa a escala real. */
@@ -198,9 +223,6 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     out: cssVar(container, '--c-trail-out'),
     ret: cssVar(container, '--c-trail-return'),
     prox: cssVar(container, '--c-trail-prox'),
-    nsn: cssVar(container, '--c-net-nsn'),
-    dsn: cssVar(container, '--c-net-dsn'),
-    los: cssVar(container, '--c-label'),
     predicted: cssVar(container, '--c-label'),
   });
   const model = createVehicleModel(vehicleColors);
@@ -247,6 +269,9 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   let lastParams: MissionParams | null = null;
   let eventNames: ReadonlyMap<string, string> = new Map();
   let mapCenter: Vec3 = ZERO;
+  /** Rumbo con que se dibuja la nave (marco de dibujo), suavizado entre frames. */
+  let heading: Vec3 | null = null;
+  let lastT = -Infinity;
   let frameCount = 0;
   let lastTime = performance.now();
   let raf = 0;
@@ -345,7 +370,9 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
           lastCameraKey = 'inset|moon';
         }
       } else {
-        const high = s.autoBurns.E5.status === 'done' || s.autoBurns.E5.status === 'burning' || s.vehicle.icpsSeparated;
+        const landing =
+          (s.phase === 'REGRESO' || s.phase === 'ENTRADA') && length(sub(s.ship.r, earth.r)) < INSET_LANDING_DISTANCE;
+        const high = !landing && (s.autoBurns.E5.status === 'done' || s.autoBurns.E5.status === 'burning' || s.vehicle.icpsSeparated);
         camera = { mode: 'earth', radius: high ? INSET_RADIUS_HIGH : INSET_RADIUS_LOW };
         const key = `inset|${camera.radius}`;
         if (key !== lastCameraKey) {
@@ -369,6 +396,13 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     // --- Marco de dibujo y origen flotante ---
     const cfg = s.vehicle;
     const shipDir = displayDir(s.attitude.dir);
+    // Rumbo dibujado: en crucero, sobre el trazo (hacia adelante, o hacia atrás con la
+    // cápsula sola); si no (ascenso, encendidos, orientación previa, DAP en INRTL o MAN),
+    // la actitud real. El cambio entre uno y otro se suaviza para que no salte.
+    const sense = cruiseSense(s);
+    const headingTarget = sense !== 0 ? scale(displayVelocityDir(s.ship.r, s.ship.v, s.t, base), sense) : shipDir;
+    heading = !heading || s.t < lastT ? headingTarget : turnToward(heading, headingTarget, 1 - Math.exp(-dt / HEADING_SMOOTHING));
+    lastT = s.t;
     // Mientras sigue la etapa central, el modelo se apoya en su base (las toberas) para que
     // en la plataforma el cohete quede sobre el suelo; la cámara mira a su centro.
     const anchorBase = !cfg.coreSeparated;
@@ -399,16 +433,17 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
 
     // --- Trazos ---
     const tip = { t: s.t, r: s.ship.r };
-    const viewKey = `${rotating}|${settings.colorMode}|${camera.mode}`;
+    const viewKey = `${rotating}|${camera.mode}`;
     const trailEvery = s.trail.length > 6000 ? 6 : 1;
     const trailKey = `${viewKey}|${s.trail.length}|${s.t}`;
     if (s.trail !== lastTrail || (trailKey !== lastTrailKey && frameCount % trailEvery === 0)) {
-      trails.setTraveled(s.trail, tip, frame, settings.colorMode);
+      trails.setTraveled(s.trail, tip, frame);
       lastTrail = s.trail;
       lastTrailKey = trailKey;
     }
+    // La vista 3D solo dibuja lo recorrido: la trayectoria que falta queda para el mapa y el recuadro.
     const predictionKey = `${viewKey}|${Math.floor(frameCount / 10)}|${s.t}`;
-    if (s.prediction !== lastPrediction || predictionKey !== lastPredictionKey) {
+    if (!is3d && (s.prediction !== lastPrediction || predictionKey !== lastPredictionKey)) {
       trails.setPredicted(s.prediction ? s.prediction.points : [], tip, frame);
       lastPrediction = s.prediction;
       lastPredictionKey = predictionKey;
@@ -433,7 +468,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     if (is3d) {
       shipLengthM = model.update(cfg, engines, anchorBase);
       worldToScene(s.ship.r, s.t, frame, model.group.position);
-      orient(model.group, shipDir);
+      orient(model.group, heading);
       // Siempre a escala real; cuando mide menos de unos píxeles, la capa HTML la marca con un punto.
       model.group.scale.setScalar(M_TO_SCENE);
     } else if (iconKey !== lastIconKey) {
@@ -481,7 +516,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       moon: moon.r,
       ship: s.ship.r,
       t: s.t,
-      shipAngle: Math.atan2(shipDir.y, shipDir.x),
+      shipAngle: Math.atan2(heading.y, heading.x),
       shipPx: is3d ? shipLengthM * M_TO_SCENE * pxPerScene : Infinity,
       showIcons: !is3d,
       radiusPx: {

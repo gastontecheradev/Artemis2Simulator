@@ -12,6 +12,7 @@ export function TimeControls({ s }: { s: SimState }): JSX.Element {
       <span className="tc-title">{t('tc.title')}</span>
       <button
         className={s.clock.running ? 'tc-play on' : 'tc-play'}
+        data-press="play"
         onClick={() => act(togglePlay)}
         disabled={!!s.outcome}
         title={s.clock.running ? t('tc.pauseTitle') : t('tc.playTitle')}
@@ -20,7 +21,7 @@ export function TimeControls({ s }: { s: SimState }): JSX.Element {
       </button>
       <div className="tc-warp">
         {WARP_LEVELS.map((w) => (
-          <button key={w} className={s.clock.warp === w ? 'tc-btn on' : 'tc-btn'} onClick={() => act((x) => setWarp(x, w))}>
+          <button key={w} className={s.clock.warp === w ? 'tc-btn on' : 'tc-btn'} data-press={`warp-${w}`} onClick={() => act((x) => setWarp(x, w))}>
             ×{w}
           </button>
         ))}

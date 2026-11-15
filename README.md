@@ -40,7 +40,7 @@ Abrí la dirección que muestra la terminal. Primero se elige el idioma; despué
 | `←` y `→` | Rotar la nave (con el piloto automático en MAN) |
 | `↑` y `↓` | Empujar hacia adelante o atrás con los propulsores chicos |
 
-El mapa 2D no tiene zoom: la Tierra y la Luna quedan quietas (marco rotante, donde se ve el "8" del retorno libre), el plan nominal se dibuja tenue desde el principio y se va completando con el trazo real. Los datos de vuelo (tiempo, velocidad, distancias, temperatura y propelente) quedan sobre el mapa. El trazo se puede colorear por fase o por red de comunicaciones. En la vista 3D se elige cámara y marco, un recuadro muestra el entorno terrestre visto desde arriba, y se ve cómo se desprenden los boosters, la torre de escape, cada etapa y los CubeSats.
+El mapa 2D no tiene zoom: la Tierra y la Luna quedan quietas (marco rotante, donde se ve el "8" del retorno libre), el plan nominal se dibuja tenue desde el principio y se va completando con el trazo real. Los datos de vuelo (tiempo, velocidad, distancias, temperatura y propelente) quedan sobre el mapa. El trazo se colorea por fase. En la vista 3D (que muestra solo el trazo ya recorrido) se elige la cámara, un recuadro muestra el entorno terrestre visto desde arriba, y se ve cómo se desprenden los boosters, la torre de escape, cada etapa y los CubeSats.
 
 ## Qué simula y qué no
 

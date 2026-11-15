@@ -31,7 +31,7 @@ export function procsActions(s: SimState): SoftAction[] {
     actions.push(
       { side: 'L', slot: 3, label: 'ΔV +1', run: () => act((x) => adjustDv(x, 0.001)), disabled: !editable, tone: 'command' },
       { side: 'L', slot: 4, label: 'ΔV −1', run: () => act((x) => adjustDv(x, -0.001)), disabled: !editable, tone: 'command' },
-      { side: 'R', slot: 4, label: 'CONF\nΔV', run: () => act(confirmDv), disabled: m.confirmed || m.status === 'done', lit: m.confirmed, tone: 'command' },
+      { side: 'R', slot: 4, label: 'CONF\nΔV', press: 'conf-dv', run: () => act(confirmDv), disabled: m.confirmed || m.status === 'done', lit: m.confirmed, tone: 'command' },
     );
     if (id === 'E10' || id === 'E12') {
       actions.push({ side: 'R', slot: 3, label: 'CALC', run: () => act(computeCorrection), lit: m.computed });

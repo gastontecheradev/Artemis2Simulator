@@ -20,6 +20,8 @@ function Lever({ up }: { up: boolean }): JSX.Element {
 interface GuardedProps {
   t: T;
   label: string;
+  /** Prefijo de `data-press` de la guarda y la palanca (el tutorial las señala). */
+  press: string;
   armed: boolean;
   led: Led;
   /** Texto bajo el LED: estado real del sistema. */
@@ -33,7 +35,7 @@ interface GuardedProps {
  * Interruptor crítico con guarda de franjas amarillas y negras. Flujo de dos pasos:
  * levantar la guarda (ARM) y después accionar (FIRE). Bajar la guarda desarma.
  */
-function GuardedSwitch({ t, label, armed, led, state, disabled, onArm, onFire }: GuardedProps): JSX.Element {
+function GuardedSwitch({ t, label, press, armed, led, state, disabled, onArm, onFire }: GuardedProps): JSX.Element {
   return (
     <div className={`sw guarded${armed ? ' armed' : ''}${disabled ? ' disabled' : ''}`}>
       <span className="sw-label">
@@ -41,10 +43,10 @@ function GuardedSwitch({ t, label, armed, led, state, disabled, onArm, onFire }:
         <i className={`led ${led}`} />
       </span>
       <div className="guard-frame">
-        <button className="guard" disabled={disabled} onClick={() => onArm(!armed)} title={armed ? t('sw.lower') : t('sw.lift')}>
+        <button className="guard" data-press={`${press}-guard`} disabled={disabled} onClick={() => onArm(!armed)} title={armed ? t('sw.lower') : t('sw.lift')}>
           {armed ? t('sw.guardUp') : t('sw.guardDown')}
         </button>
-        <button className="fire" disabled={disabled || !armed} onClick={onFire} title={t('sw.actuate')}>
+        <button className="fire" data-press={`${press}-lever`} disabled={disabled || !armed} onClick={onFire} title={t('sw.actuate')}>
           <Lever up={false} />
         </button>
       </div>
@@ -125,13 +127,14 @@ export function SwitchPanel({ s }: { s: SimState }): JSX.Element {
   return (
     <section className="switch-panel" data-tour="switches">
       <Plate id="F1" title={t('sw.F1')}>
-        <GuardedSwitch t={t} label="MAIN ENG" armed={sw.mainArm} led={main.led} state={main.state} disabled={over || s.vehicle.cmSeparated} onArm={set('mainArm')} onFire={() => act((x) => fireEngine(x, 'MAIN'))} />
-        <GuardedSwitch t={t} label="AUX THR" armed={sw.auxArm} led={aux.led} state={aux.state} disabled={over || s.vehicle.cmSeparated} onArm={set('auxArm')} onFire={() => act((x) => fireEngine(x, 'AUX'))} />
+        <GuardedSwitch t={t} label="MAIN ENG" press="main" armed={sw.mainArm} led={main.led} state={main.state} disabled={over || s.vehicle.cmSeparated} onArm={set('mainArm')} onFire={() => act((x) => fireEngine(x, 'MAIN'))} />
+        <GuardedSwitch t={t} label="AUX THR" press="aux" armed={sw.auxArm} led={aux.led} state={aux.state} disabled={over || s.vehicle.cmSeparated} onArm={set('auxArm')} onFire={() => act((x) => fireEngine(x, 'AUX'))} />
       </Plate>
       <Plate id="F2" title={t('sw.F2')}>
         <GuardedSwitch
           t={t}
           label="ICPS SEP"
+          press="icps"
           armed={sw.icpsSepArm}
           led={s.vehicle.icpsSeparated ? 'done' : sw.icpsSepArm ? 'armed' : 'off'}
           state={sepState(s.vehicle.icpsSeparated, sw.icpsSepArm)}
@@ -142,6 +145,7 @@ export function SwitchPanel({ s }: { s: SimState }): JSX.Element {
         <GuardedSwitch
           t={t}
           label="CM/SM SEP"
+          press="cm"
           armed={sw.cmSepArm}
           led={s.vehicle.cmSeparated ? 'done' : sw.cmSepArm ? 'armed' : 'off'}
           state={sepState(s.vehicle.cmSeparated, sw.cmSepArm)}

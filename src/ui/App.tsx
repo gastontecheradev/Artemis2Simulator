@@ -13,6 +13,7 @@ import { EventLog } from './panel/EventLog';
 import { StatusBar } from './panel/StatusBar';
 import { SwitchPanel } from './panel/SwitchPanel';
 import { TimeControls } from './panel/TimeControls';
+import { useT } from './i18n';
 import { act, setCamera, setGuide, setTour, useGuide, useIntro, useSim, useTour } from './store';
 import { Tour } from './tutorial/Tour';
 
@@ -69,6 +70,7 @@ function useKeyboard(enabled: boolean): void {
 }
 
 export function App(): JSX.Element {
+  const t = useT();
   const s = useSim();
   const intro = useIntro();
   const tour = useTour();
@@ -103,6 +105,7 @@ export function App(): JSX.Element {
           <Capcom s={s} />
           <EventLog s={s} />
         </div>
+        <p className="panel-note">{t('panel.conceptual')}</p>
       </aside>
       <main className="view">
         <TrajectoryView onCredits={() => setCredits(true)} onTutorial={() => setTour(0)} onGuides={() => setGuide('objective')} />
