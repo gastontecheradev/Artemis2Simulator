@@ -4,7 +4,7 @@
 
 - **Hito en curso:** H1–H12 con primera pasada completa, más vuelo propulsado, datos de las guías de NASA para Artemis II, interfaz bilingüe, guías, mapa fijo (marco rotante o inercial) y control de misión.
 - **Funciona** (con cómo se verificó):
-  - Simulación de T‑6 s a E15 con motores, masa y arrastre reales, calibrada contra las órbitas publicadas: 50 tests en verde (`npx vitest run`, desde PowerShell).
+  - Simulación de T‑6 s a E15 con motores, masa y arrastre reales, calibrada contra las órbitas publicadas: 52 tests en verde (`npx vitest run`, desde PowerShell).
   - `npm run build` compila sin errores de tipos (bundle ~957 kB).
   - Capturas en Chrome headless a 1700 × 950: menú de idioma; vista en español en MET 12.500 s (mapa, recuadro, HUD, Houston, panel traducido); vista en inglés en MET 100 s (ascenso: plan tenue, recuadro, HUD, Houston, cohete en 3D); guía de etapas en inglés sobre la vista en MET 12.500 s.
 - **Sin verificar:** la interacción a mano (clics, teclas, arrastre en 3D, zoom y arrastre del mapa 2D, pasos del tutorial, navegación de los menús de idioma y guías). Solo hay capturas estáticas y tests a nivel de comandos. Tampoco hay captura de las guías de objetivo, presupuesto, energía y nave, ni de la pantalla final en inglés.
@@ -41,6 +41,7 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 11. **Integrador Dormand–Prince 5(4) con `rtol = 1e-11`**, llevando el propelente de cada tanque como estado. El avance se corta en cada discontinuidad.
 12. **Encendidos de la tripulación comprometidos al TIG**; bajar la guarda con el motor encendido lo corta.
 13. **Los motores empujan hacia donde apunta la nave.** Actitud cinemática y solo en cabeceo, 3°/s (supuesto). Con la cápsula sola (después de E13) el DAP AUTO la pone retrógrada: el escudo térmico va por delante (sesión 10).
+25. **Sol** (sesión 11): `sunDirection(t)` en `sim/bodies.ts`, en el plano del modelo; al despegue faltan 1,28 h para la puesta en la plataforma ([AV], apertura de la ventana del 01/04/2026, 22:24 UTC) y avanza con el año sidéreo. Solo ilumina el 3D. La Tierra 3D tiene brillo propio (30 % de su color) y su lado diurno aclarado (30 % de blanco).
 24. **3D a escala real** (sesión 10): nave, partes, Tierra y Luna sin agrandar; lo que mide menos de 3 px se marca con un punto. El cohete se apoya en su base hasta separar la etapa central. La cámara de la nave encuadra de costado y desde arriba del plano, y nunca entra en un cuerpo (`keepOutside`). La Tierra en 3D gira con la plataforma para que el sitio de lanzamiento caiga en un vértice de la esfera.
 14. **Corredor de entrada: objetivo −5,66°** (Artemis I, NASA AAS 24‑174). Ancho ±1°: supuesto.
 15. **Separación CM/SM:** se pide a EI − 40 min y la tripulación automática la hace a EI − 20 min (cronograma de NASA), con el tiempo a la entrada calculado por Kepler (`timeToEntry`).
@@ -77,6 +78,7 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - Supuestos sin fuente primaria: ver la lista en `CLAUDE.md`, sección "El vehículo".
 - La demo de operaciones de proximidad (E6) no tiene guía ni medición respecto del ICPS.
 - En 3D la nave se ve oscura cuando el Sol queda del otro lado (luz ambiente baja).
+- **Fase lunar al despegue:** con el Sol de la ventana del 01/04/2026, la elongación de la Luna en el modelo es 169,5°; la real era ~178° (luna llena el 02/04/2026 hacia las 02 UTC, dato de memoria, sin verificar contra una fuente). La diferencia sale de que `moonAngle0Deg` lo fija el retorno libre del modelo, no la fecha.
 - El lockfile solo lo acepta npm ≥ 11.6. El workflow fija `npm@11.6.2`.
 - Vitest falla desde Git Bash por las mayúsculas de la ruta; desde PowerShell funciona (`npx vitest run`; redirigido con `Out-File` sale vacío).
 - El bundle pesa ~957 kB por Three.js; sin code‑splitting.
@@ -90,6 +92,12 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - **Difiere:** 6 teclas por lado horizontal (la referencia tiene 8) y sin perillas; interruptores SVG planos; la guarda es una tapa translúcida con botón; los controladores manuales son botones, no palancas; el indicador de actitud solo cabecea; la barra de estado superior no existe en la cabina real; no hay dispositivo de cursor.
 
 ## Historial de sesiones
+
+## Sesión 11 — 2026-11-15 — Iluminación del Sol en 3D
+**Hecho:** `LAUNCH_BEFORE_SUNSET` y `EARTH_ORBIT_RATE` en `sim/constants.ts` (fuente [AV]); `sunDirection(t)` en `sim/bodies.ts`; `render/scene.ts` orienta la luz direccional con esa dirección en cada frame (antes era fija y no giraba con el marco rotante); `render/bodies.ts`: la Tierra 3D con brillo propio en el lado nocturno y lado diurno aclarado.
+**Decisiones:** el Sol se ubica con la hora de despegue, no con la fase lunar, porque la fase la fija el retorno libre del modelo; así el despegue es de día, como el real, y la Luna sale casi llena (169,5°). Se usa la rotación en el plano del modelo (Ω·cos latitud) para que la puesta en la simulación caiga 1,28 h después del despegue. La Luna no tiene brillo propio: su lado oscuro queda oscuro.
+**Tests:** 52 en verde (nuevos: la puesta en la plataforma ocurre 1,28 h después del despegue; Luna casi llena al despegue); build sin errores; capturas headless de la plataforma (de día), cámara TIERRA en MET 3.000 s y 700.000 s (terminador y lado nocturno visibles) y cámara LUNA en el sobrevuelo (Luna menguante, gibosa).
+**Próximo paso:** el de "Estado actual".
 
 ## Sesión 10 — 2026-11-15 — 3D a escala real, entorno lunar fijo, actitud de la cápsula, menú de idioma
 **Hecho:** `render/scene.ts`: en 3D los cuerpos y la nave van a escala real (se quitó `EXAGGERATION` y el agrandamiento `MIN_APPARENT`); punto HTML para la nave y las partes cuando miden < 3 px (`render/markers.ts`, `.ship-dot`, `.debris-marker.dot`); `aimFromSide` y `keepOutside` para la cámara; la Tierra 3D gira con la plataforma; encuadres de las cámaras TIERRA (22.000 km) y LUNA (7.000 km) acordes a la escala real. `render/vehicle.ts`: `update(..., anchorBase)` apoya el cohete en sus toberas hasta separar la etapa central. Entorno lunar con radio fijo. `sim/advance.ts`: `commandedDirection` retrógrada con la cápsula sola. `LanguageScreen.tsx`: sin opción resaltada por defecto (sin clase `on` ni `autoFocus`; los textos no cambian).

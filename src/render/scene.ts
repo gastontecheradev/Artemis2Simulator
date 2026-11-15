@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { runningEngines } from '../sim/advance';
+import { sunDirection } from '../sim/bodies';
 import { EARTH_ROTATION_IN_PLANE, MOON_SOI, R_EARTH, R_MOON } from '../sim/constants';
 import { getLocale } from '../sim/i18n';
 import { Vec3, ZERO, add, cross, length, normalize, rotateZ, scale, sub } from '../sim/math/vec3';
@@ -173,9 +174,9 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
+  // El Sol: su dirección sale de la simulación en cada frame (sunDirection, la fecha y
+  // hora de la ventana de lanzamiento) y es la misma para la Tierra, la Luna y la nave.
   const sun = new THREE.DirectionalLight(0xffffff, 2.6);
-  // El Sol queda del lado de la plataforma: el lanzamiento es de día.
-  sun.position.set(1, -0.45, 0.35);
   scene.add(sun, new THREE.AmbientLight(0xffffff, 0.16));
 
   const vehicleColors = {
@@ -308,6 +309,8 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     const frameAngle = rotating ? eph.moonAngle(s.t) + mapAngle : mapAngle;
     /** Dirección inercial llevada al marco de dibujo. */
     const displayDir = (d: Vec3): Vec3 => (frameAngle ? rotateZ(d, -frameAngle) : d);
+    const toSun = displayDir(sunDirection(s.t));
+    sun.position.set(toSun.x, toSun.y, toSun.z);
 
     // En 3D todo va a escala real (cuerpos y nave): con la Tierra agrandada, la nave en
     // órbita baja quedaba adentro del planeta.

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createCircularEphemeris, createEarthOnlyEphemeris } from '../src/sim/bodies';
+import { createCircularEphemeris, createEarthOnlyEphemeris, sunDirection } from '../src/sim/bodies';
+import { MISSION_PARAMS } from '../src/sim/mission/params';
+import { padState } from '../src/sim/state';
 import { applyBurn } from '../src/sim/burns';
 import { commsStatus, losClearance } from '../src/sim/comms';
 import {
@@ -9,6 +11,7 @@ import {
   GM_EARTH,
   GM_MOON,
   INSERTION_ALTITUDE,
+  LAUNCH_BEFORE_SUNSET,
   MOON_SIDEREAL_PERIOD,
   MPH_TO_KMS,
   R_EARTH,
@@ -16,7 +19,7 @@ import {
 } from '../src/sim/constants';
 import { integrateWithEvents } from '../src/sim/events';
 import { ShipState, integrate } from '../src/sim/integrator';
-import { add, distance, length, scale, vec3 } from '../src/sim/math/vec3';
+import { add, distance, dot, length, normalize, scale, sub, vec3 } from '../src/sim/math/vec3';
 import { earthElements, jacobiConstant, timeToDescendTo } from '../src/sim/orbit';
 import { propagate } from '../src/sim/propagate';
 
@@ -53,6 +56,24 @@ describe('H2 · cuerpos', () => {
     const m1 = eph.moon(1000 + dt);
     expect((m1.r.x - m0.r.x) / dt).toBeCloseTo(m0.v.x, 5);
     expect((m1.r.y - m0.r.y) / dt).toBeCloseTo(m0.v.y, 5);
+  });
+});
+
+describe('Sol', () => {
+  const eph = createCircularEphemeris((MISSION_PARAMS.moonAngle0Deg * Math.PI) / 180);
+  const elevation = (t: number): number => {
+    const up = sub(padState(t, eph).r, eph.earth(t).r);
+    return (Math.asin(dot(normalize(up), sunDirection(t))) * 180) / Math.PI;
+  };
+  it('el despegue es de día y el Sol se pone en la plataforma 1,28 h después (ventana del 01/04/2026)', () => {
+    expect(elevation(0)).toBeGreaterThan(10);
+    expect(Math.abs(elevation(LAUNCH_BEFORE_SUNSET))).toBeLessThan(1e-9);
+    expect(elevation(LAUNCH_BEFORE_SUNSET + 600)).toBeLessThan(0);
+  });
+  it('la Luna está casi llena al despegue (luna llena real: 02/04/2026)', () => {
+    const toMoon = normalize(sub(eph.moon(0).r, eph.earth(0).r));
+    const elongation = (Math.acos(dot(toMoon, sunDirection(0))) * 180) / Math.PI;
+    expect(elongation).toBeGreaterThan(160);
   });
 });
 

@@ -2,6 +2,11 @@ import * as THREE from 'three';
 import { EARTH_MOON_DISTANCE, EI_ALTITUDE, GM_EARTH, GM_MOON, MOON_SOI, R_EARTH, R_MOON } from '../sim/constants';
 import { KM_TO_SCENE } from './worldToScene';
 
+/** Brillo propio de la Tierra en 3D (fracción de su color), solo para que se vea el lado nocturno. */
+const EARTH_NIGHT_GLOW = 0.3;
+/** Aclarado del color de la Tierra iluminada en 3D (mezcla con blanco). */
+const EARTH_DAY_LIFT = 0.3;
+
 export interface BodyMeshes {
   readonly group: THREE.Group;
   readonly earth: THREE.Mesh;
@@ -45,11 +50,15 @@ export function createBodies(
   // Los polos de la esfera van sobre z (perpendicular al plano orbital).
   geometry.rotateX(Math.PI / 2);
 
-  const make = (color: string): { flat: THREE.MeshBasicMaterial; lit: THREE.MeshStandardMaterial } => ({
+  const lighten = (color: string, k: number): string => `#${new THREE.Color(color).lerp(new THREE.Color(0xffffff), k).getHexString()}`;
+  const make = (color: string, glow = 0, dayLift = 0): { flat: THREE.MeshBasicMaterial; lit: THREE.MeshStandardMaterial } => ({
     flat: new THREE.MeshBasicMaterial({ color }),
-    lit: new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0 }),
+    lit: new THREE.MeshStandardMaterial({ color: lighten(color, dayLift), roughness: 0.95, metalness: 0, emissive: color, emissiveIntensity: glow }),
   });
-  const earthMat = make(colors.earth);
+  // En 3D la Tierra tiene un brillo propio tenue (su mismo color) para que el lado
+  // nocturno se distinga del fondo, y el lado diurno se aclara (mezcla con blanco, sin
+  // matices nuevos) para que el terminador se lea. La Luna no: su lado oscuro queda oscuro.
+  const earthMat = make(colors.earth, EARTH_NIGHT_GLOW, EARTH_DAY_LIFT);
   const moonMat = make(moonColor);
   const earth: THREE.Mesh = new THREE.Mesh(geometry, earthMat.flat);
   const moon: THREE.Mesh = new THREE.Mesh(geometry, moonMat.flat);

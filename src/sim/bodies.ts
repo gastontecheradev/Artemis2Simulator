@@ -1,4 +1,4 @@
-import { EARTH_MOON_DISTANCE, GM_EARTH, GM_MOON, MOON_ANGULAR_RATE } from './constants';
+import { EARTH_MOON_DISTANCE, EARTH_ORBIT_RATE, EARTH_ROTATION_IN_PLANE, GM_EARTH, GM_MOON, LAUNCH_BEFORE_SUNSET, MOON_ANGULAR_RATE } from './constants';
 import { Vec3, vec3 } from './math/vec3';
 
 export interface BodyState {
@@ -49,4 +49,19 @@ export function createEarthOnlyEphemeris(): Ephemeris {
   const earth: BodyState = { r: vec3(), v: vec3() };
   const moon: BodyState = { r: vec3(EARTH_MOON_DISTANCE, 0, 0), v: vec3() };
   return { gmEarth: GM_EARTH, gmMoon: 0, earth: () => earth, moon: () => moon, moonAngle: () => 0 };
+}
+
+/**
+ * Dirección (unitaria, inercial) hacia el Sol en t. El Sol está en el plano del modelo
+ * (la órbita lunar difiere de la eclíptica en ~5°) y tan lejos que la dirección es la
+ * misma para la Tierra, la Luna y la nave.
+ *
+ * La plataforma está sobre +y en t = 0 y la Tierra gira en sentido antihorario (hacia
+ * −x, el este). Al despegar faltan LAUNCH_BEFORE_SUNSET segundos para la puesta: el Sol
+ * está al oeste, a 90° menos lo que la plataforma rota en ese lapso desde la vertical.
+ * Después avanza con el movimiento anual de la Tierra (antihorario visto desde el norte).
+ */
+export function sunDirection(t: number): Vec3 {
+  const a = LAUNCH_BEFORE_SUNSET * (EARTH_ROTATION_IN_PLANE - EARTH_ORBIT_RATE) + EARTH_ORBIT_RATE * t;
+  return vec3(Math.cos(a), Math.sin(a), 0);
 }
