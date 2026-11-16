@@ -1265,6 +1265,11 @@ button.softkey:active {
   text-transform: none;
   color: var(--c-label);
 }
+.end-banner-body p.end-banner-note {
+  margin-top: -6px;
+  font-size: 10px;
+  color: color-mix(in srgb, var(--c-label) 65%, black);
+}
 .end-banner .end-actions {
   justify-content: center;
 }
