@@ -2,7 +2,7 @@ import { useLocale, useT } from '../i18n';
 import { GuideId, setGuide, setIntro, useGuide } from '../store';
 import { guideContent } from './content';
 
-export const GUIDE_IDS: readonly GuideId[] = ['objective', 'stages', 'budget', 'power', 'ship'];
+export const GUIDE_IDS: readonly GuideId[] = ['objective', 'stages', 'budget', 'power', 'ship', 'docs'];
 
 /** Visor de una guía (modal). Se abre desde el menú de inicio o desde el botón GUÍAS. */
 export function GuideViewer(): JSX.Element | null {
@@ -47,6 +47,18 @@ export function GuideViewer(): JSX.Element | null {
                   ))}
                 </tbody>
               </table>
+            )}
+            {sec.links && (
+              <ul className="guide-links">
+                {sec.links.map((k) => (
+                  <li key={k.url}>
+                    <a href={k.url} target="_blank" rel="noreferrer">
+                      {k.label} ↗
+                    </a>
+                    <span className="dim">{k.desc}</span>
+                  </li>
+                ))}
+              </ul>
             )}
             {sec.note && <p className="dim">{sec.note}</p>}
           </section>

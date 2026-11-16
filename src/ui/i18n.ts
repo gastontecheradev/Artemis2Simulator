@@ -177,7 +177,7 @@ const EN = {
   'start.foot': 'Educational project, not affiliated with or endorsed by NASA. Figures come from a simplified physics model: they are illustrative, not official mission data.',
   // Menú de guías
   'gd.title': 'BEFORE THE FLIGHT',
-  'gd.intro': 'Five short guides about the mission and the spacecraft. You can read them now or come back to them from the GUIDES button during the flight.',
+  'gd.intro': 'Five short guides about the mission and the spacecraft, plus links to NASA’s documentation. You can read them now or come back to them from the GUIDES button during the flight.',
   'gd.continue': 'CONTINUE',
   'gd.back': 'BACK',
   'gd.close': 'CLOSE',
@@ -186,6 +186,7 @@ const EN = {
   'gd.budget': 'Budget',
   'gd.power': 'Power management',
   'gd.ship': 'About the spacecraft',
+  'gd.docs': 'NASA documentation',
   // Fin
   'panel.conceptual': 'Conceptual panel inspired by the Orion cockpit: it is not an exact replica of the real one.',
   'end.page': 'Mission.End',
@@ -389,7 +390,7 @@ const ES: Readonly<Record<UiKey, string>> = {
   'start.credits': 'CRÉDITOS',
   'start.foot': 'Proyecto educativo, no afiliado ni avalado por NASA. Las cifras salen de un modelo físico simplificado: son ilustrativas, no datos oficiales de la misión.',
   'gd.title': 'ANTES DEL VUELO',
-  'gd.intro': 'Cinco guías cortas sobre la misión y la nave. Podés leerlas ahora o volver a ellas desde el botón GUÍAS durante el vuelo.',
+  'gd.intro': 'Cinco guías cortas sobre la misión y la nave, y enlaces a la documentación de NASA. Podés leerlas ahora o volver a ellas desde el botón GUÍAS durante el vuelo.',
   'gd.continue': 'CONTINUAR',
   'gd.back': 'VOLVER',
   'gd.close': 'CERRAR',
@@ -398,6 +399,7 @@ const ES: Readonly<Record<UiKey, string>> = {
   'gd.budget': 'Presupuesto',
   'gd.power': 'Manejo de energía',
   'gd.ship': 'Acerca de la nave',
+  'gd.docs': 'Documentación de NASA',
   'panel.conceptual': 'Panel conceptual inspirado en la cabina de Orion: no es una réplica exacta del real.',
   'end.page': 'Mission.End',
   'end.success': 'MISIÓN FINALIZADA CON ÉXITO',

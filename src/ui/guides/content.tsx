@@ -32,8 +32,17 @@ export interface GuideSection {
   readonly paragraphs?: readonly string[];
   readonly bullets?: readonly string[];
   readonly table?: { readonly head: readonly string[]; readonly rows: readonly (readonly string[])[] };
+  /** Enlaces externos (se abren en otra pestaña). */
+  readonly links?: readonly GuideLink[];
   /** Nota al pie: fuentes o aclaraciones. */
   readonly note?: string;
+}
+
+export interface GuideLink {
+  readonly label: string;
+  readonly url: string;
+  /** Qué trae, en una línea. */
+  readonly desc: string;
 }
 
 export interface GuideContent {
@@ -303,6 +312,61 @@ function ship(l: Locale): GuideContent {
   };
 }
 
-const BUILDERS: Readonly<Record<GuideId, (l: Locale) => GuideContent>> = { objective, stages, budget, power, ship };
+// ---------- Documentación de NASA ----------
+
+function docs(l: Locale): GuideContent {
+  return {
+    title: L(l, 'NASA DOCUMENTATION', 'DOCUMENTACIÓN DE NASA'),
+    sections: [
+      {
+        title: L(l, 'Mission pages', 'Páginas de la misión'),
+        links: [
+          {
+            label: 'Artemis II Press Kit',
+            url: 'https://www.nasa.gov/artemis-ii-press-kit/',
+            desc: L(l, 'Mission overview, crew, timeline and media resources.', 'Resumen de la misión, tripulación, cronograma y recursos para prensa.'),
+          },
+          {
+            label: 'Space Launch System Gallery',
+            url: 'https://www.nasa.gov/gallery/space-launch-system-gallery/',
+            desc: L(l, 'Photos of the SLS rocket.', 'Fotos del cohete SLS.'),
+          },
+          {
+            label: 'How to Fly NASA’s Orion Spacecraft',
+            url: 'https://www.nasa.gov/missions/artemis/orion/how-to-fly-nasas-orion-spacecraft/',
+            desc: L(l, 'The cockpit, its displays and its controls, explained by NASA.', 'La cabina, sus pantallas y sus controles, explicados por NASA.'),
+          },
+        ],
+      },
+      {
+        title: L(l, 'Reference guides (PDF)', 'Guías de referencia (PDF)'),
+        links: [
+          {
+            label: 'Artemis II Reference Guide',
+            url: 'https://www.nasa.gov/wp-content/uploads/2026/01/a2-reference-guide-012825.pdf',
+            desc: L(l, 'Orion, the crew and the mission objectives.', 'Orion, la tripulación y los objetivos de la misión.'),
+          },
+          {
+            label: 'Space Launch System Reference Guide for Artemis II',
+            url: 'https://www.nasa.gov/wp-content/uploads/2026/01/sls-5558-artemis-ii-sls-reference-guide-final-review-508-012026.pdf',
+            desc: L(l, 'Masses, engines, booster thrust curve and the ascent event table.', 'Masas, motores, curva de empuje de los boosters y tabla de eventos del ascenso.'),
+          },
+          {
+            label: 'Orion Reference Guide (2022)',
+            url: 'https://www.nasa.gov/wp-content/uploads/2023/02/orion-reference-guide-111022.pdf',
+            desc: L(l, 'Orion’s systems in detail. Written before Artemis I: its Artemis II flight profile is outdated.', 'Los sistemas de Orion en detalle. Es anterior a Artemis I: su perfil de vuelo de Artemis II está desactualizado.'),
+          },
+        ],
+        note: L(
+          l,
+          'External links to nasa.gov; they open in a new tab. The simulator’s vehicle and mission data come mostly from these guides, cited in each number. This project is not affiliated with or endorsed by NASA.',
+          'Enlaces externos a nasa.gov; se abren en otra pestaña. Los datos del vehículo y de la misión del simulador salen sobre todo de estas guías, citadas en cada número. Este proyecto no está afiliado ni avalado por NASA.',
+        ),
+      },
+    ],
+  };
+}
+
+const BUILDERS: Readonly<Record<GuideId, (l: Locale) => GuideContent>> = { objective, stages, budget, power, ship, docs };
 
 export const guideContent = (id: GuideId, locale: Locale): GuideContent => BUILDERS[id](locale);

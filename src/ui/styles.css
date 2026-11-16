@@ -2119,6 +2119,27 @@ button.ann.link.acked {
 .guide-section li {
   margin-bottom: 4px;
 }
+.guide-section .guide-links {
+  list-style: none;
+  padding-left: 0;
+}
+.guide-links li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 8px;
+}
+.guide-links a {
+  color: var(--c-value-hi);
+  text-decoration: none;
+}
+.guide-links a:hover,
+.guide-links a:focus-visible {
+  text-decoration: underline;
+}
+.guide-links .dim {
+  font-size: 11px;
+}
 .guide-table {
   width: 100%;
   margin: 4px 0 8px;

@@ -151,9 +151,9 @@ export function chooseLanguage(locale: Locale): void {
   intro.set('guides');
 }
 
-export type GuideId = 'objective' | 'stages' | 'budget' | 'power' | 'ship';
+export type GuideId = 'objective' | 'stages' | 'budget' | 'power' | 'ship' | 'docs';
 /** Guía abierta en el visor (desde el menú de inicio o el botón GUÍAS). */
-const GUIDES = ['objective', 'stages', 'budget', 'power', 'ship'] as const;
+const GUIDES = ['objective', 'stages', 'budget', 'power', 'ship', 'docs'] as const;
 // ?guide=stages abre una guía directamente (para capturas).
 const guide = createValue<GuideId | null>(query.has('guide') ? pick('guide', GUIDES, 'objective') : null);
 export const useGuide = guide.use;
