@@ -351,11 +351,6 @@ function docs(l: Locale): GuideContent {
             url: 'https://www.nasa.gov/wp-content/uploads/2026/01/sls-5558-artemis-ii-sls-reference-guide-final-review-508-012026.pdf',
             desc: L(l, 'Masses, engines, booster thrust curve and the ascent event table.', 'Masas, motores, curva de empuje de los boosters y tabla de eventos del ascenso.'),
           },
-          {
-            label: 'Orion Reference Guide (2022)',
-            url: 'https://www.nasa.gov/wp-content/uploads/2023/02/orion-reference-guide-111022.pdf',
-            desc: L(l, 'Orion’s systems in detail. Written before Artemis I: its Artemis II flight profile is outdated.', 'Los sistemas de Orion en detalle. Es anterior a Artemis I: su perfil de vuelo de Artemis II está desactualizado.'),
-          },
         ],
         note: L(
           l,
