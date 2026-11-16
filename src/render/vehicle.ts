@@ -421,9 +421,11 @@ function iconSvg(shapes: readonly Shape[], flames: readonly Shape[], pxPerM: num
   const h = y1 - y0;
   const k = Math.max(pxPerM, ICON_MIN_PX / Math.max(w, h));
   const size = (m: number): string => `calc(var(--icon-k, 1) * ${(m * k).toFixed(1)}px)`;
+  // `data-r`: radio del ícono en px (sin `--icon-k`), para saber cuándo se superpone con otro.
+  const radius = (Math.max(w, h) * k) / 2;
   // En SVG el eje y va hacia abajo: se invierte (y = −y) para que el lado +y local quede a la izquierda del rumbo.
   return (
-    `<svg viewBox="${fmt(x0)} ${fmt(-y1)} ${fmt(w)} ${fmt(h)}" class="ship-icon" style="width:${size(w)};height:${size(h)}">` +
+    `<svg viewBox="${fmt(x0)} ${fmt(-y1)} ${fmt(w)} ${fmt(h)}" class="ship-icon" data-r="${radius.toFixed(1)}" style="width:${size(w)};height:${size(h)}">` +
     `${[...flames, ...shapes].map(pathOf).join('')}</svg>`
   );
 }
@@ -436,7 +438,9 @@ function iconSvg(shapes: readonly Shape[], flames: readonly Shape[], pxPerM: num
 export function vehicleIconSvg(cfg: VehicleConfig, running: readonly EngineId[]): string {
   const parts = partsOf(cfg);
   const flames = running.flatMap((id) => FLAMES[id].map(flameShape));
-  return iconSvg(sideView(parts, arraysDeployed(cfg)), flames, pxPerMeter(lengthOf(parts)));
+  // Los paneles van montados en el módulo de servicio: con la cápsula sola se fueron con él.
+  const arrays = arraysDeployed(cfg) && parts.includes('SM');
+  return iconSvg(sideView(parts, arrays), flames, pxPerMeter(lengthOf(parts)));
 }
 
 /** Pieza que representa cada tipo de parte desprendida. */

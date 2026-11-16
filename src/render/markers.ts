@@ -71,6 +71,15 @@ export function createOverlay(root: HTMLElement): Overlay {
   let markers: readonly Marker[] = [];
   const markerEls = new Map<string, HTMLDivElement>();
   const debrisEls = new Map<string, HTMLDivElement>();
+  // Radio en pantalla (px) de cada ícono 2D: lo declara el SVG (`data-r`) y se escala con `--icon-k`
+  // de la capa (el recuadro lo achica). No se mide en el DOM: al crearse puede no tener layout.
+  let iconK = 0;
+  const radiusOf = (el: HTMLElement): number => {
+    if (!iconK) iconK = parseFloat(getComputedStyle(layer).getPropertyValue('--icon-k')) || 1;
+    return parseFloat(el.querySelector('svg')?.dataset.r ?? '0') * iconK;
+  };
+  let shipRadius = 0;
+  const debrisRadius = new Map<string, number>();
   const v = new THREE.Vector3();
 
   const project = (camera: THREE.Camera, w: number, h: number): { x: number; y: number; visible: boolean } => {
@@ -137,6 +146,12 @@ export function createOverlay(root: HTMLElement): Overlay {
         ghostLabel.style.display = 'none';
       }
 
+      worldToScene(a.ship, a.t, frame, v);
+      const p = project(camera, w, h);
+      put(burnFlash, p, 'translate(-50%, -50%)');
+      put(ship, p, spin(a.shipAngle), a.showIcons);
+      put(shipDot, p, 'translate(-50%, -50%)', !a.showIcons && a.shipPx < MIN_VISIBLE_RADIUS_PX);
+      if (a.showIcons && shipRadius <= 0) shipRadius = radiusOf(ship);
       // Partes desprendidas.
       for (const { item, angle, px } of a.debris) {
         let el = debrisEls.get(item.id);
@@ -144,28 +159,30 @@ export function createOverlay(root: HTMLElement): Overlay {
           el = make('debris-marker');
           el.innerHTML = debrisIconSvg(item.kind);
           debrisEls.set(item.id, el);
+          debrisRadius.set(item.id, radiusOf(el));
         }
         worldToScene(item.ship.r, item.t, frame, v);
+        const q = project(camera, w, h);
         // En 3D el modelo va a escala real: si se ve más chico que unos píxeles, un punto.
-        const dot = !a.showIcons && px < MIN_VISIBLE_RADIUS_PX;
+        // En 2D los íconos no van a la escala del mapa: mientras la parte está en el mismo
+        // lugar que la nave, su ícono la rodearía (los paneles del módulo de servicio
+        // alrededor de la cápsula); hasta que se separan en pantalla, un punto.
+        const overlapping = a.showIcons && Math.hypot(q.x - p.x, q.y - p.y) < shipRadius + (debrisRadius.get(item.id) ?? 0);
+        const dot = overlapping || (!a.showIcons && px < MIN_VISIBLE_RADIUS_PX);
         el.classList.toggle('dot', dot);
-        put(el, project(camera, w, h), dot ? 'translate(-50%, -50%)' : spin(angle), a.showIcons || dot);
+        put(el, q, dot ? 'translate(-50%, -50%)' : spin(angle), a.showIcons || dot);
       }
       for (const [id, el] of debrisEls) {
         if (!a.debris.some((x) => x.item.id === id)) {
           el.remove();
           debrisEls.delete(id);
+          debrisRadius.delete(id);
         }
       }
-
-      worldToScene(a.ship, a.t, frame, v);
-      const p = project(camera, w, h);
-      put(burnFlash, p, 'translate(-50%, -50%)');
-      put(ship, p, spin(a.shipAngle), a.showIcons);
-      put(shipDot, p, 'translate(-50%, -50%)', !a.showIcons && a.shipPx < MIN_VISIBLE_RADIUS_PX);
     },
     setShipIcon(svg) {
       ship.innerHTML = svg;
+      shipRadius = 0;
     },
     flash() {
       // Reinicia la animación CSS.
