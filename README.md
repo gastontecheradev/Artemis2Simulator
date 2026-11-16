@@ -80,4 +80,4 @@ The code has three layers: `src/sim/` (physics and mission, pure TypeScript), `s
 
 ## Credits
 
-The images in `docs/reference/` are NASA reference material and are not part of the application. The images the application uses are registered in [ASSETS.md](ASSETS.md) with their credit. IBM Plex Mono typeface (SIL Open Font License). Graphics with Three.js (MIT). Program cost cited from report IG‑22‑003 of NASA's Office of Inspector General.
+The NASA reference images used during development are not part of the repository or the application. The images the application uses are registered in [ASSETS.md](ASSETS.md) with their credit. IBM Plex Mono typeface (SIL Open Font License). Graphics with Three.js (MIT). Program cost cited from report IG‑22‑003 of NASA's Office of Inspector General.
