@@ -26,6 +26,7 @@ export function EndScreen({ s, onCredits }: { s: SimState; onCredits: () => void
             <div className="end-annunciator">{ok ? t('end.success') : t('end.failure')}</div>
             <span className="end-banner-kind">{t(`end.t.${o.kind}`)}</span>
             <p>{o.text}</p>
+            <p className="end-banner-note">{t('end.note')}</p>
             <div className="end-actions">
               <button className="tb-btn on" onClick={showIntro}>
                 {t('end.restart')}

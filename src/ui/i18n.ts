@@ -200,6 +200,7 @@ const EN = {
   'end.t.moon-impact': 'LUNAR IMPACT',
   'end.t.lost': 'ORBIT LOST',
   'end.restart': 'RESTART MISSION',
+  'end.note': 'The parachute descent and the splashdown are not simulated: the physics ends at the entry interface.',
   // Créditos
   'cr.title': 'CREDITS',
   'cr.nasa': 'Images courtesy of NASA. This project is not affiliated with or endorsed by NASA.',
@@ -410,6 +411,7 @@ const ES: Readonly<Record<UiKey, string>> = {
   'end.t.moon-impact': 'IMPACTO LUNAR',
   'end.t.lost': 'ÓRBITA PERDIDA',
   'end.restart': 'REINICIAR MISIÓN',
+  'end.note': 'El descenso con paracaídas y el amerizaje no se simulan: la física termina en la interfaz de entrada.',
   'cr.title': 'CRÉDITOS',
   'cr.nasa': 'Imágenes cortesía de NASA. Este proyecto no está afiliado ni avalado por NASA.',
   'cr.none': 'Todavía no hay imágenes de NASA incorporadas a la app. La Tierra y la Luna se dibujan con colores lisos.',
