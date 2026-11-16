@@ -1,83 +1,83 @@
 # Artemis II Simulator
 
-Simulador web de la misión Artemis II: un vuelo tripulado alrededor de la Luna con retorno libre, desde la plataforma de lanzamiento hasta la entrada a la atmósfera. Nada está dibujado de antemano. El cohete sube con el empuje y la masa de sus motores, y la trayectoria la decide la gravedad de la Tierra y de la Luna.
+A web simulator of the Artemis II mission: a crewed free-return flight around the Moon, from the launch pad to atmospheric entry. Nothing is drawn in advance. The rocket climbs on the thrust and mass of its engines, and the trajectory is decided by the gravity of Earth and the Moon.
 
-A la izquierda está el panel de la nave, inspirado en la cabina de Orion, con una ventana de control de misión (Houston) que va dando las indicaciones de cada etapa. A la derecha, un mapa 2D fijo, como una infografía, con el plan completo de la misión y los datos de vuelo, y debajo una vista 3D que sigue a la nave de cerca.
+On the left is the spacecraft panel, inspired by Orion's cockpit, with a mission control window (Houston) that gives the calls for each stage. On the right, a fixed 2D map, like an infographic, with the whole mission plan and the flight data, and below it a 3D view that follows the spacecraft up close.
 
-La interfaz está en **inglés** (por defecto) y **español**. Los datos del vehículo, los horarios y las órbitas objetivo salen de las guías de referencia publicadas por NASA para Artemis II.
+The interface is in **English** (default) and **Spanish**. The vehicle data, the timeline and the target orbits come from the reference guides NASA published for Artemis II.
 
-> Proyecto educativo. No está afiliado ni avalado por NASA.
+> Educational project. Not affiliated with or endorsed by NASA.
 
-## Cómo correrlo
+## How to run it
 
-Hace falta Node 22 o más nuevo.
+You need Node 22 or newer.
 
 ```
 npm install
 npm run dev
 ```
 
-Abrí la dirección que muestra la terminal. Primero se elige el idioma; después aparece el menú de guías (objetivo de la misión, etapas, presupuesto, manejo de energía y acerca de la nave), que se puede volver a abrir con el botón GUÍAS. Desde la pantalla de inicio podés:
+Open the address shown in the terminal. First you pick the language; then the guides menu appears (mission objective, stages, budget, power management, about the spacecraft and NASA documentation), which you can reopen with the GUIDES button. From the start screen you can:
 
-- **Iniciar la misión** y volarla vos.
-- Hacer el **tutorial guiado**, que explica la nave y el panel y te acompaña en el despegue y el primer encendido.
-- Marcar el **modo demostración**, en el que la tripulación automática vuela todo.
+- **Start the mission** and fly it yourself.
+- Take the **guided tutorial**, which explains the spacecraft and the panel and walks you through liftoff and the first burn.
+- Turn on **demo mode**, where the automatic crew flies everything.
 
-## Cómo se vuela
+## How to fly
 
-1. La cuenta regresiva (desde T‑6 s), el ascenso y los dos encendidos del ICPS son automáticos, como en el vuelo real.
-2. Después, la página **Procs** del display muestra cada procedimiento y su paso actual, resaltado en magenta.
-3. La simulación se pausa sola antes de cada acción de la tripulación. Con el warp (×1 a ×10000) no hay que esperar.
-4. Para un encendido: confirmá el Δv con la tecla **CONF ΔV**, levantá la guarda del motor y accioná la palanca. El motor enciende solo en el instante planeado y se apaga cuando entregó el Δv.
-5. Si llegás tarde, cambiás el Δv, apuntás mal la nave o no encendés, la física decide: podés quedar en órbita, errarle a la Luna, chocarla o volver fuera del corredor de entrada.
+1. The countdown (from T‑6 s), the ascent and the two ICPS burns are automatic, as in the real flight.
+2. After that, the display's **Procs** page shows each procedure and its current step, highlighted in magenta.
+3. The simulation pauses on its own before each crew action. With the warp (×1 to ×10000) there is no need to wait.
+4. For a burn: confirm the Δv with the **CONF ΔV** key, raise the engine guard and throw the switch. The engine ignites on its own at the planned instant and shuts down once it has delivered the Δv.
+5. If you are late, change the Δv, point the spacecraft the wrong way or do not burn, physics decides: you may stay in orbit, miss the Moon, hit it or come back outside the entry corridor.
 
-| Tecla | Acción |
+| Key | Action |
 |---|---|
-| Espacio | Play / pausa |
-| `+` y `−` | Subir y bajar el warp |
-| `A` | Reconocer las alarmas |
-| `1` a `5` | Cámara de la vista 3D: automática, general, nave, Tierra, Luna |
-| `←` y `→` | Rotar la nave (con el piloto automático en MAN) |
-| `↑` y `↓` | Empujar hacia adelante o atrás con los propulsores chicos |
+| Space | Play / pause |
+| `+` and `−` | Raise and lower the warp |
+| `A` | Acknowledge alarms |
+| `1` to `5` | 3D view camera: automatic, overview, spacecraft, Earth, Moon |
+| `←` and `→` | Rotate the spacecraft (with the autopilot in MAN) |
+| `↑` and `↓` | Thrust forward or backward with the small thrusters |
 
-El mapa 2D no tiene zoom: la Tierra y la Luna quedan quietas (marco rotante, donde se ve el "8" del retorno libre), el plan nominal se dibuja tenue desde el principio y se va completando con el trazo real. Los datos de vuelo (tiempo, velocidad, distancias, temperatura y propelente) quedan sobre el mapa. El trazo se colorea por fase. En la vista 3D (que muestra solo el trazo ya recorrido) se elige la cámara, un recuadro muestra el entorno terrestre visto desde arriba, y se ve cómo se desprenden los boosters, la torre de escape, cada etapa y los CubeSats.
+The 2D map can be shown in the Earth‑Moon rotating frame (default: Earth and Moon stand still and you can see the free return's "figure 8") or in the inertial frame (the Moon travels along its orbit). It zooms with the mouse wheel or a pinch, pans by dragging, and a double-click brings back the whole mission. The nominal plan is drawn faintly from the start and gets filled in by the actual trail. The flight data (time, speed, distances, temperature and propellant) sit on top of the map. The trail is colored by phase. In the 3D view (which only shows the trail already flown) you pick the camera, an inset shows the Earth vicinity seen from above, and you can watch the boosters, the launch abort tower, each stage and the CubeSats separate.
 
-## Qué simula y qué no
+## What it simulates and what it does not
 
-**Simula:**
+**It simulates:**
 
-- El ascenso del cohete con el empuje, el consumo y la masa de cada etapa, el arrastre del aire y la rotación de la Tierra.
-- Los encendidos en el espacio con su duración real y el propelente que gastan.
-- La gravedad de la Tierra y de la Luna (problema restringido de tres cuerpos circular).
-- La orientación de la nave: los motores empujan hacia donde apunta.
-- La caída de las partes que se desprenden, incluido el encendido de eliminación del ICPS y los cuatro CubeSats.
-- La curva de empuje publicada de los boosters y el programa de potencia de los RS‑25.
-- La red de comunicaciones activa y la pérdida de señal detrás de la Luna.
+- The rocket's ascent with the thrust, propellant flow and mass of each stage, air drag and Earth's rotation.
+- Burns in space with their real duration and the propellant they use.
+- The gravity of Earth and the Moon, with the Moon on its real April 2026 orbit.
+- The spacecraft's orientation: the engines thrust where it points.
+- The fall of the parts that separate, including the ICPS disposal burn and the four CubeSats.
+- The published booster thrust curve and the RS‑25 power schedule.
+- The active communications network and the loss of signal behind the Moon.
 
-**No simula:**
+**It does not simulate:**
 
-- La entrada atmosférica: la física termina en la interfaz de entrada, a 122 km.
-- La tercera dimensión: todo ocurre en el plano de la órbita lunar, y la nave solo cabecea.
-- La inercia de la nave al rotar.
-- El sistema eléctrico (la guía de energía lo explica, pero no hay valores simulados).
-- La temperatura con un modelo térmico de verdad: la que se muestra es una estimación simple.
+- Atmospheric entry: the physics ends at entry interface, at 122 km.
+- The third dimension: everything happens in the plane of the lunar orbit, and the spacecraft only pitches.
+- The spacecraft's inertia when rotating.
+- The electrical system (the power guide explains it, but there are no simulated values).
+- Temperature with a real thermal model: the one shown is a simple estimate.
 
-**No reproduce el vuelo real al segundo.** Los tiempos de E1 a E7 son los publicados, y el guiado y los encendidos se ajustan para reproducir el final del ascenso, las órbitas terrestres publicadas y el horario del TLI del cronograma oficial. La Luna recorre su órbita real de abril de 2026 (ajustada a JPL Horizons). El resto lo decide la física: el sobrevuelo sale 17 minutos después del publicado y la interfaz de entrada, 36 minutos antes (9,04 días contra 9,06). Varios datos del vehículo son supuestos, y están marcados como tales en el código.
+**It does not reproduce the real flight to the second.** The times from E1 to E7 are the published ones, and the guidance and burns are tuned to reproduce the end of the ascent, the published Earth orbits and the TLI time in the official timeline. The Moon follows its real April 2026 orbit (fitted to JPL Horizons). Physics decides the rest: the flyby comes 17 minutes after the published one and entry interface 36 minutes before (9.04 days versus 9.06). Several vehicle figures are assumptions, and they are marked as such in the code.
 
-## Desarrollo
+## Development
 
-| Comando | Qué hace |
+| Command | What it does |
 |---|---|
-| `npm test` | Tests de la física y de la misión |
-| `npm run build` | Chequeo de tipos y build en `dist/` |
-| `npm run tune` | Recalcula el guiado del ascenso, los encendidos y el retorno libre |
-| `npm run path` | Regenera solo el plan nominal que el mapa dibuja tenue |
-| `npm run palette` | Extrae la paleta de las imágenes de referencia |
+| `npm test` | Physics and mission tests |
+| `npm run build` | Type check and build into `dist/` |
+| `npm run tune` | Recomputes the ascent guidance, the burns and the free return |
+| `npm run path` | Regenerates only the nominal plan the map draws faintly |
+| `npm run palette` | Extracts the palette from the reference images |
 
-En Windows, corré los tests desde PowerShell.
+On Windows, run the tests from PowerShell.
 
-El código está en tres capas: `src/sim/` (física y misión, TypeScript puro), `src/render/` (Three.js) y `src/ui/` (React). Las decisiones técnicas, las fuentes de los datos y los problemas abiertos están en [process.md](process.md).
+The code has three layers: `src/sim/` (physics and mission, pure TypeScript), `src/render/` (Three.js) and `src/ui/` (React). The technical decisions, the data sources and the open issues are in [process.md](process.md).
 
-## Créditos
+## Credits
 
-Las imágenes de `docs/reference/` son material de referencia de NASA y no forman parte de la aplicación. Las imágenes que use la aplicación se registran en [ASSETS.md](ASSETS.md) con su crédito. Tipografía IBM Plex Mono (SIL Open Font License). Gráficos con Three.js (MIT). Costo del programa citado del informe IG‑22‑003 de la Oficina del Inspector General de NASA.
+The images in `docs/reference/` are NASA reference material and are not part of the application. The images the application uses are registered in [ASSETS.md](ASSETS.md) with their credit. IBM Plex Mono typeface (SIL Open Font License). Graphics with Three.js (MIT). Program cost cited from report IG‑22‑003 of NASA's Office of Inspector General.
