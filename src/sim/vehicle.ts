@@ -1,7 +1,7 @@
 /**
  * The vehicle: stages, masses and engines. Units in this file: kg, N, s (SI).
  *
- * Sources (see also process.md):
+ * Sources:
  * - [SLS] NASA, "Space Launch System Reference Guide for Artemis II", SLS‑5558, October
  *   2025 (primary source): masses of the boosters, core stage, RS‑25 engines, ICPS,
  *   LVSA and OSA adapters, CubeSats; booster thrust curve; RS‑25 power

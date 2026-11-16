@@ -87,7 +87,7 @@ describe('ascenso simulado (E1–E3)', () => {
     // Published 70 mph; the initial acceleration depends on the boosters' thrust ramp (assumed).
     expect(Math.abs(speedRel(s) - 0.031)).toBeLessThan(0.01);
     // Booster separation: published 45.2 km and 1.34 km/s (not tuning targets).
-    // The first two minutes come out ~10 % faster than published (see process.md).
+    // The first two minutes come out ~10 % faster than published (known model difference).
     s = flyFrom(s, S.srbSeparation);
     expect(s.vehicle.srbSeparated).toBe(true);
     expect(Math.abs(altitudeOf(s) - 45.23)).toBeLessThan(8);
@@ -155,7 +155,7 @@ describe('ascenso simulado (E1–E3)', () => {
     for (const row of ASCENT_TABLE.slice(1)) {
       s = flyFrom(s, row.met);
       // Altitude within 3 km or 15 %; relative velocity within 0.1 km/s or 7 %.
-      // In the first two minutes the model runs ~10 % faster than the table (see process.md).
+      // In the first two minutes the model runs ~10 % faster than the table (known model difference).
       expect(Math.abs(altitudeOf(s) - row.altitude)).toBeLessThan(Math.max(3, 0.15 * row.altitude));
       expect(Math.abs(speedRel(s) - row.speed)).toBeLessThan(Math.max(0.1, 0.07 * row.speed));
     }

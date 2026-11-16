@@ -187,7 +187,7 @@ export const PUBLISHED_MET = {
    * implies half an orbit of ~11 h 41 min between the perigee raise and the TLI, i.e. a
    * period of ~23.4 h and an apogee of ~70,100 km (37,850 NM), not the 40,000 NM of [SLS]
    * (25.1 h). The timeline is followed because it is the most recent document and the one that sets
-   * the times; the contradiction is noted in process.md.
+   * the times; the [SLS] 40,000 NM remain as a check value.
    */
   tli: dhms(1, 1, 8, 42),
   otc1: dhms(2, 1, 8, 42),
@@ -210,7 +210,7 @@ export const APOLLO_13_RECORD_DISTANCE = 400171;
 // --- Mission ---
 /** Entry interface: 400,000 ft. */
 export const EI_ALTITUDE = 400000 * FT_TO_KM; // 121.92 km
-/** Mean lunar flyby altitude (1.png). [A2] says "~4,700 miles": see process.md. */
+/** Mean lunar flyby altitude (1.png). [A2] says "~4,700 miles"; the 1.png value is kept. */
 export const FLYBY_ALTITUDE_TARGET = 6513; // km
 
 /**
