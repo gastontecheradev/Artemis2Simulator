@@ -27,6 +27,7 @@ export function StartScreen({ onCredits }: { onCredits: () => void }): JSX.Eleme
           <li>{t('start.step2')}</li>
           <li>{t('start.step3')}</li>
         </ol>
+        <p className="dim">{t('start.keys')}</p>
         <label className="intro-check">
           <input type="checkbox" checked={autoCrew} onChange={(e) => setAutoCrew(e.target.checked)} />
           {t('start.demo')}
