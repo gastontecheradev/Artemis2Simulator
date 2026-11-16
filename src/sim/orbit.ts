@@ -5,26 +5,26 @@ import { Vec3, cross, distance, dot, length, sub } from './math/vec3';
 import { SimState, ephemerisOf } from './state';
 
 export interface OrbitElements {
-  /** Semieje mayor (km). Negativo si es hiperbólica. */
+  /** Semi-major axis (km). Negative if hyperbolic. */
   readonly a: number;
   readonly e: number;
-  /** Radio de periapsis (km, desde el centro). */
+  /** Periapsis radius (km, from the center). */
   readonly rp: number;
-  /** Radio de apoapsis (km). Infinity si la órbita no es cerrada. */
+  /** Apoapsis radius (km). Infinity if the orbit is not closed. */
   readonly ra: number;
-  /** Período (s). Infinity si la órbita no es cerrada. */
+  /** Period (s). Infinity if the orbit is not closed. */
   readonly period: number;
-  /** Energía específica (km²/s²). */
+  /** Specific energy (km²/s²). */
   readonly energy: number;
-  /** Ángulo de trayectoria (grados; positivo = subiendo). */
+  /** Flight-path angle (degrees; positive = climbing). */
   readonly fpaDeg: number;
   readonly r: number;
   readonly speed: number;
-  /** Velocidad radial (km/s). */
+  /** Radial velocity (km/s). */
   readonly radialSpeed: number;
 }
 
-/** Elementos osculantes a partir de posición y velocidad relativas al cuerpo central. */
+/** Osculating elements from position and velocity relative to the central body. */
 export function orbitElements(rRel: Vec3, vRel: Vec3, gm: number): OrbitElements {
   const r = length(rRel);
   const speed = length(vRel);
@@ -43,17 +43,17 @@ export function orbitElements(rRel: Vec3, vRel: Vec3, gm: number): OrbitElements
 }
 
 /**
- * Tiempo (s) hasta que una nave que está bajando (velocidad radial negativa) llegue al
- * radio `rTarget` en su órbita osculante de dos cuerpos, resuelto con la ecuación de
- * Kepler (elíptica o hiperbólica). NaN si no está bajando o si el radio pedido queda
- * por debajo del periapsis o por encima del radio actual.
+ * Time (s) until a spacecraft that is descending (negative radial velocity) reaches
+ * radius `rTarget` on its osculating two-body orbit, solved with Kepler's
+ * equation (elliptic or hyperbolic). NaN if it is not descending or if the requested radius is
+ * below periapsis or above the current radius.
  */
 export function timeToDescendTo(el: OrbitElements, rTarget: number, gm: number): number {
   if (el.radialSpeed >= 0 || rTarget >= el.r || rTarget < el.rp || el.e < 1e-9) return NaN;
   const a = el.a;
   const e = el.e;
   if (e < 1) {
-    // Anomalías excéntricas negativas: antes del periapsis.
+    // Negative eccentric anomalies: before periapsis.
     const cosE = (x: number): number => Math.max(-1, Math.min(1, (1 - x / a) / e));
     const E0 = -Math.acos(cosE(el.r));
     const E1 = -Math.acos(cosE(rTarget));
@@ -70,18 +70,18 @@ export function timeToDescendTo(el: OrbitElements, rTarget: number, gm: number):
 const relElements = (s: ShipState, b: BodyState, gm: number): OrbitElements =>
   orbitElements(sub(s.r, b.r), sub(s.v, b.v), gm);
 
-/** Elementos osculantes respecto de la Tierra. */
+/** Osculating elements relative to Earth. */
 export const earthElements = (s: ShipState, t: number, eph: Ephemeris): OrbitElements =>
   relElements(s, eph.earth(t), eph.gmEarth);
 
-/** Elementos osculantes respecto de la Luna. */
+/** Osculating elements relative to the Moon. */
 export const moonElements = (s: ShipState, t: number, eph: Ephemeris): OrbitElements =>
   relElements(s, eph.moon(t), eph.gmMoon);
 
 /**
- * Constante de Jacobi del CR3BP circular (solo vale con `createCircularEphemeris`; con la
- * órbita lunar elíptica de la misión no se conserva), evaluada con el estado inercial baricéntrico:
- * C = 2·(GM_T/r1 + GM_L/r2) + 2·ω·(x·vy − y·vx) − v².
+ * Jacobi constant of the circular CR3BP (only valid with `createCircularEphemeris`; with the
+ * mission's elliptical lunar orbit it is not conserved), evaluated with the barycentric inertial state:
+ * C = 2·(GM_EARTH/r1 + GM_MOON/r2) + 2·ω·(x·vy − y·vx) − v².
  */
 export function jacobiConstant(s: ShipState, t: number, eph: Ephemeris): number {
   const r1 = distance(s.r, eph.earth(t).r);
@@ -90,7 +90,7 @@ export function jacobiConstant(s: ShipState, t: number, eph: Ephemeris): number 
   return 2 * (eph.gmEarth / r1 + eph.gmMoon / r2) + 2 * MOON_ANGULAR_RATE * lz - dot(s.v, s.v);
 }
 
-/** Tiempo (s) hasta cruzar la interfaz de entrada bajando, según la órbita osculante; Infinity si no está bajando hacia ella. */
+/** Time (s) until crossing entry interface while descending, from the osculating orbit; Infinity if it is not descending towards it. */
 export function timeToEntry(s: SimState): number {
   const el = earthElements(s.ship, s.t, ephemerisOf(s));
   const t = timeToDescendTo(el, R_EARTH + EI_ALTITUDE, GM_EARTH);

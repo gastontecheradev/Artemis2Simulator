@@ -1,22 +1,22 @@
 /**
- * Calibra el ascenso y los encendidos en órbita terrestre contra los datos publicados
- * (altitudes y velocidad al final del ascenso, instantes de E4 y E5).
- * Actualiza src/sim/mission/params.json sin tocar el TLI ni la fase lunar.
+ * Calibrates the ascent and the Earth-orbit burns against the published data
+ * (altitudes and velocity at the end of the ascent, E4 and E5 instants).
+ * Updates src/sim/mission/params.json without touching the TLI or the lunar phase.
  *
- * Uso: npm run calibrate
- * Después conviene correr `npm run tune`, que reajusta el TLI con la órbita nueva.
+ * Usage: npm run calibrate
+ * Afterwards it is worth running `npm run tune`, which re-tunes the TLI with the new orbit.
  */
 import { R_EARTH } from '../src/sim/constants';
 import { formatMet } from '../src/sim/format';
 import { MISSION_PARAMS } from '../src/sim/mission/params';
 import { calibrate, fly, saveParams, withBurn } from './lib/calibration';
 
-// Varias pasadas: la duración de E5 que centra el encendido depende de su propio Δv.
+// Several passes: the E5 duration that centers the burn depends on its own Δv.
 let params = MISSION_PARAMS;
 for (let i = 0; i < 3; i++) params = calibrate(params, (m) => console.log(m));
 saveParams(params);
 
-// Resumen de la órbita resultante (sin TLI).
+// Summary of the resulting orbit (without TLI).
 const s = fly(withBurn(params, 'E9', { prograde: 0 }), params.burns.E9.met + 600);
 console.log('\nÁpsides hasta el TLI:');
 for (const a of s.record.apsides) {

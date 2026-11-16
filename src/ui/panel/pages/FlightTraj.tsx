@@ -28,7 +28,7 @@ function Row({ label, value, unit, cls = 'val' }: { label: string; value: string
 const W = 200;
 const H = 110;
 
-/** Mini‑gráfico de altitud en función del tiempo (escala logarítmica), como la curva de 10.png. */
+/** Altitude vs. time mini-chart (logarithmic scale), like the curve in 10.png. */
 function AltitudeGraph({ s }: { s: SimState }): JSX.Element {
   const trail = s.trail;
   const t0 = trail[0].t;
@@ -62,7 +62,7 @@ function AltitudeGraph({ s }: { s: SimState }): JSX.Element {
   );
 }
 
-/** Flight.Traj: datos de vuelo (inspirada en la PFD de 10.png, sin bola de actitud). */
+/** Flight.Traj: flight data (inspired by the PFD in 10.png, without the attitude ball). */
 export function FlightTraj({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   const eph = ephemerisOf(s);

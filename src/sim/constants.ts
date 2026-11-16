@@ -1,75 +1,75 @@
 /**
- * Constantes físicas y datos convertidos de las imágenes de referencia y de las guías
- * de NASA. Unidades de la simulación: km, s, km/s.
+ * Physical constants and data converted from the reference images and the NASA
+ * guides. Simulation units: km, s, km/s.
  *
- * Fuentes citadas:
+ * Cited sources:
  * - [SLS] NASA, "Space Launch System Reference Guide for Artemis II", SLS‑5558, oct. 2025.
  * - [A2]  NASA, "Artemis II Reference Guide", 2026.
  * - [TL]  NASA, "Artemis II Overview Timeline", 18/03/2026 (STRIVES 20260002249).
- * - [AV]  NASA, "Artemis II Mission Availability – April 2026" (ventanas de lanzamiento).
- * - [3.png] infografía de ascenso y órbita terrestre (docs/reference/3.png), igual a la tabla de [SLS].
- * - [JPL] NASA/JPL, sistema de efemérides Horizons (ssd.jpl.nasa.gov/horizons), consultado el 15/11/2026.
- * - [ORG] NASA, "Orion Reference Guide", 10/11/2022 (de antes de Artemis I; datos de Orion).
+ * - [AV]  NASA, "Artemis II Mission Availability – April 2026" (launch windows).
+ * - [3.png] ascent and Earth-orbit infographic (docs/reference/3.png), same as the [SLS] table.
+ * - [JPL] NASA/JPL, Horizons ephemeris system (ssd.jpl.nasa.gov/horizons), accessed 2026-11-15.
+ * - [ORG] NASA, "Orion Reference Guide", 2022-11-10 (predates Artemis I; Orion data).
  */
 
-// --- Física ---
+// --- Physics ---
 export const GM_EARTH = 398600.4418; // km³/s²
 export const GM_MOON = 4902.8; // km³/s²
 export const R_EARTH = 6378.137; // km
 export const R_MOON = 1737.4; // km
 /**
- * Distancia media Tierra‑Luna. La usan el modelo circular (tests de CR3BP) y la esfera de
- * influencia; la misión vuela con la órbita elíptica de `MOON_ORBIT`.
+ * Mean Earth‑Moon distance. Used by the circular model (CR3BP tests) and the sphere of
+ * influence; the mission flies with the elliptical orbit of `MOON_ORBIT`.
  */
 export const EARTH_MOON_DISTANCE = 384400; // km
 export const MOON_SIDEREAL_PERIOD = 27.321661 * 86400; // s
 export const MOON_ANGULAR_RATE = (2 * Math.PI) / MOON_SIDEREAL_PERIOD; // rad/s
 export const C_LIGHT = 299792.458; // km/s
 
-/** Velocidad angular de rotación de la Tierra (rad/s). */
+/** Earth's rotation rate (rad/s). */
 export const EARTH_ROTATION_RATE = 7.2921159e-5;
-/** Latitud de la plataforma LC‑39B (grados). */
+/** Latitude of pad LC‑39B (degrees). */
 export const LAUNCH_LATITUDE_DEG = 28.627;
 /**
- * Rotación terrestre vista en el plano de la órbita. El modelo es plano: el suelo y el
- * aire del sitio de lanzamiento se mueven hacia el este a Ω·R·cos(latitud) ≈ 0,408 km/s,
- * y esa es la velocidad que el cohete ya trae al despegar.
+ * Earth's rotation seen in the orbital plane. The model is planar: the ground and the
+ * air at the launch site move east at Ω·R·cos(latitude) ≈ 0.408 km/s,
+ * and that is the velocity the rocket already has at liftoff.
  */
 export const EARTH_ROTATION_IN_PLANE = EARTH_ROTATION_RATE * Math.cos((LAUNCH_LATITUDE_DEG * Math.PI) / 180);
 
 /**
- * [AV] Apertura de la ventana del 01/04/2026 (06:24 PM EDT = 22:24 UTC): "1.28 Hours
- * Before Sunset" en la plataforma. El modelo despega en ese instante (MET 0) y de este
- * dato sale la dirección del Sol: la puesta ocurre cuando la rotación terrestre lleva la
- * vertical de la plataforma a 90° del Sol.
+ * [AV] Opening of the 2026-04-01 window (06:24 PM EDT = 22:24 UTC): "1.28 Hours
+ * Before Sunset" at the pad. The model lifts off at that instant (MET 0) and the Sun
+ * direction comes from this figure: sunset happens when Earth's rotation brings the
+ * pad's vertical to 90° from the Sun.
  */
 export const LAUNCH_BEFORE_SUNSET = 1.28 * 3600; // s
-/** Movimiento medio de la Tierra alrededor del Sol (año sidéreo de 365,256 días): el Sol avanza ~0,99°/día. */
+/** Earth's mean motion around the Sun (sidereal year of 365.256 days): the Sun advances ~0.99°/day. */
 export const EARTH_ORBIT_RATE = (2 * Math.PI) / (365.256 * 86400); // rad/s
 
 /**
- * [JPL] Órbita de la Luna durante la misión: elipse kepleriana (dos cuerpos, GM_T + GM_L)
- * ajustada por mínimos cuadrados a los vectores geocéntricos de JPL Horizons (Luna, código
- * 301, centro 500@399), cada hora del 01/04/2026 12:00 al 12/04/2026 12:00 UTC,
- * proyectados en su plano medio. MET 0 = 01/04/2026 22:24 UTC ([AV]).
- * Error contra Horizons: < 400 km en distancia entre MET 3 d y 6 d (sobrevuelo), 1.860 km
- * como máximo (al despegue) y < 811 km a lo largo de la órbita.
- * La Luna pasó por el apogeo el 07/04/2026 (404.964 km): durante el sobrevuelo estaba ~5 %
- * más lejos que la distancia media, y eso alarga los dos tránsitos. La dirección del
- * apogeo no sale de acá: la fija la fase lunar del retorno libre (`moonAngle0Deg`).
+ * [JPL] Moon's orbit during the mission: Keplerian ellipse (two bodies, GM_EARTH + GM_MOON)
+ * least-squares fitted to the geocentric vectors from JPL Horizons (Moon, code
+ * 301, center 500@399), hourly from 2026-04-01 12:00 to 2026-04-12 12:00 UTC,
+ * projected onto their mean plane. MET 0 = 2026-04-01 22:24 UTC ([AV]).
+ * Error against Horizons: < 400 km in distance between MET 3 d and 6 d (flyby), 1,860 km
+ * at most (at liftoff) and < 811 km along the whole orbit.
+ * The Moon passed apogee on 2026-04-07 (404,964 km): during the flyby it was ~5 %
+ * farther than the mean distance, and that lengthens both transits. The apogee
+ * direction does not come from here: it is set by the free-return lunar phase (`moonAngle0Deg`).
  */
 export const MOON_ORBIT = {
-  /** Semieje mayor (km). */
+  /** Semi-major axis (km). */
   a: 382778.4,
   e: 0.05777,
-  /** MET del paso por el apogeo (s): 5,2027 d. */
+  /** MET of the apogee passage (s): 5.2027 d. */
   apogeeMet: 5.2027 * 86400,
 } as const;
 
-/** Radio de la esfera de influencia lunar (Laplace): D·(GM_L/GM_T)^(2/5). */
+/** Radius of the lunar sphere of influence (Laplace): D·(GM_MOON/GM_EARTH)^(2/5). */
 export const MOON_SOI = EARTH_MOON_DISTANCE * Math.pow(GM_MOON / GM_EARTH, 2 / 5);
 
-// --- Conversión de unidades imperiales (factores exactos) ---
+// --- Imperial unit conversion (exact factors) ---
 export const FT_TO_KM = 0.3048 / 1000;
 export const MPH_TO_KMS = 0.44704 / 1000;
 export const NM_TO_KM = 1.852;
@@ -78,11 +78,11 @@ export const MI_TO_KM = 1.609344;
 const hms = (h: number, m: number, s: number): number => h * 3600 + m * 60 + s;
 const dhms = (d: number, h: number, m: number, s: number): number => d * 86400 + hms(h, m, s);
 
-// --- Datos de ascenso de 3.png y de la tabla de eventos de [SLS] (convertidos una sola vez, acá) ---
+// --- Ascent data from 3.png and the [SLS] event table (converted once, here) ---
 export interface AscentPoint {
   readonly label: string;
   readonly met: number; // s
-  /** Velocidad relativa a la Tierra en rotación (km/s). */
+  /** Velocity relative to the rotating Earth (km/s). */
   readonly speed: number;
   readonly altitude: number; // km
 }
@@ -101,8 +101,8 @@ export const ASCENT_TABLE: readonly AscentPoint[] = [
 ];
 
 /**
- * Puntos de control en órbita terrestre de la tabla de eventos de [SLS]. Acá la velocidad
- * publicada es inercial (en órbita las tablas de NASA dejan de restar la rotación terrestre).
+ * Earth-orbit checkpoints from the [SLS] event table. Here the published velocity
+ * is inertial (in orbit NASA's tables stop subtracting Earth's rotation).
  */
 export const ORBIT_TABLE: readonly AscentPoint[] = [
   { label: 'Elevación del perigeo (ICPS)', met: hms(0, 49, 52), speed: 14145 * MPH_TO_KMS, altitude: 7181309 * FT_TO_KM },
@@ -114,19 +114,19 @@ export const ORBIT_TABLE: readonly AscentPoint[] = [
   { label: 'Liberación de CubeSats', met: hms(5, 20, 23), speed: 5896 * MPH_TO_KMS, altitude: 137337463 * FT_TO_KM },
 ];
 
-// --- MET de eventos ([SLS] tabla de eventos; E4 y E6 coinciden con 3.png) ---
+// --- Event METs ([SLS] event table; E4 and E6 match 3.png) ---
 export const MET_MECO = hms(0, 8, 6);
 export const MET_CORE_SEPARATION = hms(0, 8, 18); // E3
 export const MET_E4_PERIGEE_RAISE = hms(0, 49, 52);
-/** [SLS] tabla: 01:46:37 (3.png da 01:48:48 y el cronograma [TL] 0/01:47; se toma la tabla, la más detallada). */
+/** [SLS] table: 01:46:37 (3.png gives 01:48:48 and the [TL] timeline 0/01:47; the table, the most detailed, is used). */
 export const MET_E5_APOGEE_RAISE = hms(1, 46, 37);
-/** [SLS] Separación Orion/ICPS 03:22:46 y demo de proximidad hasta el encendido de salida de Orion a las 04:53:15. */
+/** [SLS] Orion/ICPS separation 03:22:46 and proximity demo until Orion's departure burn at 04:53:15. */
 export const MET_E6_PROX_OPS_START = hms(3, 22, 46);
 export const MET_E6_PROX_OPS_END = hms(4, 53, 15);
-/** [SLS] Encendido de salida de Orion (E7): dos minutos. El texto dice "el motor del módulo de servicio"; el diagrama de la demo lo rotula "AUX DEPARTURE". Se usan los auxiliares. */
+/** [SLS] Orion departure burn (E7): two minutes. The text says "the service module engine"; the demo diagram labels it "AUX DEPARTURE". The auxiliaries are used. */
 export const MET_E7_DEPARTURE = hms(4, 53, 15);
 export const E7_BURN_DURATION = 120; // s
-/** [SLS] Encendido de eliminación del ICPS y liberación de los CubeSats (tabla de cargas, por orden de salida). */
+/** [SLS] ICPS disposal burn and CubeSat release (payload table, in deployment order). */
 export const MET_ICPS_DISPOSAL = hms(5, 0, 33);
 export const CUBESAT_DEPLOYMENTS: readonly { readonly name: string; readonly met: number }[] = [
   { name: 'ATENEA (CONAE)', met: hms(5, 29, 10) },
@@ -134,60 +134,60 @@ export const CUBESAT_DEPLOYMENTS: readonly { readonly name: string; readonly met
   { name: 'TACHELES (DLR)', met: hms(5, 32, 10) },
   { name: 'K‑Rad Cube (KASA)', met: hms(5, 33, 10) },
 ];
-/** [SLS] Caída del ICPS al Pacífico: 25:23:01 (control). */
+/** [SLS] ICPS splashdown in the Pacific: 25:23:01 (check value). */
 export const MET_ICPS_SPLASHDOWN = hms(25, 23, 1);
 
 /**
- * SUPUESTO: Δv del encendido de eliminación del ICPS (retrógrado, m/s). La guía no da
- * el valor; el perigeo ya está a altitud cero después de E5, así que solo acomoda el
- * punto de reentrada.
+ * ASSUMPTION: Δv of the ICPS disposal burn (retrograde, m/s). The guide does not give
+ * the value; the perigee is already at zero altitude after E5, so it only adjusts the
+ * reentry point.
  */
 export const ICPS_DISPOSAL_DV = 5; // m/s
-/** SUPUESTO: velocidad de salida de cada CubeSat del dispensador (m/s). */
+/** ASSUMPTION: deployment speed of each CubeSat from the dispenser (m/s). */
 export const CUBESAT_DEPLOY_SPEED = 1.5;
 
-// --- Órbitas publicadas ([SLS] "Artemis II by the Numbers", en millas náuticas) ---
+// --- Published orbits ([SLS] "Artemis II by the Numbers", in nautical miles) ---
 export interface PublishedOrbit {
-  readonly perigee: number; // km de altitud
+  readonly perigee: number; // km of altitude
   readonly apogee: number;
 }
-/** Órbita de inserción: 15 × 1.200 NM. Es control (sale del ascenso), no objetivo. */
+/** Insertion orbit: 15 × 1,200 NM. Check value (it comes out of the ascent), not a target. */
 export const INSERTION_ORBIT: PublishedOrbit = { perigee: 15 * NM_TO_KM, apogee: 1200 * NM_TO_KM };
-/** Tras la elevación del perigeo del ICPS (E4): 100 × 1.200 NM. Objetivo de E4: el perigeo. */
+/** After the ICPS perigee raise (E4): 100 × 1,200 NM. Target of E4: the perigee. */
 export const POST_PRM_ORBIT: PublishedOrbit = { perigee: 100 * NM_TO_KM, apogee: 1200 * NM_TO_KM };
 /**
- * Tras la elevación del apogeo (E5): 0 × 40.000 NM. Objetivo de E5: el perigeo (a cero
- * deja al ICPS reentrando solo). El apogeo es control, no objetivo: con 40.000 NM el
- * período es de ~25,1 h y el TLI caería 1 h 45 min después del cronograma [TL]. E5 se
- * ajusta para que el TLI encienda en el MET publicado (ver `PUBLISHED_MET.tli`).
+ * After the apogee raise (E5): 0 × 40,000 NM. Target of E5: the perigee (at zero it
+ * leaves the ICPS reentering on its own). The apogee is a check value, not a target: with 40,000 NM the
+ * period is ~25.1 h and the TLI would fall 1 h 45 min after the [TL] timeline. E5 is
+ * tuned so that the TLI ignites at the published MET (see `PUBLISHED_MET.tli`).
  */
 export const POST_ARB_ORBIT: PublishedOrbit = { perigee: 0, apogee: 40000 * NM_TO_KM };
-/** Órbita alta tras la elevación del perigeo de Orion (E8): 100 × 40.000 NM. Objetivo de E8: el perigeo (el apogeo es control). */
+/** High orbit after Orion's perigee raise (E8): 100 × 40,000 NM. Target of E8: the perigee (the apogee is a check value). */
 export const HEO_ORBIT: PublishedOrbit = { perigee: 100 * NM_TO_KM, apogee: 40000 * NM_TO_KM };
 
-/** Altitudes publicadas en MECO y en la separación de la etapa central: objetivos del guiado del ascenso. */
-export const MECO_ALTITUDE = 511884 * FT_TO_KM; // 156,02 km
-export const INSERTION_ALTITUDE = 534564 * FT_TO_KM; // 162,94 km
+/** Published altitudes at MECO and at core stage separation: targets of the ascent guidance. */
+export const MECO_ALTITUDE = 511884 * FT_TO_KM; // 156.02 km
+export const INSERTION_ALTITUDE = 534564 * FT_TO_KM; // 162.94 km
 /**
- * Velocidad publicada en la separación de la etapa central: 17.627 mph. Es relativa a la
- * Tierra en rotación, no inercial: el ascenso simulado con los datos reales del cohete la
- * reproduce así, y como velocidad inercial sería incompatible con los tiempos publicados.
+ * Published velocity at core stage separation: 17,627 mph. It is relative to the
+ * rotating Earth, not inertial: the ascent simulated with the real rocket data reproduces
+ * it that way, and as an inertial velocity it would be incompatible with the published times.
  */
-export const INSERTION_SPEED_REL = 17627 * MPH_TO_KMS; // 7,880 km/s
-/** El TLI se centra en el perigeo: la ignición es este tiempo antes (≈ media duración del encendido). */
+export const INSERTION_SPEED_REL = 17627 * MPH_TO_KMS; // 7.880 km/s
+/** The TLI is centered on perigee: ignition is this long before it (≈ half the burn duration). */
 export const TLI_HALF_BURN = 185; // s
 
-// --- Cronograma publicado [TL] (control: el modelo calcula los suyos por física) ---
+// --- Published timeline [TL] (check values: the model computes its own from physics) ---
 export const PUBLISHED_MET = {
-  /** Elevación del perigeo de Orion (E8), "~0/13:30". */
+  /** Orion perigee raise (E8), "~0/13:30". */
   prb: dhms(0, 13, 30, 0),
   /**
-   * Ignición del TLI. Es objetivo de la calibración: el apogeo de la órbita alta (E5) se
-   * ajusta para que el perigeo siguiente caiga TLI_HALF_BURN después. El cronograma
-   * implica media vuelta de ~11 h 41 min entre la elevación del perigeo y el TLI, o sea un
-   * período de ~23,4 h y un apogeo de ~70.100 km (37.850 NM), no los 40.000 NM de [SLS]
-   * (25,1 h). Se sigue el cronograma porque es el documento más reciente y el que fija
-   * los horarios; la contradicción está anotada en process.md.
+   * TLI ignition. It is a calibration target: the apogee of the high orbit (E5) is
+   * tuned so that the next perigee falls TLI_HALF_BURN later. The timeline
+   * implies half an orbit of ~11 h 41 min between the perigee raise and the TLI, i.e. a
+   * period of ~23.4 h and an apogee of ~70,100 km (37,850 NM), not the 40,000 NM of [SLS]
+   * (25.1 h). The timeline is followed because it is the most recent document and the one that sets
+   * the times; the contradiction is noted in process.md.
    */
   tli: dhms(1, 1, 8, 42),
   otc1: dhms(2, 1, 8, 42),
@@ -204,52 +204,52 @@ export const PUBLISHED_MET = {
   ei: dhms(9, 1, 29, 0),
   splashdown: dhms(9, 1, 42, 48),
 } as const;
-/** Récord de distancia a la Tierra de Apollo 13 (km), que [TL] marca como superado antes del sobrevuelo. Dato de NASA. */
+/** Apollo 13's distance-from-Earth record (km), which [TL] marks as surpassed before the flyby. NASA figure. */
 export const APOLLO_13_RECORD_DISTANCE = 400171;
 
-// --- Misión ---
-/** Interfaz de entrada: 400.000 ft. */
-export const EI_ALTITUDE = 400000 * FT_TO_KM; // 121,92 km
-/** Altitud media del sobrevuelo lunar (1.png). [A2] dice "~4.700 millas": ver process.md. */
+// --- Mission ---
+/** Entry interface: 400,000 ft. */
+export const EI_ALTITUDE = 400000 * FT_TO_KM; // 121.92 km
+/** Mean lunar flyby altitude (1.png). [A2] says "~4,700 miles": see process.md. */
 export const FLYBY_ALTITUDE_TARGET = 6513; // km
 
 /**
- * Corredor de entrada: ángulo de trayectoria inercial en EI (grados, negativo = descendiendo).
- * Objetivo: −5,66°, el valor volado por Artemis I a 400.000 ft (NASA, AAS 24‑174,
- * "Orion Artemis I Entry Performance"). No hay dato público equivalente de Artemis II.
- * El ancho de ±1° es un supuesto: SIN VERIFICAR.
+ * Entry corridor: inertial flight-path angle at EI (degrees, negative = descending).
+ * Target: −5.66°, the value flown by Artemis I at 400,000 ft (NASA, AAS 24‑174,
+ * "Orion Artemis I Entry Performance"). There is no equivalent public figure for Artemis II.
+ * The ±1° width is an assumption: UNVERIFIED.
  */
 export const ENTRY_CORRIDOR = { min: -6.66, target: -5.66, max: -4.66 } as const;
 
 /**
- * Límite NSN/DSN por altitud. 2.png es esquemático y no da el valor, pero muestra NSN
- * en el TLI (cerca del perigeo) y DSN en la órbita alta: el límite cae dentro de esa
- * órbita. Se usa la altitud geoestacionaria, donde orbitan los satélites relé de la
- * Near Space Network; por encima se pasa a Deep Space Network.
+ * NSN/DSN boundary by altitude. 2.png is schematic and does not give the value, but it shows NSN
+ * at the TLI (near perigee) and DSN in the high orbit: the boundary lies within that
+ * orbit. Geostationary altitude is used, where the Near Space Network relay satellites
+ * orbit; above it, Deep Space Network takes over.
  */
 export const NSN_MAX_ALTITUDE = 35786; // km
 
-/** Umbral de CAUTION por propelente bajo en el módulo de servicio (fracción restante). */
+/** CAUTION threshold for low propellant in the service module (remaining fraction). */
 export const DV_LOW_FRACTION = 0.1;
 
-/** Más allá de esta distancia a la Tierra la nave se da por perdida. */
+/** Beyond this distance from Earth the spacecraft is considered lost. */
 export const LOST_DISTANCE = 1.5e6; // km
 
-// --- Operación ---
-/** Anticipación de la auto‑pausa antes de un encendido de la tripulación. */
+// --- Operation ---
+/** Lead time of the auto-pause before a crew burn. */
 export const BURN_LEAD_TIME = 120; // s
-/** Tolerancia después del TIG antes de declarar la ventana perdida. */
+/** Tolerance after TIG before declaring the window missed. */
 export const BURN_WINDOW_TOLERANCE = 300; // s
-/** [TL] La separación CM/SM ocurre 20 min antes de la interfaz de entrada (9/01:09 → 9/01:29). */
-export const CM_SEP_LEAD_TIME = PUBLISHED_MET.ei - PUBLISHED_MET.cmSep; // 1.200 s
-/** Anticipación con la que se pide la separación a la tripulación (y se abre el procedimiento). */
+/** [TL] CM/SM separation happens 20 min before entry interface (9/01:09 → 9/01:29). */
+export const CM_SEP_LEAD_TIME = PUBLISHED_MET.ei - PUBLISHED_MET.cmSep; // 1,200 s
+/** Lead time with which the separation is requested from the crew (and the procedure opens). */
 export const CM_SEP_PROMPT_LEAD_TIME = 2 * CM_SEP_LEAD_TIME;
 export const WARP_LEVELS = [1, 10, 100, 1000, 10000] as const;
 
-// --- Actitud (SUPUESTOS: no encontré los ritmos de maniobra reales de Orion) ---
-/** Ritmo al que el piloto automático reorienta la nave (rad/s). */
+// --- Attitude (ASSUMPTIONS: I could not find Orion's real maneuver rates) ---
+/** Rate at which the autopilot reorients the spacecraft (rad/s). */
 export const ATTITUDE_SLEW_RATE = (3 * Math.PI) / 180;
-/** Ritmo de rotación que comanda el controlador manual a fondo (rad/s). */
+/** Rotation rate commanded by the hand controller at full deflection (rad/s). */
 export const RHC_RATE = (3 * Math.PI) / 180;
-/** Error de actitud aceptable para considerar la nave orientada (rad). */
+/** Acceptable attitude error to consider the spacecraft aligned (rad). */
 export const ATTITUDE_TOLERANCE = (2 * Math.PI) / 180;

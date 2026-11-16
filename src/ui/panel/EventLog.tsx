@@ -3,7 +3,7 @@ import { formatMet } from '../../sim/format';
 import { SimState } from '../../sim/state';
 import { useT } from '../i18n';
 
-/** Log de eventos con timestamp en MET. Sigue al último evento salvo que se haya subido a mano. */
+/** Event log with MET timestamps. Follows the latest event unless scrolled up by hand. */
 export function EventLog({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   const ref = useRef<HTMLDivElement>(null);

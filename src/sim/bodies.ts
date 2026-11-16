@@ -17,24 +17,24 @@ export interface BodyState {
 }
 
 /**
- * Efemérides: posición y velocidad de la Tierra y la Luna en función de t.
- * El resto de la simulación solo conoce esta interfaz, así que se puede reemplazar
- * por efemérides reales (JPL Horizons) sin tocar nada más.
+ * Ephemeris: position and velocity of Earth and Moon as a function of t.
+ * The rest of the simulation only knows this interface, so it can be replaced
+ * with real ephemerides (JPL Horizons) without touching anything else.
  */
 export interface Ephemeris {
   readonly gmEarth: number;
   readonly gmMoon: number;
   earth(t: number): BodyState;
   moon(t: number): BodyState;
-  /** Ángulo (rad) del eje Tierra→Luna en t, sin cortes en 2π. Define el marco rotante. */
+  /** Angle (rad) of the Earth→Moon axis at t, without 2π wraps. Defines the rotating frame. */
   moonAngle(t: number): number;
-  /** Período de la órbita lunar (s): una vuelta completa de `moon(t)`. Para dibujarla. */
+  /** Period of the lunar orbit (s): one full revolution of `moon(t)`. For drawing it. */
   readonly moonPeriod: number;
 }
 
 /**
- * CR3BP circular: Tierra y Luna giran alrededor del baricentro (origen) con
- * velocidad angular constante. `moonAngle0` es el ángulo de la Luna en t = 0.
+ * Circular CR3BP: Earth and Moon revolve around the barycenter (origin) at
+ * constant angular velocity. `moonAngle0` is the Moon's angle at t = 0.
  */
 export function createCircularEphemeris(moonAngle0 = 0): Ephemeris {
   const mu = GM_MOON / (GM_EARTH + GM_MOON);
@@ -58,13 +58,13 @@ export function createCircularEphemeris(moonAngle0 = 0): Ephemeris {
 }
 
 /**
- * Efemérides de la misión: la Luna recorre una elipse kepleriana alrededor de la Tierra
- * (problema de dos cuerpos con GM_T + GM_L) y las dos giran alrededor del baricentro, que
- * queda quieto en el origen. Los elementos (`MOON_ORBIT`) salen de JPL Horizons para la
- * fecha de la misión, así la distancia Tierra‑Luna y la velocidad de la Luna son las de
- * abril de 2026. `moonAngle0` es el ángulo de la Luna en t = 0, como en el modelo
- * circular: el retorno libre lo ajusta y con él gira la elipse entera.
- * El problema deja de ser el CR3BP circular: la constante de Jacobi no se conserva.
+ * Mission ephemeris: the Moon follows a Keplerian ellipse around Earth
+ * (two-body problem with GM_EARTH + GM_MOON) and both revolve around the barycenter, which
+ * stays fixed at the origin. The elements (`MOON_ORBIT`) come from JPL Horizons for the
+ * mission date, so the Earth‑Moon distance and the Moon's velocity are those of
+ * April 2026. `moonAngle0` is the Moon's angle at t = 0, as in the circular
+ * model: the free return tunes it and the whole ellipse rotates with it.
+ * The problem is no longer the circular CR3BP: the Jacobi constant is not conserved.
  */
 export function createKeplerEphemeris(moonAngle0 = 0, orbit: { a: number; e: number; apogeeMet: number } = MOON_ORBIT): Ephemeris {
   const gm = GM_EARTH + GM_MOON;
@@ -73,7 +73,7 @@ export function createKeplerEphemeris(moonAngle0 = 0, orbit: { a: number; e: num
   const n = Math.sqrt(gm / (a * a * a));
   const p = a * (1 - e * e);
   const h = Math.sqrt(gm / p);
-  // Para la anomalía verdadera sin cortes: ν = E + 2·atan(β·sen E / (1 − β·cos E)).
+  // For the true anomaly without wraps: ν = E + 2·atan(β·sin E / (1 − β·cos E)).
   const beta = e / (1 + Math.sqrt(1 - e * e));
   const meanAt = (t: number): number => Math.PI + n * (t - orbit.apogeeMet);
   const trueAnomaly = (t: number): number => {
@@ -86,10 +86,10 @@ export function createKeplerEphemeris(moonAngle0 = 0, orbit: { a: number; e: num
     }
     return ecc + 2 * Math.atan((beta * Math.sin(ecc)) / (1 - beta * Math.cos(ecc)));
   };
-  // Dirección del perigeo: deja la Luna en `moonAngle0` en t = 0.
+  // Perigee direction: puts the Moon at `moonAngle0` at t = 0.
   const varpi = moonAngle0 - trueAnomaly(0);
 
-  // El integrador pide Tierra y Luna en el mismo t: se guarda el último cálculo.
+  // The integrator asks for Earth and Moon at the same t: the last computation is cached.
   let lastT = NaN;
   let rel: { r: Vec3; v: Vec3; angle: number } = { r: vec3(), v: vec3(), angle: 0 };
   const relative = (t: number): { r: Vec3; v: Vec3; angle: number } => {
@@ -119,7 +119,7 @@ export function createKeplerEphemeris(moonAngle0 = 0, orbit: { a: number; e: num
   };
 }
 
-/** Solo la Tierra, fija en el origen. Para tests de dos cuerpos. */
+/** Earth only, fixed at the origin. For two-body tests. */
 export function createEarthOnlyEphemeris(): Ephemeris {
   const earth: BodyState = { r: vec3(), v: vec3() };
   const moon: BodyState = { r: vec3(EARTH_MOON_DISTANCE, 0, 0), v: vec3() };
@@ -127,14 +127,14 @@ export function createEarthOnlyEphemeris(): Ephemeris {
 }
 
 /**
- * Dirección (unitaria, inercial) hacia el Sol en t. El Sol está en el plano del modelo
- * (la órbita lunar difiere de la eclíptica en ~5°) y tan lejos que la dirección es la
- * misma para la Tierra, la Luna y la nave.
+ * Direction (unit, inertial) towards the Sun at t. The Sun is in the model's plane
+ * (the lunar orbit differs from the ecliptic by ~5°) and so far away that the direction is the
+ * same for Earth, the Moon and the spacecraft.
  *
- * La plataforma está sobre +y en t = 0 y la Tierra gira en sentido antihorario (hacia
- * −x, el este). Al despegar faltan LAUNCH_BEFORE_SUNSET segundos para la puesta: el Sol
- * está al oeste, a 90° menos lo que la plataforma rota en ese lapso desde la vertical.
- * Después avanza con el movimiento anual de la Tierra (antihorario visto desde el norte).
+ * The pad is on +y at t = 0 and Earth rotates counterclockwise (towards
+ * −x, east). At liftoff there are LAUNCH_BEFORE_SUNSET seconds left until sunset: the Sun
+ * is to the west, at 90° minus what the pad rotates in that interval from the vertical.
+ * It then advances with Earth's annual motion (counterclockwise seen from the north).
  */
 export function sunDirection(t: number): Vec3 {
   const a = LAUNCH_BEFORE_SUNSET * (EARTH_ROTATION_IN_PLANE - EARTH_ORBIT_RATE) + EARTH_ORBIT_RATE * t;

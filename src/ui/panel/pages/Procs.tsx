@@ -15,7 +15,7 @@ import { useT } from '../../i18n';
 import { act } from '../../store';
 import type { SoftAction } from './index';
 
-/** Teclas laterales de Procs: selección de procedimiento, pasos y Δv planeado. */
+/** Procs side keys: procedure selection, steps and planned Δv. */
 export function procsActions(s: SimState): SoftAction[] {
   const id = activeManeuverId(s);
   const m = id ? s.maneuvers[id] : null;
@@ -43,7 +43,7 @@ export function procsActions(s: SimState): SoftAction[] {
   return actions;
 }
 
-/** Procs: visor de procedimientos (inspirado en 11.png). Es la interfaz de comandos. */
+/** Procs: procedure viewer (inspired by 11.png). It is the command interface. */
 export function Procs({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   const view = procedureView(s, s.proc.activeId);

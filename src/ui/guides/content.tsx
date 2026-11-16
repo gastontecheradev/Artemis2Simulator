@@ -24,7 +24,7 @@ import { MISSION_PARAMS } from '../../sim/mission/params';
 import { CONFIG_AT_LIFTOFF, CUBESAT_COUNT, ENGINES, MASS, SRB_ISP, SRB_THRUST_PROFILE, dryMass, idealDv } from '../../sim/vehicle';
 import { GuideId } from '../store';
 
-/** Texto según idioma. */
+/** Text by language. */
 const L = (locale: Locale, en: string, es: string): string => (locale === 'es' ? es : en);
 
 export interface GuideSection {
@@ -32,16 +32,16 @@ export interface GuideSection {
   readonly paragraphs?: readonly string[];
   readonly bullets?: readonly string[];
   readonly table?: { readonly head: readonly string[]; readonly rows: readonly (readonly string[])[] };
-  /** Enlaces externos (se abren en otra pestaña). */
+  /** External links (open in another tab). */
   readonly links?: readonly GuideLink[];
-  /** Nota al pie: fuentes o aclaraciones. */
+  /** Footnote: sources or clarifications. */
   readonly note?: string;
 }
 
 export interface GuideLink {
   readonly label: string;
   readonly url: string;
-  /** Qué trae, en una línea. */
+  /** What it covers, in one line. */
   readonly desc: string;
 }
 
@@ -61,7 +61,7 @@ const SRC_TL = 'NASA, "Artemis II Overview Timeline" (18/03/2026)';
 const SRC_OBJ = 'NASA, "Artemis II Priorities and Objectives" (2026)';
 const SRC_JPL = 'NASA/JPL, Horizons ephemeris system';
 
-// ---------- Objetivo ----------
+// ---------- Objective ----------
 
 function objective(l: Locale): GuideContent {
   return {
@@ -117,7 +117,7 @@ function objective(l: Locale): GuideContent {
   };
 }
 
-// ---------- Etapas ----------
+// ---------- Stages ----------
 
 function stages(l: Locale): GuideContent {
   const n = P.nominal;
@@ -165,15 +165,15 @@ function stages(l: Locale): GuideContent {
   };
 }
 
-// ---------- Presupuesto ----------
+// ---------- Budget ----------
 
 function budget(l: Locale): GuideContent {
-  // Capacidad del ICPS con el apilado que queda después de separar la etapa central.
+  // ICPS capability with the stack left after core stage separation.
   const afterCore = { ...CONFIG_AT_LIFTOFF, srbSeparated: true, lasJettisoned: true, coreSeparated: true };
   const stackAtE4 = dryMass(afterCore) + MASS.icpsProp + MASS.esmProp + MASS.cmProp;
   const icpsCapability = idealDv(ENGINES.RL10, stackAtE4, MASS.icpsProp);
   const icpsPlanned = dvMagnitude(P.burns.E4.dv) + dvMagnitude(P.burns.E5.dv);
-  // Orion sola, con el módulo de servicio lleno.
+  // Orion alone, with a full service module.
   const orionFull = dryMass({ ...afterCore, icpsSeparated: true }) + MASS.esmProp + MASS.cmProp;
   const orionCapability = idealDv(ENGINES.MAIN, orionFull, MASS.esmProp);
   const orionPlanned = P.burns.E7.dv.prograde + P.burns.E8.dv.prograde + P.burns.E9.dv.prograde;
@@ -234,7 +234,7 @@ function budget(l: Locale): GuideContent {
   };
 }
 
-// ---------- Energía ----------
+// ---------- Power ----------
 
 function power(l: Locale): GuideContent {
   return {
@@ -271,7 +271,7 @@ function power(l: Locale): GuideContent {
   };
 }
 
-// ---------- Nave ----------
+// ---------- Spacecraft ----------
 
 function ship(l: Locale): GuideContent {
   const srbMax = Math.max(...SRB_THRUST_PROFILE.map(([, f]) => f));
@@ -312,7 +312,7 @@ function ship(l: Locale): GuideContent {
   };
 }
 
-// ---------- Documentación de NASA ----------
+// ---------- NASA documentation ----------
 
 function docs(l: Locale): GuideContent {
   return {

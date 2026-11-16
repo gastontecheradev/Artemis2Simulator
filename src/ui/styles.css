@@ -1,6 +1,6 @@
-/* Layout y componentes. Los colores salen de theme.css (paleta extraída de docs/reference/). */
+/* Layout and components. Colors come from theme.css (palette extracted from docs/reference/). */
 
-/* ---------- Layout general ---------- */
+/* ---------- General layout ---------- */
 .app {
   display: grid;
   grid-template-columns: minmax(540px, 50%) 1fr;
@@ -42,7 +42,7 @@
   }
 }
 
-/* ---------- Barra de estado ---------- */
+/* ---------- Status bar ---------- */
 .status {
   flex: none;
   background: var(--c-switch-plate);
@@ -205,7 +205,7 @@
 .du-keys.left,
 .du-keys.right {
   flex-direction: column;
-  /* Mismas filas que la pantalla: menú, mitad, barra de título, mitad, menú. */
+  /* Same rows as the screen: menu, half, title bar, half, menu. */
   padding: 18px 0;
   gap: 20px;
 }
@@ -365,7 +365,7 @@ button.softkey:active {
   border-color: var(--c-label-faint);
 }
 
-/* ---------- Páginas ---------- */
+/* ---------- Pages ---------- */
 .page {
   display: flex;
   flex-direction: column;
@@ -546,7 +546,7 @@ button.softkey:active {
 .step.skipped .txt {
   color: var(--c-label-dim);
 }
-/* Paso actual resaltado en magenta, como en el visor de procedimientos de 11.png. */
+/* Current step highlighted in magenta, as in the procedure viewer of 11.png. */
 .step.current {
   background: var(--c-command);
 }
@@ -701,7 +701,7 @@ button.softkey:active {
   color: var(--c-caution);
 }
 
-/* ---------- Panel de interruptores ---------- */
+/* ---------- Switch panel ---------- */
 .switch-panel {
   flex: none;
   display: flex;
@@ -740,7 +740,7 @@ button.softkey:active {
   justify-content: space-around;
   gap: 8px;
 }
-/* Tornillos decorativos: no interactivos. */
+/* Decorative screws: not interactive. */
 .screw {
   position: absolute;
   width: 7px;
@@ -826,7 +826,7 @@ button.softkey:active {
   align-items: center;
   gap: 2px;
   padding: 4px;
-  /* Franjas amarillas y negras de la guarda, como en 9.png. */
+  /* Yellow and black guard stripes, as in 9.png. */
   background: repeating-linear-gradient(-45deg, var(--c-hazard) 0 6px, var(--c-switch-plate) 6px 12px);
   border-radius: 2px;
 }
@@ -858,7 +858,7 @@ button.softkey:active {
   opacity: 0.45;
 }
 
-/* ---------- Tiempo y log ---------- */
+/* ---------- Time and log ---------- */
 .panel-note {
   flex: none;
   margin: 0;
@@ -974,7 +974,7 @@ button.softkey:active {
   color: var(--c-warning);
 }
 
-/* ---------- Vista de trayectoria ---------- */
+/* ---------- Trajectory view ---------- */
 .view-canvas-host {
   position: absolute;
   inset: 0;
@@ -985,7 +985,7 @@ button.softkey:active {
   height: 100%;
   touch-action: none;
 }
-/* El mapa 2D se arrastra para desplazarlo. */
+/* The 2D map is dragged to pan it. */
 .pane-2d .view-canvas {
   cursor: grab;
 }
@@ -1010,7 +1010,7 @@ button.softkey:active {
   color: var(--c-label-dim);
   white-space: nowrap;
 }
-/* Marcadores numerados de eventos, con los colores de 1.png. */
+/* Numbered event markers, with the colors of 1.png. */
 .event-marker {
   display: flex;
   align-items: center;
@@ -1032,7 +1032,7 @@ button.softkey:active {
 .event-marker.prox {
   background: color-mix(in srgb, var(--c-trail-prox) 85%, black);
 }
-/* Íconos 2D: el SVG trae su tamaño (proporciones reales de cada etapa, `render/vehicle.ts`). */
+/* 2D icons: the SVG carries its own size (real proportions of each stage, `render/vehicle.ts`). */
 .ship-marker {
   z-index: 2;
 }
@@ -1117,7 +1117,7 @@ button.softkey:active {
   color: var(--c-label-faint);
 }
 
-/* ---------- Fin de misión y créditos ---------- */
+/* ---------- End of mission and credits ---------- */
 .modal {
   position: absolute;
   inset: 0;
@@ -1178,8 +1178,8 @@ button.softkey:active {
   display: flex;
   gap: 8px;
 }
-/* Cartel de fin de misión: una Display Unit (bisel, pantalla negra, barra de título) con un
-   anunciador iluminado en verde (éxito) o rojo (fallida), como el Master Alarm. */
+/* End-of-mission banner: a Display Unit (bezel, black screen, title bar) with an
+   annunciator lit green (success) or red (failure), like the Master Alarm. */
 .end-banner-wrap {
   position: absolute;
   inset: 0;
@@ -1282,7 +1282,7 @@ button.softkey:active {
   color: var(--c-value-hi);
 }
 
-/* ---------- Flight.Traj durante el ascenso guionado ---------- */
+/* ---------- Flight.Traj during the scripted ascent ---------- */
 .ascent-note {
   padding: 1px 4px;
   font-size: 9.5px;
@@ -1378,7 +1378,7 @@ button.softkey:active {
   color: var(--c-label-dim);
 }
 
-/* ---------- Barra de estado: próximo evento ---------- */
+/* ---------- Status bar: next event ---------- */
 .st-value.cmd {
   color: var(--c-command-hi);
 }
@@ -1386,13 +1386,13 @@ button.softkey:active {
   white-space: nowrap;
 }
 
-/* ---------- Vista: puntos de los cuerpos, destello y tooltips ---------- */
+/* ---------- View: body dots, flash and tooltips ---------- */
 .body-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
 }
-/* 3D: la nave y las partes desprendidas van a escala real; de lejos, un punto. */
+/* 3D: the spacecraft and the jettisoned parts are at real scale; from afar, a dot. */
 .ship-dot {
   width: 6px;
   height: 6px;
@@ -1416,7 +1416,7 @@ button.softkey:active {
 .body-dot.moon {
   background: color-mix(in srgb, var(--c-body-moon) 70%, white);
 }
-/* Mapa inercial: dónde va a estar la Luna en el sobrevuelo nominal. */
+/* Inertial map: where the Moon will be at the nominal flyby. */
 .moon-ghost {
   border: 1px dashed color-mix(in srgb, var(--c-body-moon) 70%, white);
   border-radius: 50%;
@@ -1459,7 +1459,7 @@ button.softkey:active {
   }
 }
 
-/* ---------- Guarda de los interruptores: tapa sobre la palanca ---------- */
+/* ---------- Switch guard: cover over the toggle ---------- */
 .guard-frame {
   position: relative;
 }
@@ -1485,7 +1485,7 @@ button.softkey:active {
   box-shadow: 0 0 0 1px var(--c-caution), 0 0 8px var(--c-caution);
 }
 
-/* ---------- Pantalla de inicio ---------- */
+/* ---------- Start screen ---------- */
 .modal.intro {
   background: color-mix(in srgb, var(--c-screen) 82%, transparent);
   text-transform: none;
@@ -1539,7 +1539,7 @@ button.softkey:active {
   margin: 12px 0 0 !important;
 }
 
-/* ---------- Vista dividida: mapa 2D arriba, vista 3D abajo ---------- */
+/* ---------- Split view: 2D map on top, 3D view below ---------- */
 .view {
   display: grid;
   grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
@@ -1573,7 +1573,7 @@ button.softkey:active {
 .legend-colors {
   z-index: 1;
 }
-/* Las partes desprendidas van debajo de la nave: recién separadas quedan tapadas y aparecen al alejarse. */
+/* Jettisoned parts go under the spacecraft: just separated they are hidden and appear as they drift away. */
 .debris-marker {
   z-index: 1;
   opacity: 0.6;
@@ -1632,7 +1632,7 @@ button.softkey:active {
   stroke-width: 0.5;
 }
 
-/* ---------- Prop.Sys: vehículo por partes ---------- */
+/* ---------- Prop.Sys: vehicle by parts ---------- */
 .stack .part {
   stroke-width: 0.8;
 }
@@ -1666,7 +1666,7 @@ button.softkey:active {
   fill: var(--c-label);
 }
 
-/* ---------- Placa de control de vuelo: DAP, RHC, THC ---------- */
+/* ---------- Flight control plate: DAP, RHC, THC ---------- */
 .fc {
   display: flex;
   flex-wrap: wrap;
@@ -1715,7 +1715,7 @@ button.softkey:active {
   flex: 1 1 170px;
 }
 
-/* ---------- Tutorial guiado ---------- */
+/* ---------- Guided tutorial ---------- */
 .tour {
   position: fixed;
   inset: 0;
@@ -1730,7 +1730,7 @@ button.softkey:active {
   box-shadow: 0 0 0 9999px color-mix(in srgb, var(--c-screen) 45%, transparent), 0 0 14px var(--c-command);
   transition: all 0.2s ease-out;
 }
-/* Mano del tutorial: la punta del índice (14, 3 del dibujo) queda sobre el centro del botón. */
+/* Tutorial hand: the index fingertip (14, 3 in the drawing) sits over the button's center. */
 .tour-hand {
   position: fixed;
   z-index: 1;
@@ -1890,7 +1890,7 @@ button.softkey:active {
   margin-bottom: 4px;
 }
 
-/* Alarma que abre su procedimiento. */
+/* Alarm that opens its procedure. */
 button.ann.link {
   border: 0;
   font: inherit;
@@ -1902,8 +1902,8 @@ button.ann.link.acked {
   background: transparent;
 }
 
-/* ---------- Recuadro del entorno terrestre (columna derecha de la vista 3D) y datos de vuelo del mapa ---------- */
-/* El área de la vista 3D se divide: la escena a la izquierda y el recuadro a la derecha, sin superponerse. */
+/* ---------- Earth-vicinity inset (right column of the 3D view) and map flight data ---------- */
+/* The 3D view area is split: the scene on the left and the inset on the right, without overlapping. */
 .pane-3d {
   --inset-w: min(30%, 280px);
 }
@@ -1915,7 +1915,7 @@ button.ann.link.acked {
 }
 .pane-3d .legend {
   right: calc(var(--inset-w) + 10px);
-  bottom: 26px; /* encima de la leyenda de colores, que corre por abajo */
+  bottom: 26px; /* above the color legend, which runs along the bottom */
 }
 .map-inset {
   position: absolute;
@@ -2011,7 +2011,7 @@ button.ann.link.acked {
   }
 }
 
-/* ---------- Control de misión ---------- */
+/* ---------- Mission control ---------- */
 .bottom-row .event-log,
 .bottom-row .mcc {
   flex: 1 1 240px;
@@ -2029,7 +2029,7 @@ button.ann.link.acked {
   color: var(--c-caution);
 }
 
-/* ---------- Menús de inicio: idioma y guías ---------- */
+/* ---------- Start menus: language and guides ---------- */
 .lang-card {
   text-align: center;
 }
@@ -2166,7 +2166,7 @@ button.ann.link.acked {
   white-space: nowrap;
 }
 
-/* Ayuda del mapa (zoom y arrastre): abajo a la derecha, al lado del HUD. */
+/* Map help (zoom and drag): bottom right, next to the HUD. */
 .pane-2d .legend:not(.legend-colors) {
   left: auto;
   right: 10px;

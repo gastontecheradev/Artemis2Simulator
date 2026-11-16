@@ -3,11 +3,11 @@ import { DebrisKind } from '../sim/state';
 import { EngineId, VehicleConfig } from '../sim/vehicle';
 
 /**
- * Modelo del vehículo por partes. Todo está en metros, con el eje largo sobre +x
- * (la punta hacia +x) y el origen en la base de la cápsula. Las medidas son las
- * publicadas por NASA (cohete de 98 m, etapa central de 64,6 m × 8,4 m, boosters de
- * 54 m × 3,7 m, ICPS de 13,7 m × 5,1 m, cápsula de 5 m de diámetro); el detalle de
- * cada pieza es propio y simplificado. Sin logos. Referencias: 4.png y 6.png.
+ * Vehicle model by parts. Everything is in meters, with the long axis along +x
+ * (nose towards +x) and the origin at the base of the capsule. The dimensions are the
+ * ones published by NASA (98 m rocket, 64.6 m × 8.4 m core stage, 54 m × 3.7 m
+ * boosters, 13.7 m × 5.1 m ICPS, 5 m diameter capsule); the detail of
+ * each piece is our own and simplified. No logos. References: 4.png and 6.png.
  */
 
 export interface VehicleColors {
@@ -20,7 +20,7 @@ export interface VehicleColors {
 
 type PartId = 'CM' | 'LAS' | 'FAIRING' | 'SM' | 'ICPS' | 'CORE' | 'SRB_L' | 'SRB_R';
 
-/** Extremos de cada parte sobre el eje x (m) y su desplazamiento lateral. */
+/** Ends of each part along the x axis (m) and its lateral offset. */
 const EXTENT: Readonly<Record<PartId, { x0: number; x1: number; y: number }>> = {
   CM: { x0: -0.2, x1: 3.3, y: 0 },
   LAS: { x0: 0.2, x1: 13.4, y: 0 },
@@ -42,7 +42,7 @@ const partsOf = (cfg: VehicleConfig): PartId[] => {
   return parts;
 };
 
-/** Extremos del vehículo completo en su configuración actual (m). */
+/** Ends of the whole vehicle in its current configuration (m). */
 export function vehicleExtent(cfg: VehicleConfig): { x0: number; x1: number; length: number; center: number } {
   const { x0, x1 } = extentOf(partsOf(cfg));
   return { x0, x1, length: x1 - x0, center: (x0 + x1) / 2 };
@@ -58,26 +58,26 @@ const DEBRIS_PART: Readonly<Record<string, PartId>> = {
   SM: 'SM',
 };
 
-/** Los CubeSats son cajas de 12U: 0,37 × 0,24 × 0,22 m [SLS]. */
+/** The CubeSats are 12U boxes: 0.37 × 0.24 × 0.22 m [SLS]. */
 const CUBESAT_SIZE = { x: 0.366, y: 0.239, z: 0.224 };
 const isCubesat = (id: string): boolean => id.startsWith('CUBESAT');
 
-/** Largo (m) de una parte desprendida, para escalarla en pantalla. */
+/** Length (m) of a jettisoned part, to scale it on screen. */
 export const debrisLength = (id: string): number => {
   if (isCubesat(id)) return CUBESAT_SIZE.x;
   const e = EXTENT[DEBRIS_PART[id] ?? 'SM'];
   return e.x1 - e.x0;
 };
 
-// ---------- Geometría común (3D e ícono 2D) ----------
+// ---------- Shared geometry (3D and 2D icon) ----------
 
 type Mat = 'hull' | 'dark' | 'core';
 
 /**
- * Tramo de revolución sobre el eje x: radio `r0` en `x0` y `r1` en `x0 + len`, con su eje
- * corrido a (y, z). El modelo 3D lo hace cilindro o cono; el ícono 2D, el trapecio que se
- * ve mirando desde +z, que es como mira el mapa (el eje z local de la nave es la normal
- * del plano, ver `orient` en `scene.ts`).
+ * Solid-of-revolution segment along the x axis: radius `r0` at `x0` and `r1` at `x0 + len`, with its axis
+ * shifted to (y, z). The 3D model makes it a cylinder or cone; the 2D icon, the trapezoid
+ * seen looking from +z, which is how the map looks (the spacecraft's local z axis is the normal
+ * to the plane, see `orient` in `scene.ts`).
  */
 interface Seg {
   readonly r0: number;
@@ -98,18 +98,18 @@ const srbProfile = (y: number): Seg[] => [
   seg(1.9, 1.2, -88.5, 2.5, 'dark', { y, open: true }),
 ];
 
-/** Piezas de revolución de cada parte. Los paneles protectores y las alas solares van aparte. */
+/** Revolution pieces of each part. The protective fairings and the solar wings are separate. */
 const PROFILE: Readonly<Record<PartId, readonly Seg[]>> = {
-  // Módulo de tripulación: cono truncado sobre el escudo térmico.
+  // Crew module: truncated cone on top of the heat shield.
   CM: [seg(2.51, 0.6, 0, 3.3, 'hull'), seg(2.3, 2.51, -0.2, 0.2, 'dark')],
-  // Torre de escape: carenado ojival sobre la cápsula, torre con los motores y punta.
+  // Launch abort system: ogive fairing over the capsule, tower with the motors, and tip.
   LAS: [seg(2.62, 0.55, 0.2, 5.6, 'hull'), seg(0.55, 0.45, 5.8, 6.2, 'hull'), seg(0.9, 0.55, 8.6, 0.9, 'dark'), seg(0.45, 0.05, 12, 1.4, 'hull')],
   FAIRING: [],
-  // Módulo de servicio: cuerpo y tobera del motor principal.
+  // Service module: body and main engine nozzle.
   SM: [seg(2.05, 2.05, -4.2, 4.2, 'hull'), seg(0.95, 0.4, -5.6, 1.4, 'dark', { open: true })],
-  // Etapa superior: adaptador hacia Orion, tanque y tobera del RL10.
+  // Upper stage: adapter towards Orion, tank and RL10 nozzle.
   ICPS: [seg(2.55, 2.1, -6, 1.6, 'hull'), seg(2.55, 2.55, -15.5, 9.5, 'hull'), seg(1.05, 0.3, -18.3, 2.8, 'dark', { open: true })],
-  // Etapa central: adaptador cónico, tanques y cuatro RS‑25.
+  // Core stage: conical adapter, tanks and four RS‑25s.
   CORE: [
     seg(4.2, 2.55, -22.5, 7, 'hull'),
     seg(4.2, 4.2, -84.5, 62, 'core'),
@@ -119,20 +119,20 @@ const PROFILE: Readonly<Record<PartId, readonly Seg[]>> = {
   SRB_R: srbProfile(EXTENT.SRB_R.y),
 };
 
-/** Paneles protectores del módulo de servicio: tres tramos de un cilindro abierto. */
+/** Service module protective fairings: three segments of an open cylinder. */
 const FAIRING_PANEL = { r: 2.62, x0: -4.6, len: 4.6 };
 
 /**
- * Alas solares en X: cada brazo gira `ARM_ANGLES` alrededor del eje; el ala tiene su
- * centro a `r` del eje y en `x`, con la cara hacia el eje de la nave e inclinada `tilt` hacia atrás.
+ * Solar wings in an X: each arm rotates `ARM_ANGLES` about the axis; the wing has its
+ * center at `r` from the axis and at `x`, facing the spacecraft axis and tilted `tilt` backwards.
  */
 const WING = { width: 1.9, length: 7, x: -3.2, r: 5.6, tilt: 0.22 };
 const ARM_ANGLES = [0, 1, 2, 3].map((i) => Math.PI / 4 + (i * Math.PI) / 2);
 
-/** Los paneles solares se despliegan ya en órbita, sin los paneles protectores. */
+/** The solar arrays deploy once in orbit, without the protective fairings. */
 const arraysDeployed = (cfg: VehicleConfig): boolean => cfg.lasJettisoned && cfg.coreSeparated;
 
-/** Llama de cada motor: cono que sale de la tobera (en `x`) hacia −x. */
+/** Flame of each engine: cone coming out of the nozzle (at `x`) towards −x. */
 const FLAMES: Readonly<Record<EngineId, readonly { x: number; y: number; radius: number; len: number }[]>> = {
   SRB: [
     { x: -88.5, y: 6.3, radius: 1.7, len: 34 },
@@ -146,7 +146,7 @@ const FLAMES: Readonly<Record<EngineId, readonly { x: number; y: number; radius:
   CMRCS: [{ x: 0.2, y: 0, radius: 2.4, len: 1.0 }],
 };
 
-// ---------- Geometría 3D ----------
+// ---------- 3D geometry ----------
 
 interface Kit {
   hull: THREE.Material;
@@ -157,7 +157,7 @@ interface Kit {
   track<T extends { dispose(): void }>(x: T): T;
 }
 
-/** Cilindro o cono sobre el eje x: radio `r0` en x0 y `r1` en x0 + len. */
+/** Cylinder or cone along the x axis: radius `r0` at x0 and `r1` at x0 + len. */
 function tube(kit: Kit, r0: number, r1: number, x0: number, len: number, material: THREE.Material, open = false): THREE.Mesh {
   const g = kit.track(new THREE.CylinderGeometry(r1, r0, len, 32, 1, open));
   g.rotateZ(-Math.PI / 2);
@@ -175,7 +175,7 @@ function buildPart(id: PartId, kit: Kit): THREE.Group {
     g.add(piece);
   }
   if (id === 'FAIRING') {
-    // Tres paneles que cubren el módulo de servicio durante el ascenso.
+    // Three fairings that cover the service module during the ascent.
     const { r, x0, len } = FAIRING_PANEL;
     for (let i = 0; i < 3; i++) {
       const geo = kit.track(new THREE.CylinderGeometry(r, r, len, 16, 1, true, (i * 2 * Math.PI) / 3 + 0.04, (2 * Math.PI) / 3 - 0.08));
@@ -186,9 +186,9 @@ function buildPart(id: PartId, kit: Kit): THREE.Group {
     }
   }
   if (id === 'SM') {
-    // Cuatro paneles solares en X. Cada ala con la cara hacia el eje de la nave (se ve de
-    // frente mirando la nave desde adelante, como en 4.png): el plano se gira 90° sobre su
-    // largo, que es radial.
+    // Four solar arrays in an X. Each wing faces the spacecraft axis (seen face-on
+    // looking at the spacecraft from the front, as in 4.png): the plane is rotated 90° about its
+    // length, which is radial.
     const wing = kit.track(new THREE.PlaneGeometry(WING.width, WING.length));
     wing.rotateY(Math.PI / 2);
     for (const angle of ARM_ANGLES) {
@@ -205,7 +205,7 @@ function buildPart(id: PartId, kit: Kit): THREE.Group {
   return g;
 }
 
-/** Llama del escape de un motor: cono translúcido que sale de la tobera hacia −x. */
+/** Exhaust flame of an engine: translucent cone coming out of the nozzle towards −x. */
 function flame(kit: Kit, x: number, y: number, radius: number, len: number): THREE.Mesh {
   const m = tube(kit, 0.05, radius, x - len, len, kit.flame, true);
   m.position.y = y;
@@ -231,16 +231,16 @@ function createKit(colors: VehicleColors): Kit & { dispose(): void } {
 
 export interface VehicleModel {
   /**
-   * Grupo a orientar y ubicar. Su origen es el centro del vehículo en la configuración
-   * actual o, con `anchorBase`, la base (las toberas), para que el cohete apoye en la plataforma.
+   * Group to orient and position. Its origin is the vehicle's center in the current
+   * configuration or, with `anchorBase`, the base (the nozzles), so the rocket rests on the pad.
    */
   readonly group: THREE.Group;
-  /** Muestra las partes unidas y las llamas de los motores encendidos. Devuelve el largo actual (m). */
+  /** Shows the attached parts and the flames of the firing engines. Returns the current length (m). */
   update(cfg: VehicleConfig, running: readonly EngineId[], anchorBase?: boolean): number;
   dispose(): void;
 }
 
-/** Modelo 3D procedural de la nave completa, con sus partes y las llamas de los motores. */
+/** Procedural 3D model of the whole spacecraft, with its parts and the engine flames. */
 export function createVehicleModel(colors: VehicleColors): VehicleModel {
   const kit = createKit(colors);
   const group = new THREE.Group();
@@ -276,7 +276,7 @@ export function createVehicleModel(colors: VehicleColors): VehicleModel {
 }
 
 export interface DebrisModels {
-  /** Modelo de la parte desprendida `id`, centrado en su propio centro. Se crea la primera vez. */
+  /** Model of jettisoned part `id`, centered on its own center. Created the first time. */
   get(id: string): THREE.Group;
   dispose(): void;
 }
@@ -307,12 +307,12 @@ export function createDebrisModels(colors: VehicleColors): DebrisModels {
   };
 }
 
-// ---------- Íconos 2D ----------
+// ---------- 2D icons ----------
 
 /**
- * El ícono 2D es la misma nave que el modelo 3D, vista desde +z (como mira el mapa):
- * cada tramo de revolución se ve como un trapecio y cada ala solar como su proyección.
- * Así cambia con las mismas piezas que el 3D y con sus proporciones reales.
+ * The 2D icon is the same spacecraft as the 3D model, seen from +z (as the map looks):
+ * each revolution segment is seen as a trapezoid and each solar wing as its projection.
+ * That way it changes with the same pieces as the 3D model and with its real proportions.
  */
 type Pt = readonly [number, number];
 interface Shape {
@@ -320,7 +320,7 @@ interface Shape {
   readonly cls: string;
 }
 
-/** Orden de dibujo: lo que en 3D queda adentro de otra pieza va antes (la tobera del ICPS dentro del adaptador de la etapa central, la cápsula bajo la torre). */
+/** Drawing order: whatever sits inside another piece in 3D goes first (the ICPS nozzle inside the core stage adapter, the capsule under the tower). */
 const DRAW_ORDER: readonly PartId[] = ['SM', 'CM', 'ICPS', 'CORE', 'SRB_L', 'SRB_R', 'FAIRING', 'LAS'];
 const ALL_PARTS = Object.keys(EXTENT) as PartId[];
 
@@ -344,7 +344,7 @@ const partShapes = (id: PartId): Shape[] => {
   return [segShape(seg(r, r, x0, len, 'hull'))];
 };
 
-/** Alas solares proyectadas sobre el plano: `near` = las que quedan del lado de la cámara (+z). */
+/** Solar wings projected onto the plane: `near` = the ones on the camera side (+z). */
 function wingShapes(near: boolean): Shape[] {
   const { width, length: span, x, r, tilt } = WING;
   return ARM_ANGLES.filter((a) => Math.sin(a) > 0 === near).map((a) => ({
@@ -386,14 +386,14 @@ const lengthOf = (parts: readonly PartId[]): number => {
 };
 
 /**
- * Tamaño en pantalla: el cohete completo mide `ICON_FULL_PX` y cada configuración, según
- * su largo elevado a `ICON_POWER` (elección de dibujo, no un dato). A escala lineal la
- * cápsula sola sería 29 veces más corta que el cohete; así queda ~4,5 veces más corta y
- * se sigue viendo. Dentro de cada configuración las proporciones son las reales.
+ * On-screen size: the full rocket measures `ICON_FULL_PX` and each configuration, according
+ * to its length raised to `ICON_POWER` (a drawing choice, not data). At linear scale the
+ * capsule alone would be 29 times shorter than the rocket; this way it is ~4.5 times shorter and
+ * still visible. Within each configuration the proportions are real.
  */
 const ICON_FULL_PX = 72;
 const ICON_POWER = 0.45;
-/** Lado mínimo (px) de un ícono, para que una pieza chica (un CubeSat) no desaparezca. */
+/** Minimum side (px) of an icon, so a small piece (a CubeSat) does not disappear. */
 const ICON_MIN_PX = 5;
 const FULL_LENGTH = lengthOf(ALL_PARTS);
 const pxPerMeter = (lengthM: number): number => (ICON_FULL_PX * Math.pow(lengthM / FULL_LENGTH, ICON_POWER)) / lengthM;
@@ -402,8 +402,8 @@ const fmt = (n: number): string => n.toFixed(2);
 const pathOf = (s: Shape): string => `<path d="M ${s.pts.map(([x, y]) => `${fmt(x)} ${fmt(-y)}`).join(' L ')} Z" class="${s.cls}"/>`;
 
 /**
- * SVG con el eje de la nave hacia +x, centrado en las piezas (las llamas salen del recuadro).
- * Mide `pxPerM` píxeles por metro, multiplicado por `--icon-k` (el recuadro lo achica).
+ * SVG with the spacecraft axis towards +x, centered on the pieces (the flames extend past the box).
+ * It measures `pxPerM` pixels per meter, multiplied by `--icon-k` (the inset shrinks it).
  */
 function iconSvg(shapes: readonly Shape[], flames: readonly Shape[], pxPerM: number): string {
   let x0 = Infinity;
@@ -421,9 +421,9 @@ function iconSvg(shapes: readonly Shape[], flames: readonly Shape[], pxPerM: num
   const h = y1 - y0;
   const k = Math.max(pxPerM, ICON_MIN_PX / Math.max(w, h));
   const size = (m: number): string => `calc(var(--icon-k, 1) * ${(m * k).toFixed(1)}px)`;
-  // `data-r`: radio del ícono en px (sin `--icon-k`), para saber cuándo se superpone con otro.
+  // `data-r`: icon radius in px (without `--icon-k`), to know when it overlaps another one.
   const radius = (Math.max(w, h) * k) / 2;
-  // En SVG el eje y va hacia abajo: se invierte (y = −y) para que el lado +y local quede a la izquierda del rumbo.
+  // In SVG the y axis points down: it is flipped (y = −y) so the local +y side ends up to the left of the heading.
   return (
     `<svg viewBox="${fmt(x0)} ${fmt(-y1)} ${fmt(w)} ${fmt(h)}" class="ship-icon" data-r="${radius.toFixed(1)}" style="width:${size(w)};height:${size(h)}">` +
     `${[...flames, ...shapes].map(pathOf).join('')}</svg>`
@@ -431,19 +431,19 @@ function iconSvg(shapes: readonly Shape[], flames: readonly Shape[], pxPerM: num
 }
 
 /**
- * Ícono 2D de la nave, apuntando hacia +x: las mismas piezas que el modelo 3D en la
- * etapa actual (cohete completo, sin boosters, sin torre, ICPS + Orion, Orion, cápsula
- * sola), con los paneles solares desplegados en órbita y la llama de cada motor encendido.
+ * 2D icon of the spacecraft, pointing towards +x: the same pieces as the 3D model in the
+ * current stage (full rocket, without boosters, without tower, ICPS + Orion, Orion, capsule
+ * alone), with the solar arrays deployed in orbit and the flame of each firing engine.
  */
 export function vehicleIconSvg(cfg: VehicleConfig, running: readonly EngineId[]): string {
   const parts = partsOf(cfg);
   const flames = running.flatMap((id) => FLAMES[id].map(flameShape));
-  // Los paneles van montados en el módulo de servicio: con la cápsula sola se fueron con él.
+  // The arrays are mounted on the service module: with the capsule alone they left with it.
   const arrays = arraysDeployed(cfg) && parts.includes('SM');
   return iconSvg(sideView(parts, arrays), flames, pxPerMeter(lengthOf(parts)));
 }
 
-/** Pieza que representa cada tipo de parte desprendida. */
+/** Piece that represents each type of jettisoned part. */
 const DEBRIS_KIND_PART: Readonly<Record<Exclude<DebrisKind, 'CUBESAT'>, PartId>> = {
   SRB: 'SRB_L',
   LAS: 'LAS',
@@ -454,8 +454,8 @@ const DEBRIS_KIND_PART: Readonly<Record<Exclude<DebrisKind, 'CUBESAT'>, PartId>>
 };
 
 /**
- * Configuración de la que se desprende cada parte: el ícono de la parte usa su misma
- * escala, así al separarse se ve del tamaño que tenía unida a la nave.
+ * Configuration each part is jettisoned from: the part's icon uses the same
+ * scale, so on separation it looks the size it had while attached to the spacecraft.
  */
 const DEBRIS_PARENT: Readonly<Record<DebrisKind, readonly PartId[]>> = {
   SRB: ALL_PARTS,
@@ -467,7 +467,7 @@ const DEBRIS_PARENT: Readonly<Record<DebrisKind, readonly PartId[]>> = {
   CUBESAT: ['ICPS'],
 };
 
-/** Ícono 2D de una parte desprendida, centrado en su propio centro (como su modelo 3D). */
+/** 2D icon of a jettisoned part, centered on its own center (like its 3D model). */
 export function debrisIconSvg(kind: DebrisKind): string {
   const scale = pxPerMeter(lengthOf(DEBRIS_PARENT[kind]));
   if (kind === 'CUBESAT') {

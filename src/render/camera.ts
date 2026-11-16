@@ -3,37 +3,37 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { KM_TO_SCENE } from './worldToScene';
 
 /**
- * Abstracción de cámara. El resto de render/ no sabe si la vista es cenital (2D)
- * o en perspectiva (3D): con el origen flotante, la cámara siempre mira al origen
- * de la escena y solo cambia cuánto abarca (`viewRadius`, en km).
+ * Camera abstraction. The rest of render/ does not know whether the view is top-down (2D)
+ * or perspective (3D): with the floating origin, the camera always looks at the scene
+ * origin and only changes how much it covers (`viewRadius`, in km).
  */
 export interface CameraRig {
   readonly kind: '2d' | '3d';
   readonly camera: THREE.Camera;
   resize(width: number, height: number): void;
-  /** Semialto visible en km (2D) o radio encuadrado (3D). */
+  /** Visible half-height in km (2D) or framed radius (3D). */
   getViewRadius(): number;
   setViewRadius(km: number): void;
   /**
-   * Desplazamiento manual del centro de la vista (km, en los ejes de pantalla). Solo lo
-   * mueve la cámara 2D (arrastre y zoom hacia el cursor); en 3D es siempre cero.
+   * Manual offset of the view center (km, in screen axes). Only the
+   * 2D camera moves it (drag and zoom towards the cursor); in 3D it is always zero.
    */
   getPan(): { x: number; y: number };
   setPan(x: number, y: number): void;
-  /** Solo la cámara activa atiende la rueda y los gestos. */
+  /** Only the active camera handles the wheel and gestures. */
   setActive(on: boolean): void;
   update(): void;
   dispose(): void;
 }
 
-/** Encuadre mínimo: unos metros, para ver la nave a escala real. */
+/** Minimum framing: a few meters, to see the spacecraft at real scale. */
 const MIN_RADIUS = 0.004; // km
 const MAX_RADIUS = 3e6;
 const clampRadius = (km: number): number => Math.max(MIN_RADIUS, Math.min(MAX_RADIUS, km));
 
 /**
- * Cámara ortográfica cenital (mira desde +z, con +x a la derecha y +y arriba: nunca
- * espeja). Rueda y pellizco hacen zoom hacia el cursor; arrastrar desplaza la vista.
+ * Top-down orthographic camera (looks from +z, with +x to the right and +y up: it never
+ * mirrors). Wheel and pinch zoom towards the cursor; dragging pans the view.
  */
 export function createOrthoRig(dom: HTMLElement): CameraRig {
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 4000);
@@ -46,7 +46,7 @@ export function createOrthoRig(dom: HTMLElement): CameraRig {
   let panX = 0;
   let panY = 0;
 
-  /** Semialto visible en km (el radio se aplica a la dimensión más chica). */
+  /** Visible half-height in km (the radius applies to the smaller dimension). */
   const halfHeight = (): number => radius * (aspect >= 1 ? 1 : 1 / aspect);
   const apply = (): void => {
     const h = halfHeight() * KM_TO_SCENE;
@@ -56,15 +56,15 @@ export function createOrthoRig(dom: HTMLElement): CameraRig {
     camera.right = h * aspect;
     camera.updateProjectionMatrix();
   };
-  /** km por píxel de pantalla. */
+  /** km per screen pixel. */
   const kmPerPx = (): number => (2 * halfHeight()) / Math.max(1, dom.clientHeight);
-  /** Punto de pantalla relativo al centro de la vista, en km (y hacia arriba). */
+  /** Screen point relative to the view center, in km (y up). */
   const offsetKm = (clientX: number, clientY: number): { x: number; y: number } => {
     const rect = dom.getBoundingClientRect();
     const f = kmPerPx();
     return { x: (clientX - rect.left - rect.width / 2) * f, y: -(clientY - rect.top - rect.height / 2) * f };
   };
-  /** Cambia el radio dejando fijo el punto de la pantalla que está bajo (clientX, clientY). */
+  /** Changes the radius keeping fixed the screen point under (clientX, clientY). */
   const zoomAt = (next: number, clientX: number, clientY: number): void => {
     const before = offsetKm(clientX, clientY);
     const r = clampRadius(next);
@@ -104,7 +104,7 @@ export function createOrthoRig(dom: HTMLElement): CameraRig {
       const [a, b] = [...touches.values()];
       zoomAt((radiusStart * pinchStart) / Math.max(1, spread()), (a.x + b.x) / 2, (a.y + b.y) / 2);
     } else if (touches.size === 1) {
-      // Arrastrar: el punto agarrado sigue al puntero.
+      // Drag: the grabbed point follows the pointer.
       const f = kmPerPx();
       panX -= (e.clientX - last.x) * f;
       panY += (e.clientY - last.y) * f;
@@ -153,11 +153,11 @@ export function createOrthoRig(dom: HTMLElement): CameraRig {
 }
 
 const FOV = 40;
-/** Distancia de cámara que encuadra un radio dado con el FOV vertical. */
+/** Camera distance that frames a given radius with the vertical FOV. */
 const distanceFor = (radiusKm: number): number =>
   (radiusKm * KM_TO_SCENE) / Math.tan(THREE.MathUtils.degToRad(FOV / 2));
 
-/** Cámara en perspectiva con OrbitControls. El plano orbital es xy; z es "arriba". */
+/** Perspective camera with OrbitControls. The orbital plane is xy; z is "up". */
 export function createPerspectiveRig(dom: HTMLElement): CameraRig {
   const camera = new THREE.PerspectiveCamera(FOV, 1, 1e-7, 1e5);
   camera.up.set(0, 0, 1);
@@ -191,7 +191,7 @@ export function createPerspectiveRig(dom: HTMLElement): CameraRig {
     },
     update: () => {
       controls.update();
-      // El plano cercano acompaña al zoom: de metros (nave a escala real) a cientos de miles de km.
+      // The near plane follows the zoom: from meters (spacecraft at real scale) to hundreds of thousands of km.
       camera.near = Math.max(1e-9, camera.position.length() * 0.02);
       camera.updateProjectionMatrix();
     },

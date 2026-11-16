@@ -6,11 +6,11 @@ import { MANEUVER_TITLE } from './mission/procedures';
 import { INITIAL_MET, ManeuverId, SimState, ephemerisOf } from './state';
 
 /**
- * Control de misión (CAPCOM): lo que Houston le dice a la tripulación en cada momento.
- * Se deriva del estado de la simulación, no se guarda: los "go" de cada maniobra, las
- * confirmaciones de los eventos, los avisos de pérdida de señal y las alarmas. Mientras
- * la Luna bloquea el enlace no llega nada (los mensajes de ese lapso se pierden, como
- * en el vuelo real).
+ * Mission control (CAPCOM): what Houston tells the crew at each moment.
+ * Derived from the simulation state, not stored: the "go" for each maneuver, the
+ * event confirmations, the loss-of-signal notices and the alarms. While
+ * the Moon blocks the link nothing arrives (messages in that interval are lost, as
+ * in the real flight).
  */
 export type CapcomKind = 'go' | 'info' | 'caution';
 
@@ -84,7 +84,7 @@ function say(key: Key, params: Readonly<Record<string, string | number>> = {}): 
   return TABLES[getLocale()][key].replace(/\{(\w+)\}/g, (m, name: string) => (name in params ? String(params[name]) : m));
 }
 
-/** Intervalos sin enlace (LOS → AOS) según el log. */
+/** Intervals without link (LOS → AOS) according to the log. */
 function losIntervals(s: SimState): [number, number][] {
   const out: [number, number][] = [];
   let open: number | null = null;
@@ -99,7 +99,7 @@ function losIntervals(s: SimState): [number, number][] {
   return out;
 }
 
-/** Mensajes de Houston hasta el instante actual, en orden. */
+/** Houston messages up to the current instant, in order. */
 export function capcomFeed(s: SimState): CapcomMessage[] {
   const now = s.t;
   const out: CapcomMessage[] = [];
@@ -109,7 +109,7 @@ export function capcomFeed(s: SimState): CapcomMessage[] {
   const marker = (id: string): number | null => s.markers.find((m) => m.eventId === id)?.t ?? null;
   const logAt = (prefix: string): number | null => s.log.find((l) => l.text.startsWith(prefix))?.t ?? null;
 
-  // Cuenta regresiva y ascenso.
+  // Countdown and ascent.
   add(INITIAL_MET, 'go', say('engineStart'));
   const e1 = marker('E1');
   if (e1 !== null) add(e1 + 7, 'info', say('liftoff'));
@@ -122,7 +122,7 @@ export function capcomFeed(s: SimState): CapcomMessage[] {
   const e3 = marker('E3');
   if (e3 !== null) add(e3 + 5, 'info', say('coreSep'));
 
-  // Encendidos automáticos del ICPS.
+  // Automatic ICPS burns.
   for (const id of ['E4', 'E5'] as const) {
     const ab = s.autoBurns[id];
     if (ab.status === 'cancelled') continue;
@@ -131,11 +131,11 @@ export function capcomFeed(s: SimState): CapcomMessage[] {
     if (end && ab.status === 'done') add(end.t + 3, 'info', say('icpsDone'));
   }
 
-  // Separación del ICPS y demo.
+  // ICPS separation and demo.
   if (now >= MET_E6_PROX_OPS_START) add(MET_E6_PROX_OPS_START, 'go', say('sepGo'));
   if (s.record.icpsSepAt !== null) add(s.record.icpsSepAt + 4, 'info', say('sepDone'));
 
-  // Encendidos de la tripulación con TIG.
+  // Crew burns with a TIG.
   for (const id of ['E7', 'E8', 'E9'] as ManeuverId[]) {
     const m = s.maneuvers[id];
     if (m.tig === null) continue;
@@ -151,7 +151,7 @@ export function capcomFeed(s: SimState): CapcomMessage[] {
     if (m.status === 'missed') add(m.tig + 300, 'caution', say('windowLost', { id }));
   }
 
-  // Correcciones: ventanas con los desfasajes del cronograma publicado respecto del TLI y del sobrevuelo.
+  // Corrections: windows with the published timeline offsets relative to the TLI and the flyby.
   const tli = s.record.tliAt;
   if (tli !== null) {
     const offs: [string, number][] = [
@@ -171,7 +171,7 @@ export function capcomFeed(s: SimState): CapcomMessage[] {
     for (const [id, dt] of offs) add(per.t + dt, 'go', say('otc', { id }));
   }
 
-  // Luna: esfera de influencia, LOS/AOS, récord de distancia.
+  // Moon: sphere of influence, LOS/AOS, distance record.
   const soiIn = s.log.find((l) => !l.eventId && /sphere of influence|esfera de influencia/.test(l.text));
   if (soiIn) add(soiIn.t + 2, 'info', say('soiEnter'));
   const los = losIntervals(s);
@@ -185,13 +185,13 @@ export function capcomFeed(s: SimState): CapcomMessage[] {
     add(e12 + 2, 'info', say('soiExit', { ei: formatMet(ei) }));
   }
   if (s.phase === 'SOBREVUELO' || per) {
-    // El récord de Apollo 13 se supera cerca del acercamiento si la trayectoria llega tan lejos.
+    // Apollo 13's record is broken near closest approach if the trajectory reaches that far.
     const eph = ephemerisOf(s);
     const rec = s.trail.find((p) => p.t > (tli ?? 0) + 2 * 86400 && distance(p.r, eph.earth(p.t).r) > APOLLO_13_RECORD_DISTANCE);
     if (rec) add(rec.t, 'info', say('record'));
   }
 
-  // Separación CM/SM y entrada.
+  // CM/SM separation and entry.
   if (s.oneShots.includes('cm:prompt')) {
     const promptT = s.log.find((l) => l.text.startsWith('E13 ·') && !l.eventId)?.t;
     if (promptT !== undefined) add(promptT, 'go', say('cmSepGo', { min: Math.round(CM_SEP_PROMPT_LEAD_TIME / 60) }));
@@ -199,13 +199,13 @@ export function capcomFeed(s: SimState): CapcomMessage[] {
   if (s.record.cmSepAt !== null) add(s.record.cmSepAt + 3, 'info', say('cmSepDone'));
   if (s.record.ei) add(s.record.ei.t, 'info', say('ei'));
 
-  // Alarmas: Houston las copia (salvo la propia LOS).
+  // Alarms: Houston echoes them (except the LOS itself).
   for (const a of s.alarms) {
     if (a.id === 'los') continue;
     add(a.since + 2, 'caution', say('alarm', { text: a.text }));
   }
 
-  // Sin enlace no llega nada.
+  // Without link nothing arrives.
   const linked = (t: number): boolean => !los.some(([a, b]) => t >= a && t <= b);
   return out
     .filter((m) => linked(m.t))

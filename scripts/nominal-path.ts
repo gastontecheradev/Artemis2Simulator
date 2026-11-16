@@ -1,9 +1,9 @@
 /**
- * Vuela la misión nominal con los parámetros actuales y guarda el trazo muestreado en
- * src/sim/mission/nominal-path.json (el plan que el mapa dibuja tenue desde el inicio).
- * `npm run tune` también lo escribe al terminar.
+ * Flies the nominal mission with the current parameters and saves the sampled trail to
+ * src/sim/mission/nominal-path.json (the plan the map draws faintly from the start).
+ * `npm run tune` also writes it when it finishes.
  *
- * Uso: npm run path
+ * Usage: npm run path
  */
 import { MISSION_PARAMS } from '../src/sim/mission/params';
 import { writeNominalPath } from './lib/nominal-path';

@@ -6,17 +6,17 @@ export type Network = 'NSN' | 'DSN';
 
 export interface CommsStatus {
   readonly network: Network;
-  /** true si la Luna bloquea la línea de vista con la Tierra. */
+  /** true if the Moon blocks the line of sight to Earth. */
   readonly los: boolean;
-  /** Distancia nave–centro de la Tierra (km). */
+  /** Spacecraft–Earth center distance (km). */
   readonly distance: number;
-  /** Retardo de señal de ida (s). */
+  /** One-way signal delay (s). */
   readonly delay: number;
 }
 
 /**
- * Margen de la línea de vista: distancia del centro de la Luna al segmento
- * nave–Tierra menos el radio lunar. Negativo = bloqueada (LOS).
+ * Line-of-sight margin: distance from the Moon's center to the spacecraft–Earth
+ * segment minus the lunar radius. Negative = blocked (LOS).
  */
 export function losClearance(ship: Vec3, earth: Vec3, moon: Vec3): number {
   const seg = sub(earth, ship);
@@ -36,7 +36,7 @@ export function commsStatus(ship: Vec3, t: number, eph: Ephemeris): CommsStatus 
     network: networkForAltitude(d - R_EARTH),
     los: losClearance(ship, earth, moon) < 0,
     distance: d,
-    // El retardo se mide hasta la superficie (la antena), no hasta el centro.
+    // The delay is measured to the surface (the antenna), not to the center.
     delay: Math.max(0, d - R_EARTH) / C_LIGHT,
   };
 }

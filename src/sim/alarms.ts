@@ -14,9 +14,9 @@ export interface AlarmCondition {
 const TIMED: readonly ManeuverId[] = ['E7', 'E8', 'E9'];
 
 /**
- * Condiciones de Master Alarm activas en este estado.
- * WARNING (rojo): impacto o reentrada predichos, ventana de encendido perdida.
- * CAUTION (ámbar): entrada fuera del corredor, sin retorno, Δv bajo, pérdida de señal.
+ * Master Alarm conditions active in this state.
+ * WARNING (red): predicted impact or reentry, missed burn window.
+ * CAUTION (amber): entry outside the corridor, no return, low Δv, loss of signal.
  */
 export function evaluateAlarms(s: SimState): AlarmCondition[] {
   const out: AlarmCondition[] = [];
@@ -27,8 +27,8 @@ export function evaluateAlarms(s: SimState): AlarmCondition[] {
   if (p?.end === 'moon-impact') {
     out.push({ id: 'moon-impact', level: 'WARNING', text: tr('alm.moonImpact') });
   }
-  // El perigeo bajo es nominal en la órbita de inserción mientras E4 siga programado, y en
-  // la órbita alta (perigeo publicado a altitud cero) mientras E8 siga programado antes de la reentrada.
+  // A low perigee is nominal in the insertion orbit while E4 is still scheduled, and in
+  // the high orbit (published perigee at zero altitude) while E8 is still scheduled before reentry.
   const e4 = s.autoBurns.E4.status;
   const e8 = s.maneuvers.E8;
   const insertionNominal = s.phase === 'INSERCION' && (e4 === 'pending' || e4 === 'burning');
@@ -37,7 +37,7 @@ export function evaluateAlarms(s: SimState): AlarmCondition[] {
     (e8.status === 'pending' || e8.status === 'committed') &&
     e8.tig !== null &&
     (p?.ei?.t ?? 0) > e8.tig;
-  // Durante un encendido la predicción es provisoria (cambia con cada segundo de empuje): no se alarma por ella.
+  // During a burn the prediction is provisional (it changes with every second of thrust): no alarm is raised for it.
   if (p?.end === 'ei' && !postTli && !insertionNominal && !heoNominal && !s.burn) {
     out.push({ id: 'reentry', level: 'WARNING', text: tr('alm.reentry') });
   }
@@ -61,7 +61,7 @@ export function evaluateAlarms(s: SimState): AlarmCondition[] {
   if (s.comms.los) {
     out.push({ id: 'los', level: 'CAUTION', text: tr('alm.los') });
   }
-  // Con tripulación automática la separación ocurre sola más abajo: no hace falta avisar.
+  // With the automatic crew the separation happens on its own further down: no need to warn.
   if (postTli && !s.vehicle.cmSeparated && !s.switches.autoCrew && timeToEntry(s) <= CM_SEP_PROMPT_LEAD_TIME) {
     out.push({ id: 'cm-sep', level: 'CAUTION', text: tr('alm.cmSep') });
   }

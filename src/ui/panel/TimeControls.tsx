@@ -4,7 +4,7 @@ import { SimState } from '../../sim/state';
 import { useT } from '../i18n';
 import { act, showIntro } from '../store';
 
-/** Controles de tiempo: play/pausa, velocidad de simulación y reinicio. */
+/** Time controls: play/pause, simulation speed and reset. */
 export function TimeControls({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   return (

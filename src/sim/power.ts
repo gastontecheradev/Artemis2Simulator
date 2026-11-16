@@ -5,38 +5,38 @@ import { PowerModel } from './integrator';
 import { Vec3, ZERO, length, scale, sub } from './math/vec3';
 import { ENGINES, EngineId, G0, TANK_COUNT, VehicleConfig, dragArea, fullMassFlow, rs25Throttle, srbMassFlow, totalMass } from './vehicle';
 
-/** Ley de dirección del empuje: vector unitario en función del instante y del estado. */
+/** Thrust direction law: unit vector as a function of instant and state. */
 export type DirectionLaw = (t: number, r: Vec3, v: Vec3) => Vec3;
 
 export interface PowerInput {
   readonly eph: Ephemeris;
   readonly cfg: VehicleConfig;
-  /** Motores encendidos durante el tramo. */
+  /** Engines firing during the segment. */
   readonly engines: readonly EngineId[];
   readonly direction: DirectionLaw;
-  /** Instante de ignición de los boosters (para su perfil de empuje). */
+  /** Booster ignition instant (for their thrust profile). */
   readonly srbIgnition?: number;
-  /** Límite de aceleración (m/s²) que respetan los RS‑25 bajando el empuje. */
+  /** Acceleration limit (m/s²) that the RS‑25s respect by throttling down. */
   readonly gLimit?: number;
-  /** Sentido del empuje del RCS de traslación respecto del eje de la nave (+1 o −1). */
+  /** Direction of the translation RCS thrust relative to the spacecraft axis (+1 or −1). */
   readonly rcsSign?: number;
 }
 
 export interface Forces {
-  /** Aceleración por empuje (m/s²), módulo. */
+  /** Acceleration from thrust (m/s²), magnitude. */
   readonly thrustAccel: number;
-  /** Presión dinámica (Pa). */
+  /** Dynamic pressure (Pa). */
   readonly q: number;
-  /** Aceleración por arrastre (m/s²), módulo. */
+  /** Acceleration from drag (m/s²), magnitude. */
   readonly dragAccel: number;
-  /** Empuje total (N). */
+  /** Total thrust (N). */
   readonly thrust: number;
-  /** Consumo por tanque (kg/s, negativo). */
+  /** Flow per tank (kg/s, negative). */
   readonly dprop: readonly number[];
   readonly mass: number;
 }
 
-/** Fuerzas no gravitatorias sobre la nave en un instante. Lo usan el integrador y los instrumentos. */
+/** Non-gravitational forces on the spacecraft at an instant. Used by the integrator and the instruments. */
 export function forces(input: PowerInput, t: number, r: Vec3, v: Vec3, prop: readonly number[]): Forces {
   const earth = input.eph.earth(t);
   const altitude = length(sub(r, earth.r)) - R_EARTH;
@@ -53,7 +53,7 @@ export function forces(input: PowerInput, t: number, r: Vec3, v: Vec3, prop: rea
     if (id === 'SRB') {
       flow = srbMassFlow(t - (input.srbIgnition ?? 0));
     } else if (id === 'RS25') {
-      // Programa de potencia publicado, y además bajan el empuje para no pasar el límite de aceleración.
+      // Published power schedule, and in addition they throttle down so as not to exceed the acceleration limit.
       const full = fullMassFlow(e) * G0 * isp;
       const limit = input.gLimit ? (input.gLimit * mass) / full : 1;
       flow = fullMassFlow(e) * Math.min(rs25Throttle(t), limit);
@@ -73,7 +73,7 @@ export function forces(input: PowerInput, t: number, r: Vec3, v: Vec3, prop: rea
   return { thrustAccel: thrust / mass, q, dragAccel, thrust, dprop, mass };
 }
 
-/** Modelo de fuerzas para el integrador (aceleración en km/s²). */
+/** Force model for the integrator (acceleration in km/s²). */
 export function makePower(input: PowerInput): PowerModel {
   return (t, r, v, prop) => {
     const f = forces(input, t, r, v, prop);
@@ -90,7 +90,7 @@ export function makePower(input: PowerInput): PowerModel {
   };
 }
 
-/** Solo arrastre, para las partes desprendidas: `ballistic` es Cd·A/m (m²/kg). */
+/** Drag only, for the jettisoned parts: `ballistic` is Cd·A/m (m²/kg). */
 export function makeDrag(eph: Ephemeris, ballistic: number): PowerModel {
   return (t, r, v) => {
     const earth = eph.earth(t);
@@ -98,7 +98,7 @@ export function makeDrag(eph: Ephemeris, ballistic: number): PowerModel {
     if (rho <= 0) return { a: ZERO, dprop: [] };
     const vAir = sub(v, airVelocity(r, earth));
     const speed = length(vAir) * 1000;
-    // a = −½·ρ·v²·(CdA/m) en m/s², pasado a km/s² y proyectado sobre la velocidad relativa al aire.
+    // a = −½·ρ·v²·(CdA/m) in m/s², converted to km/s² and projected onto the air-relative velocity.
     const k = (-0.5 * rho * speed * ballistic) / 1000;
     return { a: scale(vAir, k * 1000), dprop: [] };
   };

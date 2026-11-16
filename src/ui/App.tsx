@@ -17,11 +17,11 @@ import { useT } from './i18n';
 import { act, setCamera, setGuide, setTour, useGuide, useIntro, useSim, useTour } from './store';
 import { Tour } from './tutorial/Tour';
 
-/** Anchos mínimos del panel para mostrar dos o tres Display Units (la cabina real tiene tres). */
+/** Minimum panel widths to show two or three Display Units (the real cockpit has three). */
 const TWO_DU_MIN_WIDTH = 860;
 const THREE_DU_MIN_WIDTH = 1280;
 
-/** Atajos de teclado. Todos pasan por los mismos comandos que los controles del panel. */
+/** Keyboard shortcuts. All of them go through the same commands as the panel controls. */
 function useKeyboard(enabled: boolean): void {
   useEffect(() => {
     if (!enabled) return;
@@ -29,7 +29,7 @@ function useKeyboard(enabled: boolean): void {
       const target = e.target as HTMLElement | null;
       return e.ctrlKey || e.metaKey || e.altKey || !!(target && /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
     };
-    // Flechas: controladores manuales, activos mientras la tecla está apretada.
+    // Arrows: hand controllers, active while the key is held down.
     const hold = (e: KeyboardEvent, on: boolean): boolean => {
       if (e.key === 'ArrowLeft') act((s) => setRhc(s, on ? 1 : 0));
       else if (e.key === 'ArrowRight') act((s) => setRhc(s, on ? -1 : 0));
@@ -48,7 +48,7 @@ function useKeyboard(enabled: boolean): void {
           return setWarp(s, WARP_LEVELS[Math.max(0, Math.min(WARP_LEVELS.length - 1, i + dir))]);
         });
       if (e.code === 'Space') {
-        // Evita que el espacio vuelva a accionar el último botón enfocado.
+        // Prevents the space bar from re-triggering the last focused button.
         e.preventDefault();
         (document.activeElement as HTMLElement | null)?.blur?.();
         act(togglePlay);

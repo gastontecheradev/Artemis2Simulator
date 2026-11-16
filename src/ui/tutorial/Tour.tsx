@@ -12,7 +12,7 @@ interface Box {
 }
 
 const MARGIN = 10;
-/** Lugar que necesita la mano debajo del botón (px); si no lo hay, señala desde arriba. */
+/** Room the hand needs below the button (px); if there is none, it points from above. */
 const HAND_ROOM = 64;
 
 const boxOf = (selector: string | null): Box | null => {
@@ -25,8 +25,8 @@ const sameBox = (a: Box | null, b: Box | null): boolean =>
   a === b || (!!a && !!b && a.left === b.left && a.top === b.top && a.width === b.width && a.height === b.height);
 
 /**
- * Mano con el índice extendido (dibujo propio) que toca el botón que hay que apretar.
- * La punta del dedo queda sobre el centro del botón; si abajo no hay lugar, señala desde arriba.
+ * Hand with the index finger extended (our own drawing) that taps the button to press.
+ * The fingertip sits over the button's center; if there is no room below, it points from above.
  */
 function Hand({ box }: { box: Box }): JSX.Element {
   const above = box.top + box.height + HAND_ROOM > window.innerHeight;
@@ -45,9 +45,9 @@ function Hand({ box }: { box: Box }): JSX.Element {
 }
 
 /**
- * Tutorial guiado: un cartel junto al elemento que explica cada paso, con el elemento
- * resaltado. No bloquea la pantalla: los pasos de acción se cumplen usando el panel de
- * verdad y avanzan solos cuando la simulación registra la acción.
+ * Guided tutorial: a callout next to the element explaining each step, with the element
+ * highlighted. It does not block the screen: the action steps are completed using the actual
+ * panel and advance on their own when the simulation registers the action.
  */
 export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element | null {
   const t = useT();
@@ -60,7 +60,7 @@ export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element 
   const done = step?.until ? step.until(s) : true;
   const pressId = !done && step?.press ? step.press(s) : null;
 
-  // Los pasos de acción avanzan solos al cumplirse.
+  // Action steps advance on their own when completed.
   useEffect(() => {
     if (step?.until && done) {
       const id = setTimeout(() => setTour(index + 1 < TOUR_STEPS.length ? index + 1 : null), 700);
@@ -68,8 +68,8 @@ export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element 
     }
   }, [step, done, index]);
 
-  // Ubica el resaltado sobre el elemento señalado y la mano sobre el botón que hay que
-  // apretar (se revisa seguido: el panel cambia de tamaño y se desplaza).
+  // Places the highlight over the target element and the hand over the button to
+  // press (checked often: the panel resizes and scrolls).
   useEffect(() => {
     const measure = (): void => {
       const next = boxOf(step?.target ? `[data-tour="${step.target}"]` : null);
@@ -86,7 +86,7 @@ export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element 
     };
   }, [step, pressId]);
 
-  // Ubica el cartel al lado del elemento, donde haya lugar, sin salirse de la ventana.
+  // Places the callout next to the element, wherever there is room, without leaving the window.
   useLayoutEffect(() => {
     const card = cardRef.current;
     if (!card) return;
@@ -116,7 +116,7 @@ export function Tour({ s, index }: { s: SimState; index: number }): JSX.Element 
       left = cx - w / 2;
       top = target.top - h - MARGIN;
     } else {
-      // No entra en ningún costado: va encima, abajo a la derecha del elemento.
+      // It does not fit on any side: it goes on top, at the bottom right of the element.
       left = target.left + target.width - w - MARGIN;
       top = target.top + target.height - h - MARGIN;
     }

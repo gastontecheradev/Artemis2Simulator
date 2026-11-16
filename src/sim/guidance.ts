@@ -6,8 +6,8 @@ import { propagate } from './propagate';
 import { SimState, ephemerisOf } from './state';
 
 /**
- * Radio de perigeo (sin atmósfera) que corresponde a cruzar la interfaz de entrada
- * con el ángulo de trayectoria `fpaDeg`, para una órbita de energía `energy`.
+ * Perigee radius (without atmosphere) that corresponds to crossing entry interface
+ * with flight-path angle `fpaDeg`, for an orbit of energy `energy`.
  */
 export function perigeeRadiusForEntry(energy: number, fpaDeg: number, gm = GM_EARTH): number {
   const r = R_EARTH + EI_ALTITUDE;
@@ -21,7 +21,7 @@ export type CorrectionTarget = 'flyby' | 'entry';
 
 export interface CorrectionResult {
   readonly ok: boolean;
-  /** Δv sobre el eje pedido (km/s). */
+  /** Δv along the requested axis (km/s). */
   readonly dv: number;
   readonly message: string;
 }
@@ -30,10 +30,10 @@ const HORIZON = 10 * 86400;
 const MAX_DV = 0.2; // km/s
 
 /**
- * Guiado simple de una corrección de trayectoria: busca (método de la secante) el Δv
- * sobre un eje del marco local que lleva la trayectoria predicha al objetivo:
- * - 'flyby': altitud de sobrevuelo lunar de 6.513 km.
- * - 'entry': ángulo de trayectoria objetivo en la interfaz de entrada.
+ * Simple guidance for a trajectory correction: searches (secant method) for the Δv
+ * along a local-frame axis that takes the predicted trajectory to the target:
+ * - 'flyby': lunar flyby altitude of 6,513 km.
+ * - 'entry': target flight-path angle at entry interface.
  */
 export function solveCorrection(state: SimState, target: CorrectionTarget, axis: keyof DeltaV): CorrectionResult {
   const eph = ephemerisOf(state);
@@ -61,7 +61,7 @@ export function solveCorrection(state: SimState, target: CorrectionTarget, axis:
     if (Number.isNaN(f1) || f1 === f0) break;
     if (Math.abs(f1) < tol) return { ok: true, dv: x1, message: tr('guid.found') };
     let x2 = x1 - (f1 * (x1 - x0)) / (f1 - f0);
-    // Limita el salto para no salir de la zona donde la predicción es válida.
+    // Limits the jump so it does not leave the region where the prediction is valid.
     const maxJump = Math.max(0.002, 4 * Math.abs(x1 - x0));
     x2 = Math.max(x1 - maxJump, Math.min(x1 + maxJump, x2));
     if (Math.abs(x2) > MAX_DV) break;

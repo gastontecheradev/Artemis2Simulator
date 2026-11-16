@@ -4,10 +4,10 @@ import { useT } from './i18n';
 import { showIntro } from './store';
 
 /**
- * Cartel de fin de misión, con el estilo de una Display Unit del panel (9.png): bisel
- * metálico, pantalla negra, barra de título y un anunciador iluminado en verde si
- * terminó con éxito (E15) o en rojo con cualquiera de los otros finales que decide la
- * física. Va sobre las vistas sin oscurecerlas, así se sigue viendo la trayectoria.
+ * End-of-mission banner, styled like one of the panel's Display Units (9.png): metallic
+ * bezel, black screen, title bar and an annunciator lit green if
+ * it ended successfully (E15) or red for any of the other endings decided by the
+ * physics. It sits over the views without darkening them, so the trajectory stays visible.
  */
 export function EndScreen({ s, onCredits }: { s: SimState; onCredits: () => void }): JSX.Element | null {
   const t = useT();

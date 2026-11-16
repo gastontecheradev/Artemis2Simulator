@@ -9,13 +9,13 @@ interface Asset {
   date: string;
 }
 
-/** Lee la tabla "Imágenes en uso" de ASSETS.md: los créditos se generan desde ese registro. */
+/** Reads the "Imágenes en uso" table from ASSETS.md: the credits are generated from that registry. */
 function parseAssets(md: string): Asset[] {
   const section = md.split(/^## /m).find((part) => part.startsWith('Imágenes en uso')) ?? '';
   return section
     .split('\n')
     .filter((line) => line.startsWith('|'))
-    .slice(2) // encabezado y separador
+    .slice(2) // header and separator
     .map((line) => line.split('|').slice(1, -1).map((c) => c.trim()))
     .filter((c) => c.length >= 5 && c[0] !== '')
     .map(([file, url, nasaId, credit, date]) => ({ file, url, nasaId, credit, date }));

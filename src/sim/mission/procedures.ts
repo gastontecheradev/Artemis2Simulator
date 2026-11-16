@@ -14,7 +14,7 @@ import { PropSystem } from '../propulsion';
 import { ManeuverId, ProcedureId, SimState, ephemerisOf } from '../state';
 import { phaseIndex } from './phases';
 
-/** Títulos de las maniobras en el idioma actual (se leen en cada acceso). */
+/** Maneuver titles in the current language (read on every access). */
 export const MANEUVER_TITLE: Readonly<Record<ManeuverId, string>> = new Proxy({} as Record<ManeuverId, string>, {
   get: (_t, id: string) => tr(`man.${id as ManeuverId}`),
 });
@@ -29,7 +29,7 @@ export const SYSTEM_SWITCH: Readonly<Record<PropSystem, string>> = {
 export type StepKind = 'AUTO' | 'CREW';
 
 export interface ProcStep {
-  /** Identificador estable del paso (independiente del idioma). */
+  /** Stable step identifier (language-independent). */
   readonly key: string;
   readonly text: string;
   readonly kind: StepKind;
@@ -38,7 +38,7 @@ export interface ProcStep {
 
 export interface ProcedureView {
   readonly id: ProcedureId;
-  /** Código corto para la barra del visor, p. ej. "E9 TLI". */
+  /** Short code for the viewer bar, e.g. "E9 TLI". */
   readonly code: string;
   readonly title: string;
   readonly optional: boolean;
@@ -65,7 +65,7 @@ function maneuverSteps(s: SimState, id: ManeuverId): ProcStep[] {
   const sw = SYSTEM_SWITCH[m.system];
   const armed = m.system === 'MAIN' ? s.switches.mainArm : s.switches.auxArm;
   const fired = m.status === 'committed' || m.status === 'burning' || m.status === 'done';
-  // La nave está orientada cuando su eje apunta en la dirección del encendido.
+  // The spacecraft is aligned when its axis points in the burn direction.
   const aligned =
     dvMagnitude(m.dv) > 0 &&
     angleBetween(s.attitude.dir, burnDirection(m.dv, ephemerisOf(s))(s.t, s.ship.r, s.ship.v)) < ATTITUDE_TOLERANCE;
@@ -88,7 +88,7 @@ function maneuverSteps(s: SimState, id: ManeuverId): ProcStep[] {
   return steps;
 }
 
-/** Vista del procedimiento `id` con el estado de cada paso calculado desde la simulación. */
+/** View of procedure `id` with the status of each step computed from the simulation. */
 export function procedureView(s: SimState, id: ProcedureId): ProcedureView {
   if (id === 'SEP_ICPS') {
     const sep = s.vehicle.icpsSeparated;
@@ -129,7 +129,7 @@ export function procedureView(s: SimState, id: ProcedureId): ProcedureView {
   };
 }
 
-/** true si el procedimiento ya no requiere nada más (para avanzar al siguiente). */
+/** true if the procedure no longer requires anything (to advance to the next one). */
 export function procedureComplete(s: SimState, id: ProcedureId): boolean {
   switch (id) {
     case 'SEP_ICPS':
@@ -154,14 +154,14 @@ export function firstIncompleteProcedure(s: SimState): ProcedureId | null {
   return null;
 }
 
-/** Maniobra asociada al procedimiento activo, si es un encendido. */
+/** Maneuver associated with the active procedure, if it is a burn. */
 export function activeManeuverId(s: SimState): ManeuverId | null {
   return isManeuver(s.proc.activeId) ? s.proc.activeId : null;
 }
 
 /**
- * Índice del paso actual: el elegido con Jump to Step o, si no, el primer paso
- * pendiente que no fue salteado. Devuelve steps.length si están todos completos.
+ * Index of the current step: the one chosen with Jump to Step or, otherwise, the first
+ * pending step that was not skipped. Returns steps.length if all are complete.
  */
 export function currentStepIndex(s: SimState, view: ProcedureView): number {
   if (s.proc.cursor !== null && s.proc.cursor < view.steps.length) return s.proc.cursor;

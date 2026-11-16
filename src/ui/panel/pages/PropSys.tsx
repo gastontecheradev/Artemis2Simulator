@@ -15,7 +15,7 @@ const STATUS_CLASS: Readonly<Record<SystemStatus, string>> = {
 
 type Presence = 'on' | 'gone' | 'lit';
 
-/** Tanque con su nivel de propelente. */
+/** Tank with its propellant level. */
 function Tank({ x, name, tank, s, present, low, t }: { x: number; name: string; tank: number; s: SimState; present: boolean; low?: boolean; t: T }): JSX.Element {
   const h = 62;
   const frac = present ? s.propulsion.prop[tank] / FULL_TANKS[tank] : 0;
@@ -45,7 +45,7 @@ function Engine({ x, y, name, sub, status }: { x: number; y: number; name: strin
   );
 }
 
-/** Silueta del vehículo por partes: se apaga cada parte a medida que se desprende. */
+/** Vehicle silhouette by parts: each part goes dark as it is jettisoned. */
 function Stack({ s, t }: { s: SimState; t: T }): JSX.Element {
   const v = s.vehicle;
   const run = runningEngines(s);
@@ -76,9 +76,9 @@ function Stack({ s, t }: { s: SimState; t: T }): JSX.Element {
 }
 
 /**
- * Prop.Sys: el vehículo por partes, el propelente de cada etapa y el estado de cada
- * motor (inspirado en el esquema de propulsión de la cabina). Solo muestra lo que el
- * simulador modela.
+ * Prop.Sys: the vehicle by parts, the propellant of each stage and the status of each
+ * engine (inspired by the cockpit's propulsion schematic). It only shows what the
+ * simulator models.
  */
 export function PropSys({ s }: { s: SimState }): JSX.Element {
   const t = useT();

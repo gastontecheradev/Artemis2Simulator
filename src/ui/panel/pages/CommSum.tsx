@@ -4,14 +4,14 @@ import { formatNumber } from '../../../sim/format';
 import { SimState, ephemerisOf } from '../../../sim/state';
 import { useT } from '../../i18n';
 
-/** Comm.Sum: red activa, estado del enlace, distancia y retardo de señal. */
+/** Comm.Sum: active network, link status, distance and signal delay. */
 export function CommSum({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   const c = s.comms;
   const eph = ephemerisOf(s);
   const clearance = losClearance(s.ship.r, eph.earth(s.t).r, eph.moon(s.t).r);
   const alt = c.distance - R_EARTH;
-  // La pérdida de señal afecta el enlace con Tierra, no los instrumentos de a bordo.
+  // Loss of signal affects the link with Earth, not the onboard instruments.
   return (
     <div className="page comm">
       <div className="comm-top">

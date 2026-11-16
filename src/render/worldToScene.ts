@@ -2,35 +2,35 @@ import * as THREE from 'three';
 import { Ephemeris } from '../sim/bodies';
 import { Vec3, rotateZ } from '../sim/math/vec3';
 
-/** 1 unidad de escena = 1.000 km. */
+/** 1 scene unit = 1,000 km. */
 export const KM_TO_SCENE = 1e-3;
 
 export interface ViewFrame {
   readonly eph: Ephemeris;
-  /** true = marco rotante Tierra‑Luna (la Luna queda fija sobre +x). */
+  /** true = Earth‑Moon rotating frame (the Moon stays fixed on +x). */
   readonly rotating: boolean;
   /**
-   * Giro fijo (rad) que se le resta al dibujo, en cualquiera de los dos marcos (en el
-   * rotante, además del giro de la Luna). El mapa 2D lo usa para orientarse; 0 o
-   * ausente = ejes tal cual.
+   * Fixed rotation (rad) subtracted from the drawing, in either frame (in the
+   * rotating one, on top of the Moon's rotation). The 2D map uses it for its orientation; 0 or
+   * absent = axes as they are.
    */
   readonly angle?: number;
   /**
-   * Origen flotante: punto (km, ya en el marco de dibujo) que se dibuja en el origen
-   * de la escena. Es lo que sigue la cámara, así float32 nunca ve números grandes.
+   * Floating origin: point (km, already in the drawing frame) drawn at the scene
+   * origin. It is what the camera follows, so float32 never sees large numbers.
    */
   readonly origin: Vec3;
 }
 
-/** Posición en el marco de dibujo (km): inercial (con su giro fijo), o rotada según la Luna en t. */
+/** Position in the drawing frame (km): inertial (with its fixed rotation), or rotated according to the Moon at t. */
 export function toDisplayFrame(p: Vec3, t: number, frame: ViewFrame): Vec3 {
   const a = (frame.rotating ? frame.eph.moonAngle(t) : 0) + (frame.angle ?? 0);
   return a ? rotateZ(p, -a) : p;
 }
 
 /**
- * Única conversión de km de simulación a unidades de escena.
- * `t` es el instante al que corresponde la posición (importa en el marco rotante).
+ * The single conversion from simulation km to scene units.
+ * `t` is the instant the position corresponds to (it matters in the rotating frame).
  */
 export function worldToScene(p: Vec3, t: number, frame: ViewFrame, out = new THREE.Vector3()): THREE.Vector3 {
   const d = toDisplayFrame(p, t, frame);

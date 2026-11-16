@@ -1,4 +1,4 @@
-/** Vector 3D inmutable. La simulación usa siempre 3D aunque la fase 2D viva en z = 0. */
+/** Immutable 3D vector. The simulation always uses 3D even though the 2D phase lives on z = 0. */
 export interface Vec3 {
   readonly x: number;
   readonly y: number;
@@ -30,13 +30,13 @@ export const normalize = (a: Vec3): Vec3 => {
   const l = length(a);
   return l > 0 ? scale(a, 1 / l) : ZERO;
 };
-/** Rotación alrededor del eje z (ángulo en radianes, sentido antihorario). */
+/** Rotation about the z axis (angle in radians, counterclockwise). */
 export const rotateZ = (a: Vec3, angle: number): Vec3 => {
   const c = Math.cos(angle);
   const s = Math.sin(angle);
   return { x: a.x * c - a.y * s, y: a.x * s + a.y * c, z: a.z };
 };
-/** Rotación de `a` alrededor del eje unitario `axis` (fórmula de Rodrigues). */
+/** Rotation of `a` about the unit axis `axis` (Rodrigues' formula). */
 export const rotateAbout = (a: Vec3, axis: Vec3, angle: number): Vec3 => {
   const c = Math.cos(angle);
   const s = Math.sin(angle);
@@ -44,5 +44,5 @@ export const rotateAbout = (a: Vec3, axis: Vec3, angle: number): Vec3 => {
   const w = cross(axis, a);
   return { x: a.x * c + w.x * s + axis.x * k, y: a.y * c + w.y * s + axis.y * k, z: a.z * c + w.z * s + axis.z * k };
 };
-/** Ángulo (rad) entre dos vectores unitarios. */
+/** Angle (rad) between two unit vectors. */
 export const angleBetween = (a: Vec3, b: Vec3): number => Math.acos(Math.max(-1, Math.min(1, dot(a, b))));

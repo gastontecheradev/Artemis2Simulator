@@ -6,7 +6,7 @@ import { skinTemperature } from '../../sim/thermal';
 import { FULL_TANKS, TANK, TankName } from '../../sim/vehicle';
 import { useT } from '../i18n';
 
-/** Tanque "activo": el de la etapa que empuja ahora o que empujará después. */
+/** "Active" tank: the one of the stage thrusting now or that will thrust next. */
 function activeTank(s: SimState): TankName {
   const v = s.vehicle;
   if (!v.srbSeparated && s.t < 126) return 'SRB';
@@ -16,7 +16,7 @@ function activeTank(s: SimState): TankName {
   return 'CM';
 }
 
-/** Datos de vuelo sobre el mapa: velocidad, temperatura, propelente, distancias y tiempo. */
+/** Flight data over the map: speed, temperature, propellant, distances and time. */
 export function MapHud({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   const eph = ephemerisOf(s);

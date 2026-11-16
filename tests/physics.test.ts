@@ -64,11 +64,11 @@ describe('órbita lunar de la misión (elipse ajustada a JPL Horizons)', () => {
   const eph = createKeplerEphemeris(0.7);
   const gap = (t: number): number => distance(eph.earth(t).r, eph.moon(t).r);
   it('la distancia Tierra‑Luna es la de abril de 2026 (Horizons)', () => {
-    // Horizons: 393.002 km al despegue, 404.882 km a MET 5,02 d (sobrevuelo publicado), 396.988 km a MET 9,06 d.
+    // Horizons: 393,002 km at liftoff, 404,882 km at MET 5.02 d (published flyby), 396,988 km at MET 9.06 d.
     expect(Math.abs(gap(0) - 393002)).toBeLessThan(2000);
     expect(Math.abs(gap(5.0208 * 86400) - 404882)).toBeLessThan(400);
     expect(Math.abs(gap(9.06 * 86400) - 396988)).toBeLessThan(1000);
-    // Apogeo en el MET ajustado.
+    // Apogee at the tuned MET.
     expect(gap(MOON_ORBIT.apogeeMet)).toBeCloseTo(MOON_ORBIT.a * (1 + MOON_ORBIT.e), 3);
   });
   it('la Luna arranca en el ángulo pedido y el baricentro queda en el origen', () => {
@@ -92,7 +92,7 @@ describe('órbita lunar de la misión (elipse ajustada a JPL Horizons)', () => {
   it('cerca del apogeo la Luna va más lenta que en la órbita circular media', () => {
     const t = MOON_ORBIT.apogeeMet;
     const w = (eph.moonAngle(t + 60) - eph.moonAngle(t - 60)) / 120;
-    // Horizons: 0,899 veces la velocidad angular media en el sobrevuelo.
+    // Horizons: 0.899 times the mean angular velocity at the flyby.
     expect(w / ((2 * Math.PI) / MOON_SIDEREAL_PERIOD)).toBeGreaterThan(0.88);
     expect(w / ((2 * Math.PI) / MOON_SIDEREAL_PERIOD)).toBeLessThan(0.91);
   });
@@ -135,7 +135,7 @@ describe('H3 · integrador en dos cuerpos', () => {
     const a = (rp + ra) / 2;
     const vp = Math.sqrt(GM_EARTH * (2 / rp - 1 / a));
     const period = 2 * Math.PI * Math.sqrt((a * a * a) / GM_EARTH);
-    // Arranca apenas pasado el perigeo para detectar los dos siguientes.
+    // Starts just past perigee to detect the next two.
     const s0 = integrate({ r: vec3(rp, 0, 0), v: vec3(0, vp, 0) }, 0, 60, eph).state;
     const res = integrateWithEvents(s0, 60, 60 + 2.2 * period, eph);
     const perigees = res.events.filter((e) => e.type === 'periapsis');
@@ -166,7 +166,7 @@ describe('H4 · constante de Jacobi en CR3BP', () => {
     const eph = createCircularEphemeris(2.2);
     const e = eph.earth(0);
     const r = R_EARTH + 300;
-    // Velocidad casi de escape: llega a la zona lunar.
+    // Almost escape velocity: reaches the lunar region.
     const v = Math.sqrt(GM_EARTH * (2 / r - 1 / 200000));
     const s0: ShipState = { r: add(e.r, vec3(r, 0, 0)), v: add(e.v, vec3(0, v, 0)) };
     const c0 = jacobiConstant(s0, 0, eph);
@@ -212,7 +212,7 @@ describe('H5 · encendidos y trayectoria predicha', () => {
     const s0: ShipState = { r: vec3(r, 0, 0), v: vec3(0, v, 0) };
     const s1 = applyBurn(s0, { prograde: dv, normal: 0, radial: 0 }, eph.earth(0));
     expect(length(s1.v)).toBeCloseTo(v + dv, 12);
-    // vis‑viva: v² = GM(2/r − 1/a)  →  a, y ra = 2a − rp
+    // vis‑viva: v² = GM(2/r − 1/a)  →  a, and ra = 2a − rp
     const a = 1 / (2 / r - ((v + dv) * (v + dv)) / GM_EARTH);
     const raExpected = 2 * a - r;
     expect(earthElements(s1, 0, eph).ra).toBeCloseTo(raExpected, 6);
@@ -245,7 +245,7 @@ describe('tiempo hasta un radio (ecuación de Kepler)', () => {
   const check = (ship: ShipState, target: number): void => {
     const el = earthElements(ship, 0, eph);
     const t = timeToDescendTo(el, target, GM_EARTH);
-    // Se compara con la integración numérica: el instante en que la distancia cruza el radio pedido.
+    // Compared with the numerical integration: the instant the distance crosses the requested radius.
     let s = ship;
     let tt = 0;
     let crossed: number | null = null;
@@ -259,7 +259,7 @@ describe('tiempo hasta un radio (ecuación de Kepler)', () => {
     expect(Math.abs(t - crossed!)).toBeLessThan(2);
   };
   it('en una elipse que baja al perigeo', () => {
-    // Apogeo de una órbita alta, girado para que esté bajando (velocidad radial negativa).
+    // Apogee of a high orbit, rotated so it is descending (negative radial velocity).
     const r = R_EARTH + 60000;
     const vApo = Math.sqrt(GM_EARTH * (2 / r - 2 / (r + R_EARTH + 200)));
     const apo: ShipState = { r: vec3(r, 0, 0), v: vec3(0, vApo, 0) };
@@ -287,7 +287,7 @@ describe('comunicaciones', () => {
   it('LOS solo cuando la Luna tapa la línea de vista', () => {
     expect(losClearance(vec3(EARTH_MOON_DISTANCE + 8000, 0, 0), earth, moon)).toBeLessThan(0);
     expect(losClearance(vec3(EARTH_MOON_DISTANCE + 8000, 5000, 0), earth, moon)).toBeGreaterThan(0);
-    // Del lado cercano la Luna no tapa nada aunque esté alineada.
+    // On the near side the Moon blocks nothing even when aligned.
     expect(losClearance(vec3(EARTH_MOON_DISTANCE - 8000, 0, 0), earth, moon)).toBeCloseTo(8000 - R_MOON, 6);
   });
   it('red por altitud y retardo de señal', () => {

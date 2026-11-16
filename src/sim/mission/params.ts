@@ -4,26 +4,26 @@ import { AscentParams } from './ascent';
 import raw from './params.json';
 
 export interface BurnParams {
-  /** Instante de ignición (MET, s). */
+  /** Ignition instant (MET, s). */
   readonly met: number;
   readonly system: PropSystem;
-  /** Δv ideal del encendido, por componente del marco local (km/s). */
+  /** Ideal Δv of the burn, per local-frame component (km/s). */
   readonly dv: DeltaV;
   /**
-   * true: la actitud se congela en el instante de ignición (marco inercial), como en un
-   * encendido largo de etapa superior sin guiado activo; los componentes de `dv` se
-   * interpretan en el marco local de la ignición. false (por defecto): el empuje sigue
-   * al marco local durante todo el encendido.
+   * true: the attitude is frozen at the ignition instant (inertial frame), as in a
+   * long upper-stage burn without active guidance; the components of `dv` are
+   * interpreted in the local frame at ignition. false (default): the thrust follows
+   * the local frame for the whole burn.
    */
   readonly hold?: boolean;
 }
 
 export interface MissionParams {
-  /** Guiado del ascenso (lo ajusta scripts/tune-free-return.ts). */
+  /** Ascent guidance (tuned by scripts/tune-free-return.ts). */
   readonly ascent: AscentParams;
   /**
-   * Ángulo de la Luna en MET 0 (grados), medido desde la dirección Tierra→plataforma
-   * de lanzamiento. Es la "fase relativa a la Luna": equivale a elegir la fecha de lanzamiento.
+   * Moon angle at MET 0 (degrees), measured from the Earth→launch pad
+   * direction. It is the "phase relative to the Moon": equivalent to choosing the launch date.
    */
   readonly moonAngle0Deg: number;
   readonly burns: {
@@ -33,7 +33,7 @@ export interface MissionParams {
     readonly E8: BurnParams;
     readonly E9: BurnParams;
   };
-  /** Resultado de volar la misión nominal con estos parámetros (informativo). */
+  /** Result of flying the nominal mission with these parameters (informative). */
   readonly nominal: {
     readonly insertionSpeed: number;
     readonly insertionFpaDeg: number;
@@ -45,5 +45,5 @@ export interface MissionParams {
   };
 }
 
-/** Parámetros ajustados por scripts/tune-free-return.ts. */
+/** Parameters tuned by scripts/tune-free-return.ts. */
 export const MISSION_PARAMS = raw as MissionParams;

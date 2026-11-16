@@ -24,7 +24,7 @@ export interface LogEntry {
   readonly eventId?: EventId;
 }
 
-/** Marcador numerado que queda sobre el trazo cuando ocurre un evento. */
+/** Numbered marker left on the trail when an event occurs. */
 export interface Marker {
   readonly eventId: EventId;
   readonly n: number;
@@ -37,11 +37,11 @@ export type TrailNet = 'NSN' | 'DSN' | 'LOS';
 export interface TrailPoint {
   readonly t: number;
   readonly r: Vec3;
-  /** Altitud sobre la Tierra (km). */
+  /** Altitude above Earth (km). */
   readonly alt: number;
   readonly phase: Phase;
   readonly net: TrailNet;
-  /** Durante la demo de operaciones de proximidad (E6). */
+  /** During the proximity operations demo (E6). */
   readonly prox: boolean;
 }
 
@@ -53,17 +53,17 @@ export interface Maneuver {
   readonly id: ManeuverId;
   readonly eventId: EventId | null;
   readonly system: PropSystem;
-  /** Instante de ignición. null = enciende al accionar. */
+  /** Ignition instant. null = fires when actuated. */
   readonly tig: number | null;
-  /** Δv planeado (editable en modo avanzado). */
+  /** Planned Δv (editable in advanced mode). */
   readonly dv: DeltaV;
-  /** Eje que ajustan las teclas ΔV± y el guiado. */
+  /** Axis adjusted by the ΔV± keys and by guidance. */
   readonly axis: keyof DeltaV;
   readonly confirmed: boolean;
-  /** El guiado ya calculó el Δv (solo correcciones). */
+  /** Guidance has already computed the Δv (corrections only). */
   readonly computed: boolean;
   readonly status: ManeuverStatus;
-  /** Cantidad de veces ejecutada (las correcciones son repetibles). */
+  /** Number of times executed (corrections are repeatable). */
   readonly executions: number;
   readonly lastExecutedAt: number | null;
 }
@@ -72,23 +72,23 @@ export interface AutoBurn {
   readonly id: 'E4' | 'E5';
   readonly met: number;
   readonly dv: DeltaV;
-  /** Actitud inercial fija durante el encendido (ver BurnParams.hold). */
+  /** Fixed inertial attitude during the burn (see BurnParams.hold). */
   readonly hold: boolean;
   readonly status: 'pending' | 'burning' | 'done' | 'cancelled';
 }
 
-/** Encendido en curso: el motor empuja hasta `tEnd` (o hasta que se corte o se quede sin propelente). */
+/** Burn in progress: the engine thrusts until `tEnd` (or until it is cut off or runs out of propellant). */
 export interface ActiveBurn {
   readonly id: 'E4' | 'E5' | ManeuverId;
   readonly system: PropSystem;
   readonly tStart: number;
   readonly tEnd: number;
-  /** Δv ideal pedido (km/s) y su reparto en el marco local: fija la dirección del empuje. */
+  /** Requested ideal Δv (km/s) and its split in the local frame: sets the thrust direction. */
   readonly dv: DeltaV;
-  /** Masa y propelente del tanque al encender (kg), para medir el Δv entregado. */
+  /** Mass and tank propellant at ignition (kg), to measure the delivered Δv. */
   readonly massStart: number;
   readonly propStart: number;
-  /** Dirección inercial fija del empuje (encendidos con `hold`), o null si sigue al marco local. */
+  /** Fixed inertial thrust direction (burns with `hold`), or null if it follows the local frame. */
   readonly fixedDir: Vec3 | null;
 }
 
@@ -97,36 +97,36 @@ export interface Switches {
   readonly auxArm: boolean;
   readonly icpsSepArm: boolean;
   readonly cmSepArm: boolean;
-  /** La tripulación automática ejecuta los pasos manuales en su momento nominal. */
+  /** The automatic crew performs the manual steps at their nominal time. */
   readonly autoCrew: boolean;
-  /** Pausa automática antes de cada acción de la tripulación. */
+  /** Automatic pause before each crew action. */
   readonly autoPause: boolean;
 }
 export type SwitchName = keyof Switches;
 
 /**
- * Piloto automático digital (DAP):
- * - AUTO: el guiado orienta la nave (prograde en crucero, actitud de encendido en las maniobras).
- * - INRTL: mantiene la actitud inercial actual.
- * - MAN: la tripulación rota la nave con el controlador de rotación (RHC).
+ * Digital autopilot (DAP):
+ * - AUTO: guidance orients the spacecraft (prograde in cruise, burn attitude during maneuvers).
+ * - INRTL: holds the current inertial attitude.
+ * - MAN: the crew rotates the spacecraft with the rotational hand controller (RHC).
  */
 export type DapMode = 'AUTO' | 'INRTL' | 'MAN';
 
 export interface Attitude {
-  /** Eje longitudinal de la nave (unitario, marco inercial): hacia donde empujan los motores. */
+  /** Spacecraft longitudinal axis (unit, inertial frame): where the engines thrust. */
   readonly dir: Vec3;
   readonly mode: DapMode;
-  /** Deflexión del controlador de rotación en cabeceo: −1, 0 o +1. */
+  /** Rotational hand controller deflection in pitch: −1, 0 or +1. */
   readonly rhc: number;
 }
 
 export interface ProcState {
   readonly activeId: ProcedureId;
-  /** Paso elegido con Jump to Step; null = sigue al primer paso pendiente. */
+  /** Step chosen with Jump to Step; null = follows the first pending step. */
   readonly cursor: number | null;
-  /** Pasos salteados con Skip, como "PROC:índice". */
+  /** Steps skipped with Skip, as "PROC:index". */
   readonly skipped: readonly string[];
-  /** Modo avanzado: permite editar el Δv planeado. */
+  /** Advanced mode: allows editing the planned Δv. */
   readonly advanced: boolean;
 }
 
@@ -142,14 +142,14 @@ export interface Alarm {
 export interface ApsisRecord {
   readonly type: 'periapsis' | 'apoapsis';
   readonly t: number;
-  /** Radio desde el centro de la Tierra (km). */
+  /** Radius from Earth's center (km). */
   readonly radius: number;
-  /** Energía específica respecto de la Tierra (km²/s²). */
+  /** Specific energy relative to Earth (km²/s²). */
   readonly energy: number;
 }
 
 export interface EntryRecord extends EntryInterface {
-  /** Perigeo osculante en EI (km desde el centro): el que tendría sin atmósfera. */
+  /** Osculating perigee at EI (km from the center): the one it would have without atmosphere. */
   readonly rp: number;
   readonly energy: number;
 }
@@ -177,67 +177,67 @@ export interface MissionRecord {
   readonly tliAt: number | null;
   readonly icpsSepAt: number | null;
   readonly cmSepAt: number | null;
-  /** Estado en E3 (separación de la etapa central): velocidad inercial y ángulo de trayectoria. */
+  /** State at E3 (core stage separation): inertial velocity and flight-path angle. */
   readonly insertion: {
     readonly t: number;
     readonly altitude: number;
-    /** Velocidad inercial (km/s). */
+    /** Inertial velocity (km/s). */
     readonly speed: number;
-    /** Velocidad relativa a la Tierra en rotación (km/s): la que publican las tablas de ascenso. */
+    /** Velocity relative to the rotating Earth (km/s): the one published in the ascent tables. */
     readonly speedRel: number;
     readonly fpaDeg: number;
   } | null;
-  /** Presión dinámica máxima del ascenso (Pa) y cuándo ocurrió. */
+  /** Maximum dynamic pressure of the ascent (Pa) and when it occurred. */
   readonly maxQ: { readonly t: number; readonly q: number; readonly logged: boolean } | null;
 }
 
 export type DebrisKind = 'SRB' | 'LAS' | 'FAIRING' | 'CORE' | 'ICPS' | 'SM' | 'CUBESAT';
 
-/** Parte desprendida de la nave: sigue su propia trayectoria (gravedad y arrastre). */
+/** Part jettisoned from the spacecraft: follows its own trajectory (gravity and drag). */
 export interface Debris {
   readonly id: string;
   readonly kind: DebrisKind;
-  /** Nombre para el log y las etiquetas (los CubeSats tienen nombre propio). */
+  /** Name for the log and labels (the CubeSats have their own names). */
   readonly name?: string;
   readonly ship: ShipState;
-  /** Instante hasta el que está propagada. */
+  /** Instant up to which it has been propagated. */
   readonly t: number;
   readonly hNext: number;
-  /** Coeficiente balístico inverso Cd·A/m (m²/kg). */
+  /** Inverse ballistic coefficient Cd·A/m (m²/kg). */
   readonly ballistic: number;
-  /** MET del desprendimiento. */
+  /** MET of the jettison. */
   readonly since: number;
-  /** Eje longitudinal que tenía al desprenderse (para dibujarla). */
+  /** Longitudinal axis it had when jettisoned (for drawing it). */
   readonly dir: Vec3;
 }
 
 export interface SimState {
   readonly params: MissionParams;
-  /** Tiempo de misión (MET) en segundos. */
+  /** Mission elapsed time (MET) in seconds. */
   readonly t: number;
   readonly ship: ShipState;
-  /** Paso sugerido por el integrador para continuar. */
+  /** Step suggested by the integrator to continue. */
   readonly hNext: number;
   readonly phase: Phase;
   readonly clock: { readonly running: boolean; readonly warp: number };
-  /** Warp a restaurar después de una bajada automática (null si no hay ninguna en curso). */
+  /** Warp to restore after an automatic slowdown (null if none is in progress). */
   readonly warpRestore: number | null;
   readonly vehicle: VehicleConfig;
   readonly propulsion: PropulsionState;
-  /** Motores del cohete encendidos durante el ascenso. */
+  /** Rocket engines firing during the ascent. */
   readonly ascentEngines: readonly EngineId[];
-  /** Tangente del cabeceo al empezar el guiado de tangente lineal (null antes de eso). */
+  /** Pitch tangent when linear-tangent guidance starts (null before that). */
   readonly ascentTan: number | null;
-  /** Encendido en curso en el espacio. */
+  /** Burn in progress in space. */
   readonly burn: ActiveBurn | null;
   readonly attitude: Attitude;
-  /** Controlador de traslación (THC) sobre el eje de la nave: −1, 0 o +1. */
+  /** Translational hand controller (THC) along the spacecraft axis: −1, 0 or +1. */
   readonly thc: number;
   readonly switches: Switches;
   readonly maneuvers: Readonly<Record<ManeuverId, Maneuver>>;
   readonly autoBurns: Readonly<Record<'E4' | 'E5', AutoBurn>>;
   readonly proc: ProcState;
-  /** Claves de disparadores de un solo uso ya consumidos. */
+  /** Keys of one-shot triggers already consumed. */
   readonly oneShots: readonly string[];
   readonly comms: CommsStatus;
   readonly prediction: Prediction | null;
@@ -245,18 +245,18 @@ export interface SimState {
   readonly alarms: readonly Alarm[];
   readonly log: readonly LogEntry[];
   readonly markers: readonly Marker[];
-  /** Trazo recorrido. Solo se le agregan puntos (buffer compartido entre estados). */
+  /** Flown trail. Points are only appended (buffer shared between states). */
   readonly trail: TrailPoint[];
   readonly trailNextT: number;
   readonly debris: readonly Debris[];
   readonly record: MissionRecord;
   readonly outcome: Outcome | null;
-  /** Sin predicción, alarmas ni partes desprendidas: para scripts y tests. */
+  /** Without prediction, alarms or jettisoned parts: for scripts and tests. */
   readonly headless: boolean;
 }
 
 const ephCache = new Map<number, Ephemeris>();
-/** Efemérides de la misión (dependen solo de la fase lunar de los parámetros). */
+/** Mission ephemeris (depends only on the lunar phase in the parameters). */
 export function ephemerisOf(state: { readonly params: MissionParams }): Ephemeris {
   const deg = state.params.moonAngle0Deg;
   let eph = ephCache.get(deg);
@@ -287,13 +287,13 @@ export interface InitOptions {
   autoCrew?: boolean;
 }
 
-/** MET inicial: los RS‑25 arrancan 6 s antes del despegue, con el cohete sujeto a la plataforma. */
+/** Initial MET: the RS‑25s start 6 s before liftoff, with the rocket held down on the pad. */
 export const INITIAL_MET = -RS25_START_BEFORE_LIFTOFF;
 
 /**
- * Posición y velocidad de la plataforma en el instante `t`: sobre el eje +y de la Tierra
- * en MET 0 (arriba en el mapa, así el cohete sube hacia arriba en pantalla), girando
- * hacia el este con la rotación terrestre.
+ * Position and velocity of the pad at instant `t`: on Earth's +y axis
+ * at MET 0 (up on the map, so the rocket climbs upwards on screen), rotating
+ * east with Earth's rotation.
  */
 export function padState(t: number, eph: Ephemeris): ShipState {
   const earth = eph.earth(t);
@@ -303,8 +303,8 @@ export function padState(t: number, eph: Ephemeris): ShipState {
 }
 
 /**
- * Estado inicial: el cohete completo en la plataforma, seis segundos antes del
- * despegue. Al dar play arrancan los RS‑25 y en T‑0 encienden los boosters.
+ * Initial state: the full rocket on the pad, six seconds before
+ * liftoff. On play the RS‑25s start and at T‑0 the boosters ignite.
  */
 export function createInitialState(params: MissionParams, opts: InitOptions = {}): SimState {
   const eph = ephemerisOf({ params });
@@ -323,7 +323,7 @@ export function createInitialState(params: MissionParams, opts: InitOptions = {}
     ascentEngines: ['RS25'],
     ascentTan: null,
     burn: null,
-    // En la plataforma el cohete apunta hacia arriba.
+    // On the pad the rocket points up.
     attitude: { dir: vec3(0, 1, 0), mode: 'AUTO', rhc: 0 },
     thc: 0,
     switches: {
@@ -369,7 +369,7 @@ export type Listener = () => void;
 
 export interface Store {
   getState(): SimState;
-  /** Aplica una función pura estado → estado y notifica. */
+  /** Applies a pure state → state function and notifies. */
   dispatch(fn: (s: SimState) => SimState): void;
   subscribe(listener: Listener): () => void;
 }

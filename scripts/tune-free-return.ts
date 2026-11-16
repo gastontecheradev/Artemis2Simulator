@@ -1,17 +1,17 @@
 /**
- * Ajuste completo de la misión nominal. Todo se vuela con la física real (motores,
- * masas, arrastre); el script solo busca los parámetros de guiado y de encendido.
+ * Full tuning of the nominal mission. Everything is flown with the real physics (engines,
+ * masses, drag); the script only searches for the guidance and burn parameters.
  *
- * 1. Ascenso y órbita terrestre: ver scripts/lib/calibration.ts.
- * 2. Retorno libre. Variables: fase de la Luna (moonAngle0Deg, equivale a elegir la
- *    fecha de lanzamiento) y Δv del TLI. Objetivos:
- *      a. altitud de sobrevuelo lunar = 6.513 km;
- *      b. ángulo de trayectoria en la interfaz de entrada = objetivo del corredor.
- *    Método: grilla gruesa (para cada Δv, las fases que dan el sobrevuelo pedido y su
- *    error de perigeo de retorno), después Newton en 2D volando la misión completa,
- *    alternado con la recalibración de la órbita terrestre.
+ * 1. Ascent and Earth orbit: see scripts/lib/calibration.ts.
+ * 2. Free return. Variables: lunar phase (moonAngle0Deg, equivalent to choosing the
+ *    launch date) and TLI Δv. Targets:
+ *      a. lunar flyby altitude = 6,513 km;
+ *      b. flight-path angle at entry interface = corridor target.
+ *    Method: coarse grid (for each Δv, the phases that give the requested flyby and their
+ *    return perigee error), then 2D Newton flying the whole mission,
+ *    alternated with the recalibration of the Earth orbit.
  *
- * Uso: npm run tune   →  escribe src/sim/mission/params.json
+ * Usage: npm run tune   →  writes src/sim/mission/params.json
  */
 import { executeManeuver, produce, setManeuver } from '../src/sim/advance';
 import { ENTRY_CORRIDOR, FLYBY_ALTITUDE_TARGET, PUBLISHED_MET, R_EARTH } from '../src/sim/constants';
@@ -26,18 +26,18 @@ import { writeNominalPath } from './lib/nominal-path';
 const DAY = 86400;
 
 interface Miss {
-  /** Altitud de sobrevuelo (km), o null si no pasa por la esfera de influencia. */
+  /** Flyby altitude (km), or null if it does not pass through the sphere of influence. */
   alt: number | null;
-  /** Perigeo de retorno sin atmósfera menos el perigeo objetivo (km). Infinity si no vuelve. */
+  /** Return perigee without atmosphere minus the target perigee (km). Infinity if it does not return. */
   rpMiss: number;
-  /** MET del regreso (entrada o perigeo), o null. */
+  /** MET of the return (entry or perigee), or null. */
   tReturn: number | null;
 }
 
 /**
- * Lee de una misión volada el sobrevuelo y el error de perigeo del PRIMER regreso a la
- * Tierra. Si la nave pasa por el perigeo sin entrar, sigue en una órbita de varios días
- * y puede entrar en una pasada posterior: esa entrada no cuenta.
+ * Reads from a flown mission the flyby and the perigee error of the FIRST return to
+ * Earth. If the spacecraft passes perigee without entering, it stays in an orbit of several days
+ * and may enter on a later pass: that entry does not count.
  */
 function measure(s: SimState): Miss {
   const per = s.record.perilune;
@@ -51,10 +51,10 @@ function measure(s: SimState): Miss {
   return { alt: per.altitude, rpMiss: peri.radius - perigeeRadiusForEntry(Math.min(peri.energy, -0.01), ENTRY_CORRIDOR.target), tReturn: peri.t };
 }
 
-// ---------- (a) Grilla gruesa ----------
+// ---------- (a) Coarse grid ----------
 
 function coarse(base: MissionParams): { theta: number; dv: number } {
-  // Estado en el instante de ignición del TLI. Hasta ahí la fase lunar casi no influye.
+  // State at the TLI ignition instant. Up to there the lunar phase has almost no influence.
   const pre = fly(withBurn(base, 'E9', { prograde: 0 }), base.burns.E9.met);
   const eph0 = ephemerisOf(pre);
   const t = pre.t;
@@ -63,7 +63,7 @@ function coarse(base: MissionParams): { theta: number; dv: number } {
   const evalAt = (thetaDeg: number, dv: number): Miss => {
     const params: MissionParams = { ...pre.params, moonAngle0Deg: thetaDeg };
     const e = ephemerisOf({ params }).earth(t);
-    // Misma posición y velocidad respecto de la Tierra, con la Luna en otra fase.
+    // Same position and velocity relative to Earth, with the Moon at another phase.
     const ship = { r: add(sub(pre.ship.r, e0.r), e.r), v: add(sub(pre.ship.v, e0.v), e.v) };
     const lit = produce({ ...pre, params, ship, trail: [], log: [], record: { ...pre.record, apsides: [] } }, (d) => {
       setManeuver(d, 'E9', { dv: { prograde: dv, normal: 0, radial: 0 }, status: 'pending' });
@@ -72,7 +72,7 @@ function coarse(base: MissionParams): { theta: number; dv: number } {
     return measure(flyFrom(lit, t + 12 * DAY));
   };
 
-  // Para un Δv dado: fases (θ) que dan el sobrevuelo a la altitud pedida.
+  // For a given Δv: phases (θ) that give the flyby at the requested altitude.
   const flybyRoots = (dv: number): number[] => {
     const roots: number[] = [];
     let prev: { th: number; f: number } | null = null;
@@ -103,9 +103,9 @@ function coarse(base: MissionParams): { theta: number; dv: number } {
         (roots.map((r) => `θ=${r.theta.toFixed(3)}° Δrp=${Number.isFinite(r.rpMiss) ? r.rpMiss.toFixed(0) : '∞'} km`).join(' | ') || 'sin sobrevuelo'),
     );
   }
-  // Cambio de signo del error de perigeo entre dos Δv consecutivos, en la misma rama
-  // (las ramas se emparejan por cercanía de θ). Puede haber varios retornos libres:
-  // se elige el que vuelve en la fecha más parecida al cronograma publicado.
+  // Sign change of the perigee error between two consecutive Δv, on the same branch
+  // (branches are paired by closeness of θ). There can be several free returns:
+  // the one returning on the date closest to the published timeline is chosen.
   const seeds: { theta: number; dv: number; tReturn: number }[] = [];
   for (let i = 0; i + 1 < rows.length; i++) {
     for (const a of rows[i].roots) {
@@ -128,7 +128,7 @@ function coarse(base: MissionParams): { theta: number; dv: number } {
   return best;
 }
 
-// ---------- (b) Newton con la misión completa ----------
+// ---------- (b) Newton with the whole mission ----------
 
 const withTli = (p: MissionParams, theta: number, dv: number): MissionParams =>
   withBurn({ ...p, moonAngle0Deg: theta }, 'E9', { prograde: dv });
@@ -143,7 +143,7 @@ function evaluate(p: MissionParams): { alt: number; rpMiss: number } {
 function newton(p: MissionParams, theta0: number, dv0: number): { theta: number; dv: number } {
   let theta = theta0;
   let dv = dv0;
-  const hT = 1e-4; // grados
+  const hT = 1e-4; // degrees
   const hV = 1e-7; // km/s
   for (let i = 0; i < 40; i++) {
     const f = evaluate(withTli(p, theta, dv));
@@ -160,7 +160,7 @@ function newton(p: MissionParams, theta0: number, dv0: number): { theta: number;
     const det = j11 * j22 - j12 * j21;
     let dT = -(f1 * j22 - f2 * j12) / det;
     let dV = -(j11 * f2 - j21 * f1) / det;
-    // Paso amortiguado: lejos de la solución el problema es muy no lineal.
+    // Damped step: far from the solution the problem is highly nonlinear.
     const k = Math.min(1, 0.5 / Math.abs(dT), 0.002 / Math.abs(dV));
     dT *= k;
     dV *= k;
@@ -170,7 +170,7 @@ function newton(p: MissionParams, theta0: number, dv0: number): { theta: number;
   return { theta, dv };
 }
 
-// ---------- Principal ----------
+// ---------- Main ----------
 
 const log = (m: string): void => console.log(`  ${m}`);
 console.log('Calibración inicial');

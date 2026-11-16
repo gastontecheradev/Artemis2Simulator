@@ -18,86 +18,86 @@ import { createTrails } from './trails';
 import { createDebrisModels, createVehicleModel, debrisLength, vehicleExtent, vehicleIconSvg } from './vehicle';
 import { KM_TO_SCENE, ViewFrame, toDisplayFrame, worldToScene } from './worldToScene';
 
-/** 'auto' sigue a la nave de cerca (3D). Los modos fijos encuadran la nave, la Tierra, la Luna o el conjunto. */
+/** 'auto' follows the spacecraft up close (3D). The fixed modes frame the spacecraft, Earth, the Moon or the whole system. */
 export type CameraMode = 'auto' | 'overview' | 'ship' | 'earth' | 'moon';
 type FixedMode = Exclude<CameraMode, 'auto'>;
 /**
- * Tres vistas: el mapa 2D (estático, escala fija que abarca toda la misión, en el
- * marco rotante o en el inercial), el recuadro del entorno terrestre (estático, centrado en la Tierra) y la
- * vista 3D en perspectiva.
+ * Three views: the 2D map (static, fixed scale covering the whole mission, in the
+ * rotating or inertial frame), the Earth-vicinity inset (static, centered on Earth) and the
+ * 3D perspective view.
  */
 export type ViewDim = '2d' | 'inset' | '3d';
 
 export interface ViewSettings {
   readonly cameraMode: CameraMode;
   readonly frame: 'inertial' | 'rotating';
-  /** Marco del mapa 2D: rotante (Tierra y Luna quietas) o inercial (la Luna recorre su órbita). */
+  /** 2D map frame: rotating (Earth and Moon still) or inertial (the Moon travels along its orbit). */
   readonly mapFrame: 'inertial' | 'rotating';
 }
 
 export interface TrajectoryViewDeps {
-  /** Solo lectura: render nunca modifica la simulación. */
+  /** Read-only: render never modifies the simulation. */
   getState(): SimState;
   getSettings(): ViewSettings;
-  /** Se llama una vez por frame, antes de dibujar, con el dt real en segundos. */
+  /** Called once per frame, before drawing, with the real dt in seconds. */
   onFrame?(dt: number): void;
 }
 
-/** Plan nominal muestreado por scripts/nominal-path.ts: [MET, x, y] en km inerciales. */
+/** Nominal plan sampled by scripts/nominal-path.ts: [MET, x, y] in inertial km. */
 const NOMINAL_PATH = nominalRaw as unknown as readonly (readonly [number, number, number])[];
 
 const Z: Vec3 = { x: 0, y: 0, z: 1 };
-/** 1 m en unidades de escena. */
+/** 1 m in scene units. */
 const M_TO_SCENE = KM_TO_SCENE / 1000;
-/** Radios fijos del recuadro del entorno terrestre (km): fase de órbita baja y después. */
+/** Fixed radii of the Earth-vicinity inset (km): low-orbit phase and afterwards. */
 const INSET_RADIUS_LOW = 9000;
 const INSET_RADIUS_HIGH = 95000;
 /**
- * En el regreso el recuadro vuelve a la escala del inicio desde la separación CM/SM (E13)
- * o, si no se separa, por debajo de esta distancia al centro de la Tierra (km), con la
- * nave ya dentro de la vista.
+ * On the way back the inset returns to the initial scale from CM/SM separation (E13)
+ * or, if it does not separate, below this distance from Earth's center (km), with the
+ * spacecraft already inside the view.
  */
 const INSET_LANDING_DISTANCE = 0.9 * INSET_RADIUS_LOW;
 /**
- * Recuadro del entorno lunar: radio fijo (km), a mitad de camino entre el encuadre al
- * entrar en la esfera de influencia (1,1 × SOI) y el del sobrevuelo (12.000 km). Antes
- * seguía la distancia de la nave y se veía como un zoom continuo.
+ * Moon-vicinity inset: fixed radius (km), halfway between the framing on
+ * entering the sphere of influence (1.1 × SOI) and that of the flyby (12,000 km). It used to
+ * follow the spacecraft's distance and looked like a continuous zoom.
  */
 const LUNAR_RADIUS = (12000 + MOON_SOI * 1.1) / 2;
 
 /**
- * Qué muestra el recuadro: el entorno terrestre o, dentro de la esfera de influencia
- * lunar (el mismo criterio que usa la física para el marco del encendido), el lunar.
+ * What the inset shows: the Earth vicinity or, inside the lunar sphere of
+ * influence (the same criterion the physics uses for the burn frame), the Moon vicinity.
  */
 export function insetTarget(s: SimState): 'earth' | 'moon' {
   return length(sub(s.ship.r, ephemerisOf(s).moon(s.t).r)) < MOON_SOI ? 'moon' : 'earth';
 }
 
 /**
- * Orientación del mapa 2D (giro que se le resta al dibujo). La cámara mira desde +z
- * (norte), así que cualquier giro conserva el sentido real: la Tierra rota, la nave
- * orbita la Tierra y la Luna la suya en sentido antihorario, y en el marco rotante el
- * sobrevuelo rodea la Luna en sentido horario por la cara oculta (como en 1.png, que
- * está dibujada con la Tierra a la izquierda: esto es esa vista girada 180°, no espejada).
- * Rotante: la Luna (sobre +x en el marco) queda a la izquierda y la Tierra a la derecha.
- * Inercial: la Luna del sobrevuelo nominal queda a la izquierda de la Tierra.
+ * Orientation of the 2D map (rotation subtracted from the drawing). The camera looks from +z
+ * (north), so any rotation keeps the real sense: Earth spins, the spacecraft
+ * orbits Earth and the Moon orbits its own counterclockwise, and in the rotating frame the
+ * flyby goes around the Moon clockwise over the far side (as in 1.png, which
+ * is drawn with Earth on the left: this is that view rotated 180°, not mirrored).
+ * Rotating: the Moon (on +x in the frame) ends up on the left and Earth on the right.
+ * Inertial: the Moon at the nominal flyby ends up to the left of Earth.
  */
 function mapAngleFor(rotating: boolean, eph: ReturnType<typeof ephemerisOf>, flybyMet: number): number {
   return rotating ? Math.PI : eph.moonAngle(flybyMet) + Math.PI;
 }
 
-/** Constante de tiempo (s reales) con la que el dibujo de la nave gira hacia su rumbo. */
+/** Time constant (real s) with which the spacecraft drawing turns towards its heading. */
 const HEADING_SMOOTHING = 0.12;
 
 /**
- * Dirección del trazo tal como se dibuja: la velocidad en el marco de dibujo (en el
- * rotante incluye el arrastre del marco). Se deriva numéricamente con un paso de 1 s.
+ * Direction of the trail as drawn: the velocity in the drawing frame (in the
+ * rotating one it includes the frame's own motion). Derived numerically with a 1 s step.
  */
 function displayVelocityDir(r: Vec3, v: Vec3, t: number, frame: ViewFrame): Vec3 {
   return normalize(sub(toDisplayFrame(add(r, v), t + 1, frame), toDisplayFrame(r, t, frame)));
 }
 
-/** Gira `from` hacia `to` una fracción `k` del ángulo entre los dos. */
+/** Turns `from` towards `to` by a fraction `k` of the angle between them. */
 function turnToward(from: Vec3, to: Vec3, k: number): Vec3 {
   const angle = angleBetween(from, to);
   if (angle < 1e-6 || k >= 1) return to;
@@ -106,17 +106,17 @@ function turnToward(from: Vec3, to: Vec3, k: number): Vec3 {
   return normalize(rotateAbout(from, axis, angle * k));
 }
 
-/** Primer plano de la nave en 3D: entra completa a escala real. */
+/** Spacecraft close-up in 3D: fits entirely at real scale. */
 const closeRadius = (cfg: VehicleConfig): number => Math.max(0.006, (vehicleExtent(cfg).length * 0.72) / 1000);
 
-/** Semialto visible por defecto (km) para cada modo de cámara en 3D. */
+/** Default visible half-height (km) for each 3D camera mode. */
 function defaultRadius(mode: FixedMode, rotating: boolean, cfg: VehicleConfig): number {
   switch (mode) {
     case 'overview':
       return rotating ? 290000 : 470000;
     case 'ship':
       return closeRadius(cfg);
-    // Cuerpos a escala real en 3D: encuadres de unas tres veces su radio más la órbita baja.
+    // Bodies at real scale in 3D: framings of about three times their radius plus low orbit.
     case 'earth':
       return 22000;
     case 'moon':
@@ -127,10 +127,10 @@ function defaultRadius(mode: FixedMode, rotating: boolean, cfg: VehicleConfig): 
 const cssVar = (el: Element, name: string): string => getComputedStyle(el).getPropertyValue(name).trim() || '#888888';
 
 /**
- * Encuadre del mapa: el rectángulo que contiene el plan nominal completo y los dos
- * cuerpos (en el marco inercial, la Luna en todo su recorrido durante la misión), con
- * un margen. Devuelve el centro y el semialto que hace entrar todo en una vista de
- * `px.width` × `px.height`, dejando libres `px.top` y `px.bottom` píxeles.
+ * Map framing: the rectangle that contains the whole nominal plan and both
+ * bodies (in the inertial frame, the Moon along its whole path during the mission), with
+ * a margin. Returns the center and the half-height that fit everything in a view of
+ * `px.width` × `px.height`, leaving `px.top` and `px.bottom` pixels free.
  */
 function mapFraming(
   eph: ReturnType<typeof ephemerisOf>,
@@ -153,12 +153,12 @@ function mapFraming(
   take(add(earth, { x: re, y: re, z: 0 }));
   take(add(earth, { x: -re, y: -re, z: 0 }));
   if (frame.rotating) {
-    // La Luna con su esfera de influencia (punteada) completa.
+    // The Moon with its whole (dashed) sphere of influence.
     const moon = toDisplayFrame(eph.moon(0).r, 0, frame);
     take(add(moon, { x: MOON_SOI, y: MOON_SOI, z: 0 }));
     take(add(moon, { x: -MOON_SOI, y: -MOON_SOI, z: 0 }));
   } else {
-    // La Luna se mueve: entra su arco completo, del lanzamiento al final del plan.
+    // The Moon moves: its whole arc fits, from launch to the end of the plan.
     const tEnd = NOMINAL_PATH.length ? NOMINAL_PATH[NOMINAL_PATH.length - 1][0] : 0;
     const r = R_MOON * 2;
     for (let i = 0; i <= 64; i++) {
@@ -167,23 +167,23 @@ function mapFraming(
       take(add(m, { x: -r, y: -r, z: 0 }));
     }
   }
-  // Píxeles por km: el rectángulo (con margen) entra a lo ancho y en el alto libre entre
-  // la barra de herramientas y el HUD.
+  // Pixels per km: the rectangle (with margin) fits in width and in the free height between
+  // the toolbar and the HUD.
   const boxW = Math.max(1, xMax - xMin) * 1.12;
   const boxH = Math.max(1, yMax - yMin) * 1.12;
   const k = Math.min(px.width / boxW, Math.max(1, px.height - px.top - px.bottom) / boxH);
-  // La cámara ortográfica aplica el radio a la dimensión más chica (ver camera.ts).
+  // The orthographic camera applies the radius to the smaller dimension (see camera.ts).
   const radius = Math.min(px.width, px.height) / 2 / k;
-  // El centro de la vista se corre para que el rectángulo quede centrado en el alto libre.
+  // The view center is shifted so the rectangle is centered in the free height.
   const cy = (yMin + yMax) / 2 + (px.top - px.bottom) / (2 * k);
   return { center: { x: (xMin + xMax) / 2, y: cy, z: 0 }, radius };
 }
 
-/** Alto que tapan la barra de herramientas y el HUD del mapa (px), cuando el encuadre lo necesita. */
+/** Height covered by the map's toolbar and HUD (px), when the framing needs it. */
 const MAP_PAD_TOP = 40;
 const MAP_PAD_BOTTOM = 100;
 
-/** Crea una vista de trayectoria dentro de `container` y arranca su loop de dibujo. */
+/** Creates a trajectory view inside `container` and starts its draw loop. */
 export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps: TrajectoryViewDeps): { dispose(): void } {
   const is3d = dim === '3d';
   const isMap = dim === '2d';
@@ -196,8 +196,8 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  // El Sol: su dirección sale de la simulación en cada frame (sunDirection, la fecha y
-  // hora de la ventana de lanzamiento) y es la misma para la Tierra, la Luna y la nave.
+  // The Sun: its direction comes from the simulation every frame (sunDirection, the date and
+  // time of the launch window) and is the same for Earth, the Moon and the spacecraft.
   const sun = new THREE.DirectionalLight(0xffffff, 2.6);
   scene.add(sun, new THREE.AmbientLight(0xffffff, 0.16));
 
@@ -229,15 +229,15 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   scene.add(bodies.group, trails.group, model.group, debrisGroup);
   const overlay = createOverlay(container);
   const rig: CameraRig = is3d ? createPerspectiveRig(renderer.domElement) : createOrthoRig(renderer.domElement);
-  // El recuadro es estático. El mapa tiene zoom (rueda o pellizco, hacia el cursor) y se
-  // arrastra; doble clic vuelve al encuadre de toda la misión.
+  // The inset is static. The map has zoom (wheel or pinch, towards the cursor) and can be
+  // dragged; double-click returns to the whole-mission framing.
   if (isInset) rig.setActive(false);
   const onDoubleClick = (): void => {
     lastCameraKey = '';
   };
   if (isMap) renderer.domElement.addEventListener('dblclick', onDoubleClick);
 
-  // Clave del último encuadre aplicado (se invalida al cambiar el tamaño).
+  // Key of the last applied framing (invalidated on resize).
   let lastCameraKey = '';
   let width = 1;
   let height = 1;
@@ -253,7 +253,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   observer.observe(container);
   resize();
 
-  // Cachés para no reconstruir geometrías sin necesidad.
+  // Caches so geometries are not rebuilt needlessly.
   let lastTrail: TrailPoint[] | null = null;
   let lastTrailKey = '';
   let lastPrediction: Prediction | null | undefined;
@@ -264,9 +264,9 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   let lastParams: MissionParams | null = null;
   let eventNames: ReadonlyMap<string, string> = new Map();
   let mapCenter: Vec3 = ZERO;
-  /** Efemérides con las que se armó la órbita lunar dibujada. */
+  /** Ephemeris the drawn lunar orbit was built with. */
   let orbitEph: ReturnType<typeof ephemerisOf> | null = null;
-  /** Rumbo con que se dibuja la nave (marco de dibujo), suavizado entre frames. */
+  /** Heading the spacecraft is drawn with (drawing frame), smoothed between frames. */
   let heading: Vec3 | null = null;
   let lastT = -Infinity;
   let frameCount = 0;
@@ -277,7 +277,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   const vy = new THREE.Vector3();
   const vz = new THREE.Vector3();
 
-  /** Orienta un objeto con su eje +x sobre `dir` y su eje +y en el plano orbital. */
+  /** Orients an object with its +x axis along `dir` and its +y axis in the orbital plane. */
   const orient = (object: THREE.Object3D, dir: Vec3): void => {
     const side = cross(Z, dir);
     const y = length(side) > 1e-6 ? normalize(side) : { x: 0, y: 1, z: 0 };
@@ -287,9 +287,9 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   };
 
   /**
-   * Encuadre inicial de la nave en 3D: de costado (tangente a la vertical local) y desde
-   * arriba del plano orbital, con un poco de altura. Mirando desde el lado del planeta la
-   * cámara quedaría bajo tierra en la plataforma.
+   * Initial 3D framing of the spacecraft: from the side (tangent to the local vertical) and from
+   * above the orbital plane, with a bit of height. Looking from the planet's side the
+   * camera would end up underground on the pad.
    */
   const aimFromSide = (pos: THREE.Vector3, s: SimState): void => {
     const eph = ephemerisOf(s);
@@ -321,26 +321,26 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     const s = deps.getState();
     const settings = deps.getSettings();
     const eph = ephemerisOf(s);
-    // El recuadro vive en el marco rotante; el mapa, en el que se elija (rotante por defecto).
+    // The inset lives in the rotating frame; the map, in the chosen one (rotating by default).
     const rotating = is3d ? settings.frame === 'rotating' : isMap ? settings.mapFrame === 'rotating' : true;
     const earth = eph.earth(s.t);
     const moon = eph.moon(s.t);
-    // Mapa 2D y recuadro: la Tierra a la derecha y la Luna a la izquierda (ver mapAngleFor).
+    // 2D map and inset: Earth on the right and the Moon on the left (see mapAngleFor).
     const flybyMet = s.params.nominal.flybyMet;
     const mapAngle = is3d ? 0 : mapAngleFor(rotating, eph, flybyMet);
     const frameAngle = rotating ? eph.moonAngle(s.t) + mapAngle : mapAngle;
-    /** Dirección inercial llevada al marco de dibujo. */
+    /** Inertial direction brought into the drawing frame. */
     const displayDir = (d: Vec3): Vec3 => (frameAngle ? rotateZ(d, -frameAngle) : d);
     const toSun = displayDir(sunDirection(s.t));
     sun.position.set(toSun.x, toSun.y, toSun.z);
 
-    // --- Cámara: modo efectivo y encuadre ---
+    // --- Camera: effective mode and framing ---
     const base: ViewFrame = { eph, rotating, angle: mapAngle, origin: ZERO };
     let camera: { mode: FixedMode; radius: number };
     if (isMap) {
       const key = `map|${settings.mapFrame}|${width}x${height}|${s.params.moonAngle0Deg}`;
       if (key !== lastCameraKey) {
-        // Con el giro, el rotante queda vertical: los dos marcos necesitan los márgenes.
+        // With the rotation, the rotating frame ends up vertical: both frames need the margins.
         const pad = { top: MAP_PAD_TOP, bottom: MAP_PAD_BOTTOM };
         const f = mapFraming(eph, { width, height, ...pad }, base);
         mapCenter = f.center;
@@ -351,14 +351,14 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       camera = { mode: 'overview', radius: rig.getViewRadius() };
     } else if (isInset) {
       if (insetTarget(s) === 'moon') {
-        // Entorno lunar: centrado en la Luna, con escala fija.
+        // Moon vicinity: centered on the Moon, with a fixed scale.
         camera = { mode: 'moon', radius: LUNAR_RADIUS };
         if (lastCameraKey !== 'inset|moon') {
           rig.setViewRadius(camera.radius);
           lastCameraKey = 'inset|moon';
         }
       } else {
-        // Desde E13 (separación CM/SM) o, si la tripulación no separa, cerca de la Tierra.
+        // From E13 (CM/SM separation) or, if the crew does not separate, near Earth.
         const landing =
           (s.phase === 'REGRESO' || s.phase === 'ENTRADA') &&
           (s.vehicle.cmSeparated || length(sub(s.ship.r, earth.r)) < INSET_LANDING_DISTANCE);
@@ -376,25 +376,25 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       camera = { mode, radius };
       const cameraKey = `${settings.cameraMode}|${mode}|${radius}|${settings.frame}`;
       if (cameraKey !== lastCameraKey) {
-        // Solo se reencuadra cuando cambia el modo o la etapa: mientras tanto se respeta el zoom manual.
+        // Only reframes when the mode or the stage changes: in between, the manual zoom is respected.
         rig.setViewRadius(radius);
         if (mode === 'ship') aimFromSide(rig.camera.position, s);
         lastCameraKey = cameraKey;
       }
     }
 
-    // --- Marco de dibujo y origen flotante ---
+    // --- Drawing frame and floating origin ---
     const cfg = s.vehicle;
     const shipDir = displayDir(s.attitude.dir);
-    // Rumbo dibujado: en crucero, sobre el trazo (hacia adelante, o hacia atrás con la
-    // cápsula sola); si no (ascenso, encendidos, orientación previa, DAP en INRTL o MAN),
-    // la actitud real. El cambio entre uno y otro se suaviza para que no salte.
+    // Drawn heading: in cruise, along the trail (forwards, or backwards with the
+    // capsule alone); otherwise (ascent, burns, pre-burn orientation, DAP in INRTL or MAN),
+    // the actual attitude. The switch between the two is smoothed so it does not jump.
     const sense = cruiseSense(s);
     const headingTarget = sense !== 0 ? scale(displayVelocityDir(s.ship.r, s.ship.v, s.t, base), sense) : shipDir;
     heading = !heading || s.t < lastT ? headingTarget : turnToward(heading, headingTarget, 1 - Math.exp(-dt / HEADING_SMOOTHING));
     lastT = s.t;
-    // Mientras sigue la etapa central, el modelo se apoya en su base (las toberas) para que
-    // en la plataforma el cohete quede sobre el suelo; la cámara mira a su centro.
+    // While the core stage is attached, the model rests on its base (the nozzles) so that
+    // on the pad the rocket sits on the ground; the camera looks at its center.
     const anchorBase = !cfg.coreSeparated;
     const shipCenterKm = anchorBase ? vehicleExtent(cfg).length / 2 / 1000 : 0;
     const focus = (): Vec3 => {
@@ -409,16 +409,16 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     };
     const frame: ViewFrame = { eph, rotating, angle: mapAngle, origin: focus() };
 
-    // --- Cuerpos y referencias ---
+    // --- Bodies and references ---
     worldToScene(earth.r, s.t, frame, bodies.earth.position);
     worldToScene(moon.r, s.t, frame, bodies.moon.position);
-    // La Tierra gira con la plataforma: así el sitio de lanzamiento cae siempre sobre un
-    // vértice de la esfera y el cohete apoya en el suelo, no en una faceta más abajo.
+    // Earth rotates with the pad: that way the launch site always falls on a
+    // vertex of the sphere and the rocket rests on the ground, not on a lower facet.
     bodies.earth.rotation.z = EARTH_ROTATION_IN_PLANE * s.t - frameAngle;
     bodies.eiRing.position.copy(bodies.earth.position);
     bodies.soiRing.position.copy(bodies.moon.position);
     worldToScene(ZERO, s.t, frame, bodies.moonOrbit.position);
-    // La órbita lunar es una elipse que depende de la fase: se rearma si cambian las efemérides.
+    // The lunar orbit is an ellipse that depends on the phase: rebuilt if the ephemeris changes.
     if (eph !== orbitEph) {
       const pts: Vec3[] = [];
       for (let i = 0; i < 360; i++) pts.push(eph.moon((eph.moonPeriod * i) / 360).r);
@@ -426,10 +426,10 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       orbitEph = eph;
     }
     bodies.moonOrbit.rotation.z = -frameAngle;
-    // En el marco rotante la Luna casi no se mueve: su órbita no aporta nada.
+    // In the rotating frame the Moon barely moves: its orbit adds nothing.
     bodies.moonOrbit.visible = !rotating;
 
-    // --- Trazos ---
+    // --- Trails ---
     const tip = { t: s.t, r: s.ship.r };
     const viewKey = `${rotating}|${camera.mode}`;
     const trailEvery = s.trail.length > 6000 ? 6 : 1;
@@ -439,14 +439,14 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       lastTrail = s.trail;
       lastTrailKey = trailKey;
     }
-    // La vista 3D solo dibuja lo recorrido: la trayectoria que falta queda para el mapa y el recuadro.
+    // The 3D view only draws what has been flown: the remaining trajectory is left to the map and the inset.
     const predictionKey = `${viewKey}|${Math.floor(frameCount / 10)}|${s.t}`;
     if (!is3d && (s.prediction !== lastPrediction || predictionKey !== lastPredictionKey)) {
       trails.setPredicted(s.prediction ? s.prediction.points : [], tip, frame);
       lastPrediction = s.prediction;
       lastPredictionKey = predictionKey;
     }
-    // El plan nominal solo se dibuja en el mapa y el recuadro, y solo se reconstruye si cambia el origen.
+    // The nominal plan is only drawn on the map and the inset, and only rebuilt if the origin changes.
     if (!is3d) {
       const nominalKey = `${rotating}|${frame.origin.x.toFixed(0)}|${frame.origin.y.toFixed(0)}|${s.params.moonAngle0Deg}`;
       if (nominalKey !== lastNominalKey) {
@@ -458,7 +458,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     const viewRadiusScene = rig.getViewRadius() * KM_TO_SCENE;
     trails.setDashScale(viewRadiusScene);
 
-    // --- Nave: orientada según su actitud, con las partes de la etapa actual ---
+    // --- Spacecraft: oriented by its attitude, with the parts of the current stage ---
     const engines = runningEngines(s);
     const enginesKey = engines.join(',');
     const iconKey = `${cfg.srbSeparated}${cfg.lasJettisoned}${cfg.coreSeparated}${cfg.icpsSeparated}${cfg.cmSeparated}|${enginesKey}`;
@@ -467,17 +467,17 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       shipLengthM = model.update(cfg, engines, anchorBase);
       worldToScene(s.ship.r, s.t, frame, model.group.position);
       orient(model.group, heading);
-      // Siempre a escala real; cuando mide menos de unos píxeles, la capa HTML la marca con un punto.
+      // Always at real scale; when it is smaller than a few pixels, the HTML layer marks it with a dot.
       model.group.scale.setScalar(M_TO_SCENE);
     } else if (iconKey !== lastIconKey) {
       overlay.setShipIcon(vehicleIconSvg(cfg, engines));
     }
     lastIconKey = iconKey;
-    // Destello cuando enciende un motor.
+    // Flash when an engine ignites.
     if (lastEngines !== enginesKey && engines.some((e) => !lastEngines.split(',').includes(e)) && frameCount > 1) overlay.flash();
     lastEngines = enginesKey;
 
-    // --- Partes desprendidas ---
+    // --- Jettisoned parts ---
     if (is3d) {
       const alive = new Set(s.debris.map((b) => b.id));
       for (const child of [...debrisGroup.children]) if (!alive.has(child.name)) debrisGroup.remove(child);
@@ -493,7 +493,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       }
     }
 
-    // --- Capa HTML ---
+    // --- HTML layer ---
     if (s.params !== lastParams) {
       eventNames = new Map(timeline(s.params).map((e) => [e.id, e.name]));
       lastParams = s.params;
@@ -501,8 +501,8 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     overlay.setMarkers(s.markers, eventNames);
     rig.update();
     if (is3d) {
-      // La cámara nunca queda adentro de un cuerpo (a escala real, cerca de la nave en
-      // órbita baja, la superficie está a metros): se la empuja afuera, sobre la vertical.
+      // The camera never ends up inside a body (at real scale, near the spacecraft in
+      // low orbit, the surface is meters away): it is pushed outside, along the vertical.
       keepOutside(rig.camera.position, bodies.earth.position, R_EARTH * KM_TO_SCENE);
       keepOutside(rig.camera.position, bodies.moon.position, R_MOON * KM_TO_SCENE);
     }
@@ -526,7 +526,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
         return { item, angle: Math.atan2(d.y, d.x), px: is3d ? debrisLength(item.id) * M_TO_SCENE * pxPerScene : Infinity };
       }),
       labels: { earth: es ? 'TIERRA' : 'EARTH', moon: es ? 'LUNA' : 'MOON' },
-      // Mapa inercial: dónde va a estar la Luna cuando llegue la nave (sobrevuelo nominal).
+      // Inertial map: where the Moon will be when the spacecraft arrives (nominal flyby).
       ghost:
         isMap && !rotating && s.t < flybyMet
           ? {
@@ -538,7 +538,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
           : null,
     });
 
-    // --- Dibujo: fondo de estrellas y, encima, la escena ---
+    // --- Drawing: star background and, on top, the scene ---
     renderer.clear();
     stars.render(renderer, rig.camera, width / height, frameAngle);
     renderer.clearDepth();

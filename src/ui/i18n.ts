@@ -2,12 +2,12 @@ import { useSyncExternalStore } from 'react';
 import { Locale, getLocale, setLocale } from '../sim/i18n';
 
 /**
- * Textos de la interfaz en inglés (por defecto) y español. El idioma se elige en el
- * primer menú y vale para el panel, las vistas, los instructivos y la simulación.
+ * Interface texts in English (default) and Spanish. The language is chosen in the
+ * first menu and applies to the panel, the views, the guides and the simulation.
  */
 
 const EN = {
-  // Barra de estado
+  // Status bar
   'st.phase': 'PHASE',
   'st.next': 'NEXT',
   'st.run.end': 'END',
@@ -16,7 +16,7 @@ const EN = {
   'st.masterAlarm': 'Master Alarm: click to acknowledge',
   'st.openProc': 'Open the procedure in Procs',
   'st.fd': 'FD',
-  // Interruptores
+  // Switches
   'sw.F1': 'PROPULSION',
   'sw.F2': 'SEPARATION',
   'sw.F3': 'OPERATION',
@@ -47,7 +47,7 @@ const EN = {
   'sw.thc': 'THC X AXIS',
   'sw.thcBack': 'Translate backwards with the RCS',
   'sw.thcFwd': 'Translate forward with the RCS',
-  // Tiempo y log
+  // Time and log
   'tc.title': 'TIME',
   'tc.play': '▶ PLAY',
   'tc.pause': '❚❚ PAUSE',
@@ -58,7 +58,7 @@ const EN = {
   'log.title': 'EVENT LOG',
   'mcc.title': 'MISSION CONTROL',
   'mcc.nolink': 'NO LINK WITH EARTH (LOS)',
-  // Páginas
+  // Pages
   'pg.distEarth': 'DIST EARTH',
   'pg.distMoon': 'DIST MOON',
   'pg.perigee': 'PERIGEE',
@@ -115,7 +115,7 @@ const EN = {
   'pg.real': '✓ ACTUAL',
   'pg.pred': 'P PREDICTED',
   'pg.nom': 'N NOMINAL',
-  // Vistas
+  // Views
   'vw.map': '2D MAP',
   'vw.3d': '3D VIEW',
   'vw.camera': 'CAMERA',
@@ -155,7 +155,7 @@ const EN = {
   'hud.stage.ICPS': 'ICPS',
   'hud.stage.ESM': 'SERVICE MODULE',
   'hud.stage.CM': 'CAPSULE RCS',
-  // Inicio
+  // Start
   'lang.title': 'LANGUAGE · IDIOMA',
   'lang.en': 'ENGLISH',
   'lang.es': 'ESPAÑOL',
@@ -174,7 +174,7 @@ const EN = {
   'start.guides': 'GUIDES',
   'start.credits': 'CREDITS',
   'start.foot': 'Educational project, not affiliated with or endorsed by NASA. Figures come from a simplified physics model: they are illustrative, not official mission data.',
-  // Menú de guías
+  // Guides menu
   'gd.title': 'BEFORE THE FLIGHT',
   'gd.intro': 'Five short guides about the mission and the spacecraft, plus links to NASA’s documentation. You can read them now or come back to them from the GUIDES button during the flight.',
   'gd.continue': 'CONTINUE',
@@ -186,7 +186,7 @@ const EN = {
   'gd.power': 'Power management',
   'gd.ship': 'About the spacecraft',
   'gd.docs': 'NASA documentation',
-  // Fin
+  // End
   'panel.conceptual': 'Conceptual panel inspired by the Orion cockpit: it is not an exact replica of the real one.',
   'end.page': 'Mission.End',
   'end.success': 'MISSION COMPLETED SUCCESSFULLY',
@@ -201,7 +201,7 @@ const EN = {
   'end.t.lost': 'ORBIT LOST',
   'end.restart': 'RESTART MISSION',
   'end.note': 'The parachute descent and the splashdown are not simulated: the physics ends at the entry interface.',
-  // Créditos
+  // Credits
   'cr.title': 'CREDITS',
   'cr.nasa': 'Images courtesy of NASA. This project is not affiliated with or endorsed by NASA.',
   'cr.none': 'No NASA images are included in the app yet. The Earth and the Moon are drawn in flat colors.',
@@ -434,14 +434,14 @@ const ES: Readonly<Record<UiKey, string>> = {
 
 const TABLES: Readonly<Record<Locale, Readonly<Record<UiKey, string>>>> = { en: EN, es: ES };
 
-// --- Store del idioma ---
+// --- Language store ---
 const listeners = new Set<() => void>();
 const subscribe = (l: () => void): (() => void) => {
   listeners.add(l);
   return () => listeners.delete(l);
 };
 
-/** Fija el idioma de la interfaz y de la simulación. */
+/** Sets the language of the interface and the simulation. */
 export function setUiLocale(locale: Locale): void {
   if (locale === getLocale()) return;
   setLocale(locale);
@@ -458,7 +458,7 @@ export function translate(locale: Locale, key: UiKey, params?: Readonly<Record<s
   return text.replace(/\{(\w+)\}/g, (m, name: string) => (name in params ? String(params[name]) : m));
 }
 
-/** Hook: función de traducción para el idioma actual. */
+/** Hook: translation function for the current language. */
 export function useT(): T {
   const locale = useLocale();
   return (key, params) => translate(locale, key, params);

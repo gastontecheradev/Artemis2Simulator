@@ -47,12 +47,12 @@ import {
 } from './state';
 import { ENGINES, EngineId, G0, MASS, PropLoad, SRB_SEPARATION_SPEED, TANK, TANK_COUNT, burnDuration, totalMass } from './vehicle';
 
-/** Copia de trabajo de un estado: se muta localmente y se devuelve como estado nuevo. */
+/** Working copy of a state: mutated locally and returned as a new state. */
 export type Draft = { -readonly [K in keyof SimState]: SimState[K] };
 
 const DAY = 86400;
 const Z: Vec3 = { x: 0, y: 0, z: 1 };
-/** Límite de sub‑pasos del integrador por llamada, para no congelar el navegador. */
+/** Cap on integrator sub-steps per call, so the browser does not freeze. */
 export const DEFAULT_MAX_STEPS = 1500;
 
 export function logTo(d: Draft, level: LogLevel, text: string, eventId?: EventId): void {
@@ -78,7 +78,7 @@ function pushTrail(d: Draft, t: number, s: ShipState): void {
     net: los ? 'LOS' : networkForAltitude(alt),
     prox: sepAt !== null && t >= sepAt && t <= MET_E6_PROX_OPS_END,
   });
-  // Con motores encendidos la trayectoria cambia rápido: se muestrea más seguido.
+  // With engines firing the trajectory changes fast: sample more often.
   const natural = sampleInterval(s, t, eph);
   d.trailNextT = t + (d.phase === 'ASCENSO' ? Math.min(3, natural) : d.burn ? Math.min(10, natural) : natural);
 }
@@ -96,12 +96,12 @@ const setProp = (d: Draft, prop: readonly number[]): void => {
   d.propulsion = { ...d.propulsion, prop: next };
 };
 
-// ---------- Fuerzas y actitud ----------
+// ---------- Forces and attitude ----------
 
-/** Propulsores de traslación disponibles: los del módulo de servicio o, sin él, los de la cápsula. */
+/** Available translation thrusters: the service module's or, without it, the capsule's. */
 export const thcEngine = (s: SimState): EngineId => (s.vehicle.cmSeparated ? 'CMRCS' : 'RCS');
 
-/** Motores encendidos en este instante. */
+/** Engines firing at this instant. */
 export function runningEngines(s: SimState): EngineId[] {
   const engines: EngineId[] = s.phase === 'ASCENSO' ? [...s.ascentEngines] : [];
   if (s.burn) engines.push(SYSTEM_ENGINE[s.burn.system]);
@@ -113,8 +113,8 @@ export function runningEngines(s: SimState): EngineId[] {
 }
 
 /**
- * Descripción de las fuerzas no gravitatorias en el estado actual, o null si la nave
- * está en vuelo libre fuera de la atmósfera. La usan el integrador y los instrumentos.
+ * Description of the non-gravitational forces in the current state, or null if the spacecraft
+ * is coasting outside the atmosphere. Used by the integrator and the instruments.
  */
 export function powerInputOf(s: SimState): PowerInput | null {
   const eph = ephemerisOf(s);
@@ -133,7 +133,7 @@ export function powerInputOf(s: SimState): PowerInput | null {
   return { eph, cfg: s.vehicle, engines, direction, srbIgnition: 0, gLimit: s.params.ascent.gLimit, rcsSign: s.thc };
 }
 
-/** Δv del encendido para el que el piloto automático tiene que orientar la nave, si hay alguno. */
+/** Δv of the burn the autopilot has to orient the spacecraft for, if any. */
 function attitudeTargetDv(s: SimState): DeltaV | null {
   if (s.burn) return s.burn.dv;
   for (const id of ['E4', 'E5'] as const) {
@@ -150,15 +150,15 @@ function attitudeTargetDv(s: SimState): DeltaV | null {
 }
 
 /**
- * Actitud que comanda el guiado: la del cohete en el ascenso, la del encendido que viene,
- * prograde o, con la cápsula sola, retrógrada (el escudo térmico por delante para la entrada).
+ * Attitude commanded by guidance: the rocket's during ascent, the upcoming burn's,
+ * prograde or, with the capsule alone, retrograde (heat shield forward for entry).
  */
 export function commandedDirection(s: SimState): Vec3 {
   const eph = ephemerisOf(s);
   if (s.phase === 'ASCENSO') return ascentDirection(s.params.ascent, s.ascentTan, eph)(s.t, s.ship.r, s.ship.v);
   if (s.burn?.fixedDir) return s.burn.fixedDir;
-  // Después de E13 el eje de la nave (la punta de la cápsula) mira hacia atrás: el escudo
-  // térmico, en la base, queda de cara a la velocidad, como en la entrada real.
+  // After E13 the spacecraft axis (the capsule's nose) points backwards: the heat
+  // shield, at the base, faces the velocity, as in the real entry.
   if (s.vehicle.cmSeparated && !s.burn) return normalize(sub(referenceBody(s.ship, s.t, eph).v, s.ship.v));
   const dv = attitudeTargetDv(s);
   if (dv) return burnDirection(dv, eph)(s.t, s.ship.r, s.ship.v);
@@ -166,11 +166,11 @@ export function commandedDirection(s: SimState): Vec3 {
 }
 
 /**
- * Crucero: el DAP en AUTO solo mantiene la nave prograde (1) o, con la cápsula sola,
- * retrógrada (−1), sin encendido en curso ni por venir, sin traslación y fuera del
- * ascenso. Devuelve 0 en cualquier otro caso. Las vistas lo usan para dibujar la nave
- * sobre su trazo: "prograde" es respecto del cuerpo de referencia, que no coincide con
- * la tangente del trazo en el marco rotante ni, cerca de la Luna, en el inercial.
+ * Cruise: the DAP in AUTO is only holding the spacecraft prograde (1) or, with the capsule alone,
+ * retrograde (−1), with no burn in progress or upcoming, no translation and outside the
+ * ascent. Returns 0 in any other case. The views use it to draw the spacecraft
+ * along its trail: "prograde" is relative to the reference body, which does not match
+ * the trail tangent in the rotating frame nor, near the Moon, in the inertial one.
  */
 export function cruiseSense(s: SimState): 1 | -1 | 0 {
   if (s.phase === 'ASCENSO' || s.attitude.mode !== 'AUTO' || s.burn || s.thc !== 0) return 0;
@@ -178,7 +178,7 @@ export function cruiseSense(s: SimState): 1 | -1 | 0 {
   return attitudeTargetDv(s) === null ? 1 : 0;
 }
 
-/** Avanza la actitud `dt` segundos según el modo del piloto automático. */
+/** Advances the attitude `dt` seconds according to the autopilot mode. */
 function updateAttitude(d: Draft, dt: number): void {
   const a = d.attitude;
   if (a.mode === 'INRTL') return;
@@ -198,22 +198,22 @@ function updateAttitude(d: Draft, dt: number): void {
   d.attitude = { ...a, dir: normalize(rotateAbout(a.dir, axis, ATTITUDE_SLEW_RATE * dt)) };
 }
 
-// ---------- Partes que se desprenden ----------
+// ---------- Jettisoned parts ----------
 
 
 /**
- * Suelta una parte con una velocidad relativa (m/s) a lo largo de un eje y de costado.
- * Las velocidades de separación de los boosters salen de sus motores de separación
- * publicados; el resto, y los coeficientes balísticos (Cd·A/m, en m²/kg), son
- * SUPUESTOS: órdenes de magnitud, no datos publicados.
+ * Releases a part with a relative velocity (m/s) along an axis and sideways.
+ * The booster separation velocities come from their published separation
+ * motors; the rest, and the ballistic coefficients (Cd·A/m, in m²/kg), are
+ * ASSUMPTIONS: orders of magnitude, not published data.
  */
 function spawnDebris(
   d: Draft,
   kind: DebrisKind,
   id: string,
-  /** Velocidad relativa (m/s): a lo largo del eje y de costado. */
+  /** Relative velocity (m/s): along the axis and sideways. */
   speed: readonly [number, number],
-  /** Dónde queda el centro de la parte respecto del centro de la nave (m): a lo largo del eje y de costado. */
+  /** Where the part's center sits relative to the spacecraft's center (m): along the axis and sideways. */
   offset: readonly [number, number],
   ballistic: number,
   from: { readonly ship: ShipState; readonly dir: Vec3 } = { ship: d.ship, dir: d.attitude.dir },
@@ -227,7 +227,7 @@ function spawnDebris(
   d.debris = [...d.debris, { id, kind, name, ship: { r, v }, t: d.t, hNext: 0.5, ballistic, since: d.t, dir }];
 }
 
-/** [SLS] Encendido de eliminación del ICPS: un impulso retrógrado chico sobre la etapa ya desprendida (Δv supuesto). */
+/** [SLS] ICPS disposal burn: a small retrograde impulse on the already-jettisoned stage (assumed Δv). */
 function icpsDisposalBurn(d: Draft): void {
   const icps = d.debris.find((b) => b.kind === 'ICPS');
   logTo(d, 'INFO', tr('log.icpsDisposal'));
@@ -238,19 +238,19 @@ function icpsDisposalBurn(d: Draft): void {
   d.debris = d.debris.map((b) => (b === icps ? { ...b, ship, hNext: 0.5 } : b));
 }
 
-/** [SLS] Liberación de un CubeSat desde el adaptador que quedó con el ICPS. */
+/** [SLS] Release of a CubeSat from the adapter that stayed with the ICPS. */
 function deployCubesat(d: Draft, i: number): void {
   const { name } = CUBESAT_DEPLOYMENTS[i];
   const icps = d.debris.find((b) => b.kind === 'ICPS');
   logTo(d, 'INFO', tr('log.cubesat', { name }));
   if (!icps) return;
-  // Salen por el adaptador, hacia adelante respecto de la etapa, cada uno un poco de costado.
+  // They exit through the adapter, forward relative to the stage, each one slightly sideways.
   const sideways = [0.6, -0.6, 0.3, -0.3][i] * CUBESAT_DEPLOY_SPEED;
-  // 26 kg, cara de 0,37 × 0,24 m y Cd ≈ 2,2 (SUPUESTO para el coeficiente balístico).
+  // 26 kg, 0.37 × 0.24 m face and Cd ≈ 2.2 (ASSUMPTION for the ballistic coefficient).
   spawnDebris(d, 'CUBESAT', `CUBESAT-${i}`, [CUBESAT_DEPLOY_SPEED, sideways], [8, 0], 7.5e-3, { ship: icps.ship, dir: icps.dir }, name);
 }
 
-/** Propaga las partes desprendidas hasta el instante actual (gravedad + arrastre). */
+/** Propagates the jettisoned parts up to the current instant (gravity + drag). */
 function advanceDebris(d: Draft): void {
   if (d.debris.length === 0) return;
   const eph = ephemerisOf(d);
@@ -258,7 +258,7 @@ function advanceDebris(d: Draft): void {
   for (const b of d.debris) {
     let cur = b;
     let gone = false;
-    // El presupuesto de pasos crece con el atraso, para ponerse al día después de un avance largo.
+    // The step budget grows with the lag, to catch up after a long advance.
     let budget = Math.max(400, Math.ceil((d.t - cur.t) / 2));
     while (cur.t < d.t && budget > 0 && !gone) {
       const res = integrateWithEvents(cur.ship, cur.t, d.t, eph, { power: makeDrag(eph, cur.ballistic), hInit: cur.hNext, maxSteps: budget });
@@ -267,14 +267,14 @@ function advanceDebris(d: Draft): void {
       if (!res.terminal) break;
       if (res.terminal.type === 'surface' || res.terminal.type === 'moon-impact') gone = true;
       else {
-        // Cruzó la interfaz de entrada: sigue cayendo. Un tramo corto sin eventos evita re‑detectar el cruce.
+        // It crossed entry interface: keeps falling. A short segment without events avoids re-detecting the crossing.
         const step = integrate(cur.ship, cur.t, cur.t + 1, eph, { power: makeDrag(eph, cur.ballistic), hInit: 0.2 });
         cur = { ...cur, ship: step.state, t: step.t, hNext: 0.2 };
       }
     }
     if (distance(cur.ship.r, eph.earth(cur.t).r) > LOST_DISTANCE) continue;
     if (gone) {
-      // Los dos boosters caen juntos: un solo aviso.
+      // Both boosters fall together: a single notice.
       if (cur.id !== 'SRB-R' && cur.kind !== 'FAIRING') {
         const at = d.t;
         d.t = cur.t;
@@ -288,14 +288,14 @@ function advanceDebris(d: Draft): void {
   d.debris = next;
 }
 
-// ---------- Encendidos ----------
+// ---------- Burns ----------
 
 const burnTitle = (id: 'E4' | 'E5' | ManeuverId): string => (id === 'E4' || id === 'E5' ? tr(`burn.${id}`) : MANEUVER_TITLE[id]);
 
 /**
- * Enciende un motor para entregar el Δv pedido. El encendido dura lo que tarda ese
- * motor, con la masa actual, en dar ese Δv; se apaga solo al final (ver `endBurn`).
- * Devuelve false (y lo anota en el log) si está inhibido.
+ * Fires an engine to deliver the requested Δv. The burn lasts as long as that
+ * engine, with the current mass, takes to deliver that Δv; it shuts down on its own at the end (see `endBurn`).
+ * Returns false (and logs it) if it is inhibited.
  */
 export function startBurn(d: Draft, id: 'E4' | 'E5' | ManeuverId, system: PropSystem, dv: DeltaV, eventId: EventId | null, hold = false): boolean {
   const title = burnTitle(id);
@@ -322,13 +322,13 @@ export function startBurn(d: Draft, id: 'E4' | 'E5' | ManeuverId, system: PropSy
   return true;
 }
 
-/** Apaga el motor del encendido en curso y deja asentado lo que entregó. */
+/** Shuts down the engine of the burn in progress and records what it delivered. */
 export function endBurn(d: Draft, reason: 'complete' | 'cutoff'): void {
   const b = d.burn;
   if (!b) return;
   const engine = ENGINES[SYSTEM_ENGINE[b.system]];
   const mass = totalMass(d.vehicle, d.propulsion.prop);
-  // Δv ideal entregado (ecuación del cohete con la masa realmente consumida).
+  // Ideal Δv delivered (rocket equation with the mass actually consumed).
   const delivered = ((G0 * engine.ispVac) / 1000) * Math.log(b.massStart / mass);
   const p = d.propulsion;
   d.propulsion =
@@ -352,12 +352,12 @@ export function endBurn(d: Draft, reason: 'complete' | 'cutoff'): void {
   const m = d.maneuvers[b.id];
   const done = { executions: m.executions + 1, lastExecutedAt: d.t };
   if (m.tig === null) {
-    // Las correcciones y la maniobra manual son repetibles: vuelven a quedar en blanco.
+    // Corrections and the manual maneuver are repeatable: they go back to blank.
     setManeuver(d, b.id, { ...done, status: 'pending', confirmed: false, computed: false, dv: ZERO_DV });
   } else {
     setManeuver(d, b.id, { ...done, status: 'done' });
   }
-  // La guarda se cierra sola después del encendido.
+  // The guard closes on its own after the burn.
   d.switches = { ...d.switches, mainArm: b.system === 'MAIN' ? false : d.switches.mainArm, auxArm: b.system === 'AUX' ? false : d.switches.auxArm };
   if (b.id === 'E9') {
     d.phase = 'TRANSITO_IDA';
@@ -365,7 +365,7 @@ export function endBurn(d: Draft, reason: 'complete' | 'cutoff'): void {
   }
 }
 
-/** Enciende la maniobra de la tripulación `id` con su Δv planeado. */
+/** Fires the crew maneuver `id` with its planned Δv. */
 export function executeManeuver(d: Draft, id: ManeuverId): boolean {
   const m = d.maneuvers[id];
   if (!startBurn(d, id, m.system, m.dv, m.eventId)) {
@@ -376,13 +376,13 @@ export function executeManeuver(d: Draft, id: ManeuverId): boolean {
   return true;
 }
 
-// ---------- Separaciones ----------
+// ---------- Separations ----------
 
 function separateSrb(d: Draft): void {
   d.vehicle = { ...d.vehicle, srbSeparated: true };
   const p = d.propulsion.prop;
   setProp(d, [0, p[1], p[2], p[3], p[4]]);
-  // Los 8 motores de separación de cada booster lo empujan de costado (~7 m/s); el resto es el empuje de los RS‑25 que sigue.
+  // The 8 separation motors of each booster push it sideways (~7 m/s); the rest is the thrust of the RS‑25s that keep firing.
   spawnDebris(d, 'SRB', 'SRB-L', [-1, SRB_SEPARATION_SPEED], [-20, 6.3], 1.0e-4);
   spawnDebris(d, 'SRB', 'SRB-R', [-1, -SRB_SEPARATION_SPEED], [-20, -6.3], 1.0e-4);
   mark(d, 'E2', d.ship.r, d.t);
@@ -458,7 +458,7 @@ function finish(d: Draft, kind: Outcome['kind'], text: string): void {
 function handleEvent(d: Draft, ev: SimEvent): void {
   const eph = ephemerisOf(d);
   const at = d.t;
-  d.t = ev.t; // el log lleva el instante exacto del evento
+  d.t = ev.t; // the log carries the exact instant of the event
   switch (ev.type) {
     case 'periapsis':
     case 'apoapsis': {
@@ -541,7 +541,7 @@ interface Breakpoint {
   readonly apply: (d: Draft) => void;
 }
 
-/** Disparadores por tiempo pendientes (cada uno se consume una sola vez). */
+/** Pending time triggers (each one is consumed only once). */
 function breakpoints(d: Draft): Breakpoint[] {
   const list: Breakpoint[] = [];
   const once = (key: string, t: number, apply: (d: Draft) => void): void => {
@@ -550,13 +550,13 @@ function breakpoints(d: Draft): Breakpoint[] {
   if (d.phase === 'ASCENSO') {
     const S = ASCENT_SEQUENCE;
     once('asc:liftoff', 0, (x) => {
-      // T‑0: encienden los boosters, se sueltan los umbilicales y el cohete empieza a subir.
+      // T‑0: the boosters ignite, the umbilicals release and the rocket starts to climb.
       x.ascentEngines = ['SRB', 'RS25'];
       mark(x, 'E1', x.ship.r, 0);
       logTo(x, 'EVENT', tr('log.liftoff'), 'E1');
     });
     once('asc:pitch', S.pitchStart, (x) => logTo(x, 'INFO', tr('log.pitch')));
-    // Solo corta el tramo: la ley de guiado cambia de forma en ese instante.
+    // Only splits the segment: the guidance law changes form at this instant.
     once('asc:turn', S.pitchEnd, () => undefined);
     once('asc:burnout', S.srbBurnout, (x) => {
       x.ascentEngines = x.ascentEngines.filter((e) => e !== 'SRB');
@@ -580,14 +580,14 @@ function breakpoints(d: Draft): Breakpoint[] {
   }
   for (const id of ['E4', 'E5'] as const) {
     const ab = d.autoBurns[id];
-    // Pasada la ignición se vuelve solo al warp que había, salvo que la tripulación lo haya cambiado.
+    // Past ignition it returns on its own to the previous warp, unless the crew changed it.
     once(`unwarp:${id}`, ab.met + 20, (x) => {
       if (x.warpRestore !== null && x.clock.warp === 10) x.clock = { ...x.clock, warp: x.warpRestore };
       x.warpRestore = null;
     });
     if (ab.status !== 'pending') continue;
     once(`warp:${id}`, ab.met - 30, (x) => {
-      // Con tripulación automática (modo demostración) no se frena: nadie tiene que mirar el encendido.
+      // With the automatic crew (demo mode) it does not slow down: nobody has to watch the burn.
       if (x.headless || x.switches.autoCrew || x.clock.warp <= 10) return;
       x.warpRestore = x.clock.warp;
       x.clock = { ...x.clock, warp: 10 };
@@ -646,12 +646,12 @@ function breakpoints(d: Draft): Breakpoint[] {
   return list;
 }
 
-/** Disparadores que dependen del estado (altitud, distancia, presión dinámica), evaluados entre tramos. */
+/** State-dependent triggers (altitude, distance, dynamic pressure), evaluated between segments. */
 function stateTriggers(d: Draft, input: PowerInput | null): void {
   const eph = ephemerisOf(d);
   const el = earthElements(d.ship, d.t, eph);
   if (d.phase === 'ASCENSO' && input) {
-    // Max Q: se anota cuando la presión dinámica ya empezó a bajar.
+    // Max Q: logged once the dynamic pressure has started to drop.
     const q = forces(input, d.t, d.ship.r, d.ship.v, d.propulsion.prop).q;
     const peak = d.record.maxQ;
     if (!peak || q > peak.q) {
@@ -667,7 +667,7 @@ function stateTriggers(d: Draft, input: PowerInput | null): void {
     return;
   }
   if (!isPostTli(d.phase) || d.vehicle.cmSeparated || el.radialSpeed >= 0) return;
-  // Tiempo hasta la interfaz de entrada según la órbita osculante (válido cerca de la Tierra).
+  // Time to entry interface from the osculating orbit (valid near Earth).
   const tEi = timeToEntry(d);
   if (tEi <= CM_SEP_PROMPT_LEAD_TIME && !d.oneShots.includes('cm:prompt')) {
     d.oneShots = [...d.oneShots, 'cm:prompt'];
@@ -681,9 +681,9 @@ function stateTriggers(d: Draft, input: PowerInput | null): void {
 }
 
 /**
- * Largo máximo de un tramo de integración. Se acorta cuando algo que depende del estado
- * tiene que evaluarse seguido: la aproximación final a la Tierra (separación CM/SM),
- * el control manual de actitud y el ascenso (Max Q).
+ * Maximum length of an integration segment. It is shortened when something state-dependent
+ * has to be evaluated often: the final approach to Earth (CM/SM separation),
+ * manual attitude control and the ascent (Max Q).
  */
 function maxChunk(d: Draft): number {
   if (d.attitude.mode === 'MAN' && d.attitude.rhc !== 0) return 1;
@@ -696,9 +696,9 @@ function maxChunk(d: Draft): number {
 }
 
 /**
- * Cuenta regresiva: los RS‑25 arrancan con el cohete sujeto a la plataforma. Hasta T‑0
- * la nave sigue a la plataforma y solo cambia el propelente (el consumo depende del
- * tiempo, así que se integra con la regla de Simpson).
+ * Countdown: the RS‑25s start with the rocket held down on the pad. Until T‑0
+ * the spacecraft follows the pad and only the propellant changes (the flow depends on
+ * time, so it is integrated with Simpson's rule).
  */
 function holdDown(d: Draft, until: number): void {
   const eph = ephemerisOf(d);
@@ -721,7 +721,7 @@ function holdDown(d: Draft, until: number): void {
   d.ship = padState(t1, eph);
 }
 
-/** Calcula la trayectoria predicha (sin encendidos futuros) desde el estado actual. */
+/** Computes the predicted trajectory (without future burns) from the current state. */
 export function predict(d: SimState): Prediction {
   const eph = ephemerisOf(d);
   const el = earthElements(d.ship, d.t, eph);
@@ -733,7 +733,7 @@ export function predict(d: SimState): Prediction {
 function predictionStale(d: Draft): boolean {
   const p = d.prediction;
   if (!p) return true;
-  // Durante un encendido la trayectoria cambia todo el tiempo: se refresca cada 20 s de misión.
+  // During a burn the trajectory changes all the time: it is refreshed every 20 s of mission time.
   if (d.burn && d.t - p.t0 > 20) return true;
   return p.end === 'horizon' && d.t > p.t0 + 0.5 * (p.tEnd - p.t0);
 }
@@ -747,7 +747,7 @@ function mergeAlarms(d: Draft): void {
       next.push(prev);
     } else {
       next.push({ ...c, since: d.t, acked: false });
-      // La LOS ya queda en el log como evento de comunicaciones.
+      // The LOS is already in the log as a communications event.
       if (c.id !== 'los') logTo(d, c.level, tr('log.alarm', { level: c.level, text: c.text }));
     }
   }
@@ -755,8 +755,8 @@ function mergeAlarms(d: Draft): void {
 }
 
 /**
- * Recalcula lo derivado (comunicaciones, predicción, alarmas, procedimiento activo).
- * Se llama al final de cada avance y de cada comando.
+ * Recomputes derived data (communications, prediction, alarms, active procedure).
+ * Called at the end of every advance and every command.
  */
 export function finalize(d: Draft, prev: SimState): SimState {
   const eph = ephemerisOf(d);
@@ -776,7 +776,7 @@ export function finalize(d: Draft, prev: SimState): SimState {
   return d;
 }
 
-/** Aplica una mutación local sobre una copia del estado y recalcula lo derivado. */
+/** Applies a local mutation to a copy of the state and recomputes derived data. */
 export function produce(state: SimState, fn: (d: Draft) => void): SimState {
   const d: Draft = { ...state };
   fn(d);
@@ -784,10 +784,10 @@ export function produce(state: SimState, fn: (d: Draft) => void): SimState {
 }
 
 /**
- * Avanza la simulación `dtSim` segundos de tiempo de misión: integra por tramos entre
- * disparadores (ignición y corte de motores, separaciones, ventanas), procesa los
- * eventos detectados, mueve la actitud y registra el trazo.
- * Si se agota `maxSteps`, avanza menos de lo pedido.
+ * Advances the simulation `dtSim` seconds of mission time: integrates in segments between
+ * triggers (engine ignition and cutoff, separations, windows), processes the
+ * detected events, moves the attitude and records the trail.
+ * If `maxSteps` runs out, it advances less than requested.
  */
 export function advance(state: SimState, dtSim: number, maxSteps = DEFAULT_MAX_STEPS): SimState {
   if (!state.clock.running || state.outcome || dtSim <= 0) return state;
@@ -827,7 +827,7 @@ export function advance(state: SimState, dtSim: number, maxSteps = DEFAULT_MAX_S
         const rcs = ENGINES[thcEngine(d)];
         const before = d.propulsion.prop[rcs.tank];
         setProp(d, res.prop);
-        // El propelente que gasta la traslación con RCS también cuenta como Δv de Orion.
+        // Propellant spent by RCS translation also counts as Orion Δv.
         if (d.thc !== 0 && !d.burn && before > res.prop[rcs.tank]) {
           const m1 = totalMass(d.vehicle, d.propulsion.prop);
           const dv = ((G0 * rcs.ispVac) / 1000) * Math.log((m1 + before - res.prop[rcs.tank]) / m1);
@@ -844,7 +844,7 @@ export function advance(state: SimState, dtSim: number, maxSteps = DEFAULT_MAX_S
       stateTriggers(d, input);
       if (!res.complete) break;
     }
-    // Disparadores que caen justo en el final del tramo.
+    // Triggers that fall exactly at the end of the segment.
     while (d.clock.running && !d.outcome) {
       const due = breakpoints(d).filter((b) => b.t <= d.t).sort((a, b) => a.t - b.t)[0];
       if (!due) break;

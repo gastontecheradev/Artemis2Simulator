@@ -9,24 +9,24 @@ import { Timeline } from './Timeline';
 
 export type PageId = 'TRAJ' | 'PFD' | 'PROCS' | 'PROP' | 'COMM' | 'TL';
 
-/** Acción de una tecla lateral del Display Unit. */
+/** Action of a Display Unit side key. */
 export interface SoftAction {
   readonly side: 'L' | 'R';
-  /** Posición de la tecla, de arriba (0) a abajo (4). */
+  /** Key position, from top (0) to bottom (4). */
   readonly slot: number;
   readonly label: string;
   readonly run: () => void;
   readonly lit?: boolean;
   readonly disabled?: boolean;
   readonly tone?: 'command';
-  /** Valor de `data-press` de la tecla: el tutorial la señala con la mano. */
+  /** `data-press` value of the key: the tutorial points at it with the hand. */
   readonly press?: string;
 }
 
 export interface PageDef {
-  /** Título con formato Sistema.Página, como en 9.png. */
+  /** Title in System.Page format, as in 9.png. */
   readonly title: string;
-  /** Etiqueta corta del menú. */
+  /** Short menu label. */
   readonly menu: string;
   readonly Body: FC<{ s: SimState }>;
   readonly actions: (s: SimState) => SoftAction[];

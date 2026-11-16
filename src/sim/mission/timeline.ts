@@ -16,17 +16,17 @@ export type Responsible = 'AUTO' | 'CREW' | 'NONE';
 
 export interface MissionEvent {
   readonly id: EventId;
-  /** Número del evento en 1.png. */
+  /** Event number in 1.png. */
   readonly n: number;
   readonly name: string;
-  /** Nombre corto para tablas y cuentas regresivas. */
+  /** Short name for tables and countdowns. */
   readonly short: string;
   readonly responsible: Responsible;
-  /** MET nominal (s). null si depende de la trayectoria. */
+  /** Nominal MET (s). null if it depends on the trajectory. */
   readonly met: number | null;
 }
 
-/** Eventos E1–E15 con la numeración de docs/reference/1.png. */
+/** Events E1–E15 with the numbering of docs/reference/1.png. */
 export function timeline(params: MissionParams): readonly MissionEvent[] {
   const b = params.burns;
   const n = params.nominal;
@@ -61,18 +61,18 @@ export const eventNumber = (id: EventId): number => Number(id.slice(1));
 
 export interface TimelineRow extends MissionEvent {
   readonly done: boolean;
-  /** MET real si ya ocurrió; si no, el nominal (o el predicho cuando hay predicción). */
+  /** Actual MET if it already happened; otherwise the nominal one (or the predicted one when there is a prediction). */
   readonly time: number | null;
-  /** true si `time` viene de la trayectoria predicha y no del plan. */
+  /** true if `time` comes from the predicted trajectory and not from the plan. */
   readonly predicted: boolean;
 }
 
-/** Estado de cada evento de la misión: hecho o pendiente, con su MET real, predicho o nominal. */
+/** Status of each mission event: done or pending, with its actual, predicted or nominal MET. */
 export function timelineStatus(s: SimState): TimelineRow[] {
   const p = s.prediction;
   return timeline(s.params).map((ev) => {
     const marker = s.markers.find((m) => m.eventId === ev.id);
-    // E1 y E2 ocurrieron aunque la simulación haya arrancado en E3.
+    // E1 and E2 happened even if the simulation started at E3.
     const before = (ev.id === 'E1' || ev.id === 'E2') && ev.met !== null && s.t >= ev.met;
     if (ev.id === 'E15') return { ...ev, done: s.outcome?.kind === 'success', time: s.outcome?.kind === 'success' ? s.outcome.t : (p?.ei?.t ?? ev.met), predicted: !s.outcome && !!p?.ei };
     if (marker || before) return { ...ev, done: true, time: marker ? marker.t : ev.met, predicted: false };
@@ -88,13 +88,13 @@ export interface NextEvent {
   readonly t: number;
 }
 
-/** Próximo evento con instante conocido (planificado o predicho), para la cuenta regresiva. */
+/** Next event with a known instant (planned or predicted), for the countdown. */
 export function nextEvent(s: SimState): NextEvent | null {
   if (s.outcome) return null;
   let best: NextEvent | null = null;
   for (const row of timelineStatus(s)) {
     if (row.done || row.time === null || row.time <= s.t || row.id === 'E15') continue;
-    // E10 y E12 son tramos, no instantes; E6–E9 solo cuentan mientras sigan pendientes.
+    // E10 and E12 are spans, not instants; E6–E9 only count while still pending.
     if (row.id === 'E10' || row.id === 'E12') continue;
     if (!best || row.time < best.t) best = { id: row.id, short: row.short, t: row.time };
   }

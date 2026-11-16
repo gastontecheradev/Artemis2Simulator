@@ -6,12 +6,12 @@ import { fly } from './calibration';
 
 export const NOMINAL_PATH_FILE = fileURLToPath(new URL('../../src/sim/mission/nominal-path.json', import.meta.url));
 
-/** Punto del plan nominal: MET (s) y posición inercial baricéntrica (km), redondeados. */
+/** Nominal plan point: MET (s) and barycentric inertial position (km), rounded. */
 export type NominalPoint = readonly [t: number, x: number, y: number];
 
 /**
- * Muestrea el trazo de la misión nominal volada: lo que el mapa dibuja tenue desde el
- * principio. Se guardan ~2.000 puntos, más densos donde la trayectoria se curva.
+ * Samples the trail of the flown nominal mission: what the map draws faintly from the
+ * start. ~2,000 points are stored, denser where the trajectory curves.
  */
 export function sampleNominalPath(s: SimState, maxPoints = 2000): NominalPoint[] {
   const trail = s.trail;

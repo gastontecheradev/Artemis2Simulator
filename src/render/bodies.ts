@@ -3,24 +3,24 @@ import { EARTH_MOON_DISTANCE, EI_ALTITUDE, GM_EARTH, GM_MOON, MOON_SOI, R_EARTH,
 import { Vec3 } from '../sim/math/vec3';
 import { KM_TO_SCENE } from './worldToScene';
 
-/** Brillo propio de la Tierra en 3D (fracción de su color), solo para que se vea el lado nocturno. */
+/** Earth's own glow in 3D (fraction of its color), only so the night side is visible. */
 const EARTH_NIGHT_GLOW = 0.35;
-/** Aclarado del color de la Tierra iluminada en 3D (mezcla con blanco). Bajo para que siga azul. */
+/** Lightening of the lit Earth's color in 3D (mix with white). Low so it stays blue. */
 const EARTH_DAY_LIFT = 0.12;
 
 export interface BodyMeshes {
   readonly group: THREE.Group;
   readonly earth: THREE.Mesh;
   readonly moon: THREE.Mesh;
-  /** Órbita lunar alrededor del baricentro (referencia; elipse, inercial, sin el giro del dibujo). */
+  /** Lunar orbit around the barycenter (reference; ellipse, inertial, without the drawing rotation). */
   readonly moonOrbit: THREE.LineLoop;
-  /** Reemplaza la órbita lunar por estos puntos (km, inerciales, relativos al baricentro). */
+  /** Replaces the lunar orbit with these points (km, inertial, relative to the barycenter). */
   setMoonOrbit(points: readonly Vec3[]): void;
-  /** Altitud de la interfaz de entrada (400.000 ft) alrededor de la Tierra. */
+  /** Entry interface altitude (400,000 ft) around Earth. */
   readonly eiRing: THREE.LineLoop;
-  /** Esfera de influencia lunar (en el plano orbital). */
+  /** Lunar sphere of influence (in the orbital plane). */
   readonly soiRing: THREE.Line;
-  /** En 3D los cuerpos se iluminan con el "Sol"; en 2D son discos planos. */
+  /** In 3D the bodies are lit by the "Sun"; in 2D they are flat disks. */
   setLit(on: boolean): void;
   dispose(): void;
 }
@@ -36,19 +36,19 @@ function circle(radius: number, segments: number, closed: boolean): THREE.Buffer
 }
 
 /**
- * Tierra y Luna como esferas de color liso, más las referencias geométricas que no
- * dependen de imágenes. Las texturas de NASA (Blue Marble, CGI Moon Kit) quedan
- * pendientes hasta que estén elegidas y registradas en ASSETS.md.
+ * Earth and Moon as plain-colored spheres, plus the geometric references that do not
+ * depend on images. The NASA textures (Blue Marble, CGI Moon Kit) remain
+ * pending until they are chosen and registered in ASSETS.md.
  */
 export function createBodies(
   colors: { earth: string; moon: string; orbit: string; ei: string },
-  /** Mapa 2D: Luna aclarada (mezcla con blanco, sin matices nuevos) y órbita más visible. */
+  /** 2D map: lightened Moon (mixed with white, no new hues) and a more visible orbit. */
   contrast = false,
 ): BodyMeshes {
   const group = new THREE.Group();
   const moonColor = contrast ? `#${new THREE.Color(colors.moon).lerp(new THREE.Color(0xffffff), 0.35).getHexString()}` : colors.moon;
   const geometry = new THREE.SphereGeometry(1, 192, 96);
-  // Los polos de la esfera van sobre z (perpendicular al plano orbital).
+  // The sphere's poles lie along z (perpendicular to the orbital plane).
   geometry.rotateX(Math.PI / 2);
 
   const lighten = (color: string, k: number): string => `#${new THREE.Color(color).lerp(new THREE.Color(0xffffff), k).getHexString()}`;
@@ -56,15 +56,15 @@ export function createBodies(
     flat: new THREE.MeshBasicMaterial({ color }),
     lit: new THREE.MeshStandardMaterial({ color: lighten(color, dayLift), roughness: 0.95, metalness: 0, emissive: color, emissiveIntensity: glow }),
   });
-  // En 3D la Tierra tiene un brillo propio tenue (su mismo color) para que el lado
-  // nocturno se distinga del fondo, y el lado diurno se aclara (mezcla con blanco, sin
-  // matices nuevos) para que el terminador se lea. La Luna no: su lado oscuro queda oscuro.
+  // In 3D Earth has a faint glow of its own (its same color) so the night side
+  // stands out from the background, and the day side is lightened (mixed with white, no
+  // new hues) so the terminator reads. Not the Moon: its dark side stays dark.
   const earthMat = make(colors.earth, EARTH_NIGHT_GLOW, EARTH_DAY_LIFT);
   const moonMat = make(moonColor);
   const earth: THREE.Mesh = new THREE.Mesh(geometry, earthMat.flat);
   const moon: THREE.Mesh = new THREE.Mesh(geometry, moonMat.flat);
 
-  // Círculo medio hasta que la escena pase la órbita real con `setMoonOrbit`.
+  // Mean circle until the scene passes the real orbit with `setMoonOrbit`.
   const mu = GM_MOON / (GM_EARTH + GM_MOON);
   let orbitGeometry = circle((1 - mu) * EARTH_MOON_DISTANCE * KM_TO_SCENE, 256, true);
   const orbitMaterial = new THREE.LineBasicMaterial({ color: colors.orbit, transparent: true, opacity: contrast ? 0.42 : 0.18 });
@@ -81,7 +81,7 @@ export function createBodies(
 
   group.add(earth, moon, moonOrbit, eiRing, soiRing);
 
-  // Tierra y Luna siempre a escala real, en las tres vistas.
+  // Earth and Moon always at real scale, in all three views.
   earth.scale.setScalar(R_EARTH * KM_TO_SCENE);
   moon.scale.setScalar(R_MOON * KM_TO_SCENE);
 

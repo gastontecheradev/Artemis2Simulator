@@ -5,7 +5,7 @@ import { act } from '../store';
 
 type Led = 'off' | 'armed' | 'active' | 'done';
 
-/** Palanca vista de frente, como los interruptores de los paneles F1–F4 de 9.png. */
+/** Toggle seen from the front, like the switches on panels F1–F4 in 9.png. */
 function Lever({ up }: { up: boolean }): JSX.Element {
   return (
     <svg className="lever" viewBox="0 0 40 40" aria-hidden="true">
@@ -20,11 +20,11 @@ function Lever({ up }: { up: boolean }): JSX.Element {
 interface GuardedProps {
   t: T;
   label: string;
-  /** Prefijo de `data-press` de la guarda y la palanca (el tutorial las señala). */
+  /** `data-press` prefix of the guard and the toggle (the tutorial points at them). */
   press: string;
   armed: boolean;
   led: Led;
-  /** Texto bajo el LED: estado real del sistema. */
+  /** Text under the LED: actual status of the system. */
   state: string;
   disabled?: boolean;
   onArm: (armed: boolean) => void;
@@ -32,8 +32,8 @@ interface GuardedProps {
 }
 
 /**
- * Interruptor crítico con guarda de franjas amarillas y negras. Flujo de dos pasos:
- * levantar la guarda (ARM) y después accionar (FIRE). Bajar la guarda desarma.
+ * Critical switch with a yellow-and-black striped guard. Two-step flow:
+ * raise the guard (ARM) and then actuate (FIRE). Lowering the guard disarms.
  */
 function GuardedSwitch({ t, label, press, armed, led, state, disabled, onArm, onFire }: GuardedProps): JSX.Element {
   return (
@@ -86,7 +86,7 @@ function Plate({ id, title, children }: { id: string; title: string; children: R
 
 const DAP_MODES: readonly DapMode[] = ['AUTO', 'INRTL', 'MAN'];
 
-/** Botón que actúa mientras se mantiene apretado: así funcionan los controladores manuales. */
+/** Button that acts while held down: that is how the hand controllers work. */
 function HoldButton({ label, title, disabled, onHold }: { label: string; title: string; disabled: boolean; onHold: (on: boolean) => void }): JSX.Element {
   return (
     <button
@@ -106,7 +106,7 @@ function HoldButton({ label, title, disabled, onHold }: { label: string; title: 
   );
 }
 
-/** Panel de interruptores y controladores. Todos accionan comandos reales de la simulación. */
+/** Switch and controller panel. All of them trigger real simulation commands. */
 export function SwitchPanel({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   const sw = s.switches;

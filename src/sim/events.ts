@@ -22,7 +22,7 @@ export interface SimEvent {
   readonly type: SimEventType;
   readonly t: number;
   readonly state: ShipState;
-  /** Propelente por tanque en ese instante (vacío si el tramo no era propulsado). */
+  /** Propellant per tank at that instant (empty if the segment was unpowered). */
   readonly prop: readonly number[];
 }
 
@@ -33,9 +33,9 @@ type G = (s: ShipState, t: number, eph: Ephemeris) => number;
 
 interface Monitor {
   readonly g: G;
-  /** Evento al cruzar de negativo a positivo. */
+  /** Event when crossing from negative to positive. */
   readonly rising?: SimEventType;
-  /** Evento al cruzar de positivo a negativo. */
+  /** Event when crossing from positive to negative. */
   readonly falling?: SimEventType;
 }
 
@@ -44,7 +44,7 @@ const earthDist: G = (s, t, eph) => length(sub(s.r, eph.earth(t).r));
 
 const MONITORS: readonly Monitor[] = [
   {
-    // Velocidad radial respecto de la Tierra: ápsides.
+    // Radial velocity relative to Earth: apsides.
     g: (s, t, eph) => {
       const b = eph.earth(t);
       return dot(sub(s.r, b.r), sub(s.v, b.v));
@@ -53,7 +53,7 @@ const MONITORS: readonly Monitor[] = [
     falling: 'apoapsis',
   },
   {
-    // Velocidad radial respecto de la Luna: máximo acercamiento.
+    // Radial velocity relative to the Moon: closest approach.
     g: (s, t, eph) => {
       const b = eph.moon(t);
       return dot(sub(s.r, b.r), sub(s.v, b.v));
@@ -63,7 +63,7 @@ const MONITORS: readonly Monitor[] = [
   { g: (s, t, eph) => moonDist(s, t, eph) - MOON_SOI, rising: 'soi-exit', falling: 'soi-enter' },
   { g: (s, t, eph) => earthDist(s, t, eph) - (R_EARTH + EI_ALTITUDE), falling: 'ei' },
   { g: (s, t, eph) => moonDist(s, t, eph) - R_MOON, falling: 'moon-impact' },
-  // Choque contra la superficie terrestre (solo se llega acá sin haber cruzado EI bajando: ascenso fallido, etapas que caen).
+  // Impact with Earth's surface (only reached without having crossed EI going down: failed ascent, falling stages).
   { g: (s, t, eph) => earthDist(s, t, eph) - R_EARTH, falling: 'surface' },
   { g: (s, t, eph) => losClearance(s.r, eph.earth(t).r, eph.moon(t).r), rising: 'aos', falling: 'los' },
   {
@@ -73,7 +73,7 @@ const MONITORS: readonly Monitor[] = [
   },
 ];
 
-/** Refina el instante del cruce por cero de g entre tA y tB (regula falsi, variante Illinois). */
+/** Refines the instant of g's zero crossing between tA and tB (regula falsi, Illinois variant). */
 function refine(
   g: G,
   sA: ShipState,
@@ -120,9 +120,9 @@ function refine(
 export interface EventIntegrateOptions extends StepperOptions {
   hInit?: number;
   maxSteps?: number;
-  /** Se llama en cada paso aceptado (para registrar el trazo). */
+  /** Called on every accepted step (to record the trail). */
   onSample?: (t: number, state: ShipState) => void;
-  /** Propelente inicial por tanque (solo con `power`). */
+  /** Initial propellant per tank (only with `power`). */
   prop?: readonly number[];
 }
 
@@ -132,17 +132,17 @@ export interface EventIntegrateResult {
   readonly t: number;
   readonly hNext: number;
   readonly steps: number;
-  /** Eventos detectados, en orden cronológico. */
+  /** Detected events, in chronological order. */
   readonly events: readonly SimEvent[];
-  /** Evento terminal (EI, impacto lunar o choque contra la superficie): la integración se cortó ahí. */
+  /** Terminal event (EI, lunar impact or surface impact): the integration stopped there. */
   readonly terminal: SimEvent | null;
-  /** true si llegó a t1; false si cortó por evento terminal o por `maxSteps`. */
+  /** true if it reached t1; false if it stopped on a terminal event or on `maxSteps`. */
   readonly complete: boolean;
 }
 
 /**
- * Integra de t0 a t1 detectando eventos por cambio de signo de funciones monitor.
- * Si ocurre un evento terminal, devuelve el estado exactamente en ese instante.
+ * Integrates from t0 to t1 detecting events by sign changes of monitor functions.
+ * If a terminal event occurs, returns the state exactly at that instant.
  */
 export function integrateWithEvents(
   state: ShipState,
@@ -172,7 +172,7 @@ export function integrateWithEvents(
       else if (g0 >= 0 && g1 < 0) type = MONITORS[i].falling;
       if (!type) continue;
       const hit = refine(MONITORS[i].g, s, t, g0, res.t, g1, eph, opts, prop);
-      // El máximo acercamiento a la Luna solo cuenta dentro de su esfera de influencia.
+      // Closest approach to the Moon only counts inside its sphere of influence.
       if (type === 'perilune' && moonDist(hit.state, hit.t, eph) > MOON_SOI) continue;
       found.push({ type, t: hit.t, state: hit.state, prop: hit.prop });
     }

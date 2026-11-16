@@ -3,11 +3,11 @@ import { tr } from './i18n';
 import { ENGINES, EngineId, FULL_TANKS, MASS, PropLoad, TANK, VehicleConfig, idealDv, totalMass } from './vehicle';
 
 /**
- * Sistemas de propulsión que maneja la tripulación o la secuencia automática en el espacio:
- * - ICPS: etapa superior del cohete (motor RL10), encendidos automáticos antes de la separación.
- * - MAIN: motor principal del módulo de servicio (grandes maniobras).
- * - AUX: propulsores auxiliares (correcciones y maniobras chicas).
- * - RCS: control de reacción: actitud y traslaciones finas con el controlador manual.
+ * Propulsion systems handled by the crew or by the automatic sequence in space:
+ * - ICPS: the rocket's upper stage (RL10 engine), automatic burns before separation.
+ * - MAIN: service module main engine (large maneuvers).
+ * - AUX: auxiliary thrusters (corrections and small maneuvers).
+ * - RCS: reaction control: attitude and fine translations with the hand controller.
  */
 export type PropSystem = 'ICPS' | 'MAIN' | 'AUX' | 'RCS';
 
@@ -19,14 +19,14 @@ export const SYSTEM_ENGINE: Readonly<Record<PropSystem, EngineId>> = {
 };
 
 export interface PropulsionState {
-  /** Propelente restante por tanque (kg): boosters, etapa central, ICPS, módulo de servicio. */
+  /** Remaining propellant per tank (kg): boosters, core stage, ICPS, service module. */
   readonly prop: PropLoad;
-  /** Δv ideal entregado por Orion (MAIN + AUX + RCS), km/s. */
+  /** Ideal Δv delivered by Orion (MAIN + AUX + RCS), km/s. */
   readonly orionDvUsed: number;
   readonly mainDvUsed: number;
   readonly auxDvUsed: number;
   readonly rcsDvUsed: number;
-  /** Δv ideal entregado por el ICPS, km/s. */
+  /** Ideal Δv delivered by the ICPS, km/s. */
   readonly icpsDvUsed: number;
   readonly mainBurns: number;
   readonly auxBurns: number;
@@ -45,25 +45,25 @@ export const INITIAL_PROPULSION: PropulsionState = {
   icpsBurns: 0,
 };
 
-/** Δv (km/s) que le queda a un sistema con el propelente y la masa actuales. */
+/** Δv (km/s) left to a system with the current propellant and mass. */
 export function dvAvailable(system: PropSystem, p: PropulsionState, cfg: VehicleConfig): number {
   const e = ENGINES[SYSTEM_ENGINE[system]];
   return idealDv(e, totalMass(cfg, p.prop), p.prop[e.tank]);
 }
 
-/** Δv que le queda a Orion con el motor principal. */
+/** Δv left to Orion with the main engine. */
 export const orionDvRemaining = (p: PropulsionState, cfg: VehicleConfig): number =>
   cfg.cmSeparated ? 0 : dvAvailable('MAIN', p, cfg);
 
-/** Fracción de propelente del módulo de servicio. */
+/** Service module propellant fraction. */
 export const tankFraction = (p: PropulsionState): number => p.prop[TANK.ESM] / MASS.esmProp;
 export const isDvLow = (p: PropulsionState): boolean => tankFraction(p) < DV_LOW_FRACTION;
 
 export type SystemStatus = 'DISPONIBLE' | 'ENCENDIDO' | 'ACOPLADO' | 'SEPARADO' | 'AGOTADO';
-/** Etiqueta del estado en el idioma actual. */
+/** Status label in the current language. */
 export const systemStatusLabel = (st: SystemStatus): string => tr(`st.${st}`);
 
-/** Estado de un sistema según la configuración del vehículo y qué motores están encendidos. */
+/** Status of a system based on the vehicle configuration and which engines are firing. */
 export function systemStatus(
   system: PropSystem,
   p: PropulsionState,
@@ -82,7 +82,7 @@ export function systemStatus(
   return 'DISPONIBLE';
 }
 
-/** Motivo por el que un encendido no se puede ejecutar, o null si se puede. `dv` en km/s. */
+/** Reason why a burn cannot be executed, or null if it can. `dv` in km/s. */
 export function burnBlocker(system: PropSystem, dv: number, p: PropulsionState, cfg: VehicleConfig): string | null {
   const st = systemStatus(system, p, cfg);
   if (st === 'SEPARADO') return tr(system === 'ICPS' ? 'blk.icpsSeparated' : 'blk.smSeparated');

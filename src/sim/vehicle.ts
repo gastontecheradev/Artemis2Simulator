@@ -1,31 +1,31 @@
 /**
- * El vehículo: etapas, masas y motores. Unidades de este archivo: kg, N, s (SI).
+ * The vehicle: stages, masses and engines. Units in this file: kg, N, s (SI).
  *
- * Fuentes (ver también process.md):
- * - [SLS] NASA, "Space Launch System Reference Guide for Artemis II", SLS‑5558, octubre
- *   de 2025 (fuente primaria): masas de boosters, etapa central, motores RS‑25, ICPS,
- *   adaptadores LVSA y OSA, CubeSats; curva de empuje de los boosters; programa de
- *   potencia de los RS‑25; motores de separación de los boosters.
- * - [A2] NASA, "Artemis II Reference Guide", 2026 (fuente primaria): masas de Orion
- *   (módulo de tripulación, módulo de servicio, torre de escape, paneles, adaptador),
- *   propulsores del módulo de servicio y de la cápsula.
- * - Lo que no está en esas guías se marca con su fuente secundaria o como SUPUESTO.
+ * Sources (see also process.md):
+ * - [SLS] NASA, "Space Launch System Reference Guide for Artemis II", SLS‑5558, October
+ *   2025 (primary source): masses of the boosters, core stage, RS‑25 engines, ICPS,
+ *   LVSA and OSA adapters, CubeSats; booster thrust curve; RS‑25 power
+ *   schedule; booster separation motors.
+ * - [A2] NASA, "Artemis II Reference Guide", 2026 (primary source): Orion masses
+ *   (crew module, service module, launch abort system, fairings, adapter),
+ *   service module and capsule thrusters.
+ * - Whatever is not in those guides is marked with its secondary source or as an ASSUMPTION.
  */
 
-/** Gravedad estándar, para pasar de impulso específico a velocidad de escape. */
+/** Standard gravity, to convert specific impulse to exhaust velocity. */
 export const G0 = 9.80665; // m/s²
 
-/** Qué partes siguen unidas a la nave. */
+/** Which parts are still attached to the spacecraft. */
 export interface VehicleConfig {
-  /** Los dos boosters de combustible sólido ya se separaron. */
+  /** The two solid rocket boosters have already separated. */
   readonly srbSeparated: boolean;
-  /** Se eyectaron la torre de escape (LAS) y los paneles del módulo de servicio. */
+  /** The launch abort system (LAS) and the service module fairings have been jettisoned. */
   readonly lasJettisoned: boolean;
-  /** La etapa central (con el adaptador LVSA) ya se separó. */
+  /** The core stage (with the LVSA adapter) has already separated. */
   readonly coreSeparated: boolean;
-  /** Orion ya se separó del ICPS (que se lleva el adaptador OSA, los CubeSats y el adaptador de la nave). */
+  /** Orion has already separated from the ICPS (which keeps the OSA adapter, the CubeSats and the spacecraft adapter). */
   readonly icpsSeparated: boolean;
-  /** El módulo de tripulación ya se separó del módulo de servicio. */
+  /** The crew module has already separated from the service module. */
   readonly cmSeparated: boolean;
 }
 
@@ -37,46 +37,46 @@ export const CONFIG_AT_LIFTOFF: VehicleConfig = {
   cmSeparated: false,
 };
 
-/** Tanques, en el orden del vector de propelente que lleva el integrador. */
+/** Tanks, in the order of the propellant vector carried by the integrator. */
 export const TANK = { SRB: 0, CORE: 1, ICPS: 2, ESM: 3, CM: 4 } as const;
 export type TankName = keyof typeof TANK;
 export type PropLoad = readonly [number, number, number, number, number];
 export const TANK_COUNT = 5;
 
-/** [SLS] Booster: 726 t cargado, 99,3 t vacío. */
+/** [SLS] Booster: 726 t loaded, 99.3 t empty. */
 const SRB_LOADED_EACH = 726_000;
 const SRB_EMPTY_EACH = 99_300;
 
 export const MASS = {
   srbDry: 2 * SRB_EMPTY_EACH,
   srbProp: 2 * (SRB_LOADED_EACH - SRB_EMPTY_EACH),
-  /** [SLS] Etapa central vacía sin motores 85,3 t + cuatro RS‑25 de 3,52 t. */
+  /** [SLS] Empty core stage without engines 85.3 t + four RS‑25 of 3.52 t. */
   coreDry: 85_300 + 4 * 3_520,
   /**
-   * [SLS] Etapa central cargada sin motores 1.089 t menos vacía 85,3 t. La misma guía
-   * da 998 t ("total propellant weight") y 987,5 t (capacidad de LH2 + LOX): se toma
-   * cargada − vacía porque los dos datos salen de la misma tabla.
+   * [SLS] Loaded core stage without engines 1,089 t minus empty 85.3 t. The same guide
+   * gives 998 t ("total propellant weight") and 987.5 t (LH2 + LOX capacity): loaded −
+   * empty is used because both figures come from the same table.
    */
   coreProp: 1_089_000 - 85_300,
-  /** [SLS] Adaptador de etapas (LVSA): se va con la etapa central. */
+  /** [SLS] Launch vehicle stage adapter (LVSA): leaves with the core stage. */
   lvsa: 4_500,
-  /** [SLS] ICPS: 32,748 t cargado, 3,719 t vacío. */
+  /** [SLS] ICPS: 32.748 t loaded, 3.719 t empty. */
   icpsDry: 3_719,
   icpsProp: 32_748 - 3_719,
-  /** [SLS] Adaptador de Orion (OSA) y cuatro CubeSats de hasta 26 kg (se usa el máximo). Quedan con el ICPS. */
+  /** [SLS] Orion stage adapter (OSA) and four CubeSats of up to 26 kg (the maximum is used). They stay with the ICPS. */
   osa: 820,
   cubesat: 26,
-  /** [A2] Adaptador de la nave (entre el módulo de servicio y el OSA): queda con el ICPS. */
+  /** [A2] Spacecraft adapter (between the service module and the OSA): stays with the ICPS. */
   spacecraftAdapter: 1_270,
-  /** [A2] Torre de escape (LAS) y paneles protectores del módulo de servicio. */
+  /** [A2] Launch abort system (LAS) and service module protective fairings. */
   las: 7_711,
   fairing: 454,
-  /** [A2] Módulo de servicio 15.558 kg con 8.618 kg de propelente útil. */
+  /** [A2] Service module 15,558 kg with 8,618 kg of usable propellant. */
   smDry: 15_558 - 8_618,
   esmProp: 8_618,
-  /** [A2] Módulo de tripulación al lanzamiento (llega al agua con 9.299 kg). */
+  /** [A2] Crew module at launch (reaches the water with 9,299 kg). */
   cm: 10_387,
-  /** SUPUESTO: propelente del RCS de la cápsula (no publicado). */
+  /** ASSUMPTION: capsule RCS propellant (not published). */
   cmProp: 150,
 } as const;
 
@@ -84,7 +84,7 @@ export const CUBESAT_COUNT = 4;
 
 export const FULL_TANKS: PropLoad = [MASS.srbProp, MASS.coreProp, MASS.icpsProp, MASS.esmProp, MASS.cmProp];
 
-/** Masa de las partes unidas, sin propelente (kg). */
+/** Mass of the attached parts, without propellant (kg). */
 export function dryMass(cfg: VehicleConfig): number {
   let m = MASS.cm;
   if (!cfg.cmSeparated) m += MASS.smDry;
@@ -95,7 +95,7 @@ export function dryMass(cfg: VehicleConfig): number {
   return m;
 }
 
-/** Masa total de la nave (kg). El propelente de una etapa separada ya no cuenta. */
+/** Total spacecraft mass (kg). The propellant of a separated stage no longer counts. */
 export function totalMass(cfg: VehicleConfig, prop: readonly number[]): number {
   let m = dryMass(cfg) + prop[TANK.CM];
   if (!cfg.srbSeparated) m += prop[TANK.SRB];
@@ -109,9 +109,9 @@ export type EngineId = 'SRB' | 'RS25' | 'RL10' | 'MAIN' | 'AUX' | 'RCS' | 'CMRCS
 
 export interface EngineSpec {
   readonly name: string;
-  /** Empuje en vacío a pleno (N), sumando todas las unidades. */
+  /** Full vacuum thrust (N), summing all units. */
   readonly thrustVac: number;
-  /** Impulso específico en vacío y a nivel del mar (s). */
+  /** Specific impulse in vacuum and at sea level (s). */
   readonly ispVac: number;
   readonly ispSl: number;
   readonly tank: number;
@@ -120,13 +120,13 @@ export interface EngineSpec {
 // ---------- Boosters ----------
 
 /**
- * [SLS] Curva de empuje en vacío de cada booster (s, kN): 16.014 kN máximos durante
- * unos 25 s, baja a 12.455 kN al pasar por Max Q (T+71 s), vuelve a 14.679 kN y
- * empieza a decaer a los ~90 s; quemado de ~126 s. Los 14.679 kN "al despegue" de la
- * guía son el valor a nivel del mar de ese máximo (14.679/16.014 = 0,917, la relación
- * nivel del mar/vacío de estos boosters): así el empuje total al despegue da los
- * 36.787 kN publicados. La forma del decaimiento final (de 90 s al apagado) es un
- * SUPUESTO: la guía solo da el instante en que empieza.
+ * [SLS] Vacuum thrust curve of each booster (s, kN): 16,014 kN maximum for about
+ * 25 s, drops to 12,455 kN through Max Q (T+71 s), returns to 14,679 kN and
+ * starts tailing off at ~90 s; burnout at ~126 s. The guide's 14,679 kN "at liftoff"
+ * is the sea-level value of that maximum (14,679/16,014 = 0.917, the sea-level/vacuum
+ * ratio of these boosters): that way the total thrust at liftoff gives the
+ * published 36,787 kN. The shape of the final tail-off (from 90 s to burnout) is an
+ * ASSUMPTION: the guide only gives the instant it starts.
  */
 export const SRB_THRUST_PROFILE: readonly (readonly [number, number])[] = [
   [0, 16_014],
@@ -137,13 +137,13 @@ export const SRB_THRUST_PROFILE: readonly (readonly [number, number])[] = [
   [118, 3_000],
   [126, 0],
 ];
-/** [SLS] Empuje de un booster al despegue (nivel del mar), kN. */
+/** [SLS] Thrust of one booster at liftoff (sea level), kN. */
 const SRB_THRUST_SL_LAUNCH = 14_679;
 
-/** Duración del quemado de los boosters (s). */
+/** Booster burn duration (s). */
 export const SRB_BURN_TIME = SRB_THRUST_PROFILE[SRB_THRUST_PROFILE.length - 1][0];
 
-/** Empuje de UN booster (N) a `t` segundos de la ignición, interpolando la curva publicada. */
+/** Thrust of ONE booster (N) `t` seconds after ignition, interpolating the published curve. */
 export function srbThrustEach(t: number): number {
   const P = SRB_THRUST_PROFILE;
   if (t < P[0][0] || t >= SRB_BURN_TIME) return 0;
@@ -157,7 +157,7 @@ export function srbThrustEach(t: number): number {
   return 0;
 }
 
-/** Impulso total de un booster (N·s): integral de la curva de empuje. */
+/** Total impulse of one booster (N·s): integral of the thrust curve. */
 const SRB_IMPULSE_EACH = SRB_THRUST_PROFILE.reduce((acc, [t1, f1], i, P) => {
   if (i === 0) return 0;
   const [t0, f0] = P[i - 1];
@@ -165,36 +165,36 @@ const SRB_IMPULSE_EACH = SRB_THRUST_PROFILE.reduce((acc, [t1, f1], i, P) => {
 }, 0);
 
 /**
- * Impulso específico efectivo de los boosters: el que hace que la curva de empuje
- * publicada consuma exactamente el propelente publicado (≈ 262 s). Wikipedia cita
- * 269 s; la diferencia está dentro de lo "aproximado" de la curva.
+ * Effective specific impulse of the boosters: the one that makes the published thrust
+ * curve consume exactly the published propellant (≈ 262 s). Wikipedia cites
+ * 269 s; the difference is within how "approximate" the curve is.
  */
 export const SRB_ISP = SRB_IMPULSE_EACH / (G0 * (SRB_LOADED_EACH - SRB_EMPTY_EACH));
-/** Empuje máximo de los dos boosters (N). */
+/** Maximum thrust of the two boosters (N). */
 const SRB_THRUST_MAX = 2 * 1000 * Math.max(...SRB_THRUST_PROFILE.map(([, f]) => f));
 
-/** Consumo de los dos boosters (kg/s) a `t` segundos de la ignición. */
+/** Propellant flow of the two boosters (kg/s) `t` seconds after ignition. */
 export const srbMassFlow = (tSinceIgnition: number): number => (2 * srbThrustEach(tSinceIgnition)) / (G0 * SRB_ISP);
 
 // ---------- RS‑25 ----------
 
-/** [SLS] RS‑25 al 109 %: 2.279 kN en vacío, 1.859 kN al despegue (nivel del mar). */
+/** [SLS] RS‑25 at 109 %: 2,279 kN in vacuum, 1,859 kN at liftoff (sea level). */
 const RS25_THRUST_VAC_109 = 2_279_000;
 const RS25_THRUST_SL_109 = 1_859_000;
-/** Isp en vacío del RS‑25: 452 s (Wikipedia; NO es fuente primaria). El de nivel del mar sale del cociente de empujes publicado. */
+/** RS‑25 vacuum Isp: 452 s (Wikipedia; NOT a primary source). The sea-level one comes from the published thrust ratio. */
 const RS25_ISP_VAC = 452;
 
-/** Instante (s antes de T‑0) en que arrancan los RS‑25, sujetos a la plataforma. [SLS] */
+/** Instant (s before T‑0) at which the RS‑25s start, held down on the pad. [SLS] */
 export const RS25_START_BEFORE_LIFTOFF = 6;
 
 /**
- * [SLS] Programa de potencia de los RS‑25 (fracción de la potencia nominal, RPL):
- * arranque escalonado ~6 s antes del despegue hasta el 100 % un segundo antes de T‑0;
- * 109 % desde T‑0; 85 % entre T+124 y T+128 ("bolt bucket" de la separación de los
- * boosters, tabla de eventos); 109 % después; 67 % desde T+481 hasta MECO (T+486).
- * La limitación de aceleración desde ~T+421 la impone `gLimit` (ver power.ts).
- * No se modela una bajada en Max Q: la guía la describe como condicional ("si hace falta").
- * SUPUESTO: la rampa de arranque es lineal.
+ * [SLS] RS‑25 power schedule (fraction of rated power level, RPL):
+ * staggered start ~6 s before liftoff up to 100 % one second before T‑0;
+ * 109 % from T‑0; 85 % between T+124 and T+128 ("bolt bucket" of booster
+ * separation, event table); 109 % afterwards; 67 % from T+481 until MECO (T+486).
+ * Acceleration limiting from ~T+421 is imposed by `gLimit` (see power.ts).
+ * No throttle-down at Max Q is modeled: the guide describes it as conditional ("if needed").
+ * ASSUMPTION: the start-up ramp is linear.
  */
 export function rs25PowerLevel(t: number): number {
   if (t < -RS25_START_BEFORE_LIFTOFF) return 0;
@@ -205,13 +205,13 @@ export function rs25PowerLevel(t: number): number {
   return 1.09;
 }
 
-/** Fracción del empuje máximo (109 %) que pide el programa de potencia en `t`. */
+/** Fraction of maximum thrust (109 %) requested by the power schedule at `t`. */
 export const rs25Throttle = (t: number): number => rs25PowerLevel(t) / 1.09;
 
 export const ENGINES: Readonly<Record<EngineId, EngineSpec>> = {
-  // Dos boosters: empuje máximo 16.014 kN cada uno [SLS]; el empuje real sigue la curva (ver srbThrustEach).
+  // Two boosters: maximum thrust 16,014 kN each [SLS]; the actual thrust follows the curve (see srbThrustEach).
   SRB: { name: 'BOOSTERS', thrustVac: SRB_THRUST_MAX, ispVac: SRB_ISP, ispSl: SRB_ISP * (SRB_THRUST_SL_LAUNCH / SRB_THRUST_PROFILE[0][1]), tank: TANK.SRB },
-  // Cuatro RS‑25 al 109 % [SLS].
+  // Four RS‑25s at 109 % [SLS].
   RS25: {
     name: 'RS‑25 ×4',
     thrustVac: 4 * RS25_THRUST_VAC_109,
@@ -219,31 +219,31 @@ export const ENGINES: Readonly<Record<EngineId, EngineSpec>> = {
     ispSl: RS25_ISP_VAC * (RS25_THRUST_SL_109 / RS25_THRUST_VAC_109),
     tank: TANK.CORE,
   },
-  // Un RL10C‑2 de 110,1 kN [SLS]. Isp 465,5 s: dato del RL10B‑2 (NASA, ICPS fact sheet); el del C‑2 no está publicado en las guías.
+  // One 110.1 kN RL10C‑2 [SLS]. Isp 465.5 s: RL10B‑2 figure (NASA, ICPS fact sheet); the C‑2's is not published in the guides.
   RL10: { name: 'RL10C‑2', thrustVac: 110_100, ispVac: 465.5, ispSl: 465.5, tank: TANK.ICPS },
-  // Motor principal de Orion (OMS‑E): 26,7 kN [A2]. Isp 316 s: valor del motor OMS del Shuttle del que deriva (no primario).
+  // Orion main engine (OMS‑E): 26.7 kN [A2]. Isp 316 s: value of the Shuttle OMS engine it derives from (not primary).
   MAIN: { name: 'MOTOR PRINCIPAL', thrustVac: 26_700, ispVac: 316, ispSl: 316, tank: TANK.ESM },
-  // Ocho auxiliares de 490 N [A2]. SUPUESTO: Isp 312 s.
+  // Eight 490 N auxiliary thrusters [A2]. ASSUMPTION: Isp 312 s.
   AUX: { name: 'AUXILIARES ×8', thrustVac: 8 * 490, ispVac: 312, ispSl: 312, tank: TANK.ESM },
-  // RCS del módulo de servicio: 24 propulsores de 222 N, 12 en uso normal [A2]. SUPUESTO: 4 empujan en el eje en una traslación, Isp 270 s.
+  // Service module RCS: 24 thrusters of 222 N, 12 in normal use [A2]. ASSUMPTION: 4 push along the axis in a translation, Isp 270 s.
   RCS: { name: 'RCS SM', thrustVac: 4 * 222, ispVac: 270, ispSl: 270, tank: TANK.ESM },
-  // RCS de la cápsula: 12 propulsores de 712 N [A2]. SUPUESTO: 2 empujan en el eje, Isp 270 s.
+  // Capsule RCS: 12 thrusters of 712 N [A2]. ASSUMPTION: 2 push along the axis, Isp 270 s.
   CMRCS: { name: 'RCS CM', thrustVac: 2 * 712, ispVac: 270, ispSl: 270, tank: TANK.CM },
 };
 
-/** Consumo a pleno empuje (kg/s). */
+/** Propellant flow at full thrust (kg/s). */
 export const fullMassFlow = (e: EngineSpec): number => e.thrustVac / (G0 * e.ispVac);
 
 /**
- * [SLS] Motores de separación de los boosters: 8 por booster de ~89 kN durante algo
- * menos de 1 s. Sobre los 99,3 t del booster vacío dan ~7,2 m/s de costado.
+ * [SLS] Booster separation motors: 8 per booster of ~89 kN for a little
+ * under 1 s. On the 99.3 t of the empty booster they give ~7.2 m/s sideways.
  */
 export const SRB_SEPARATION_SPEED = (8 * 89_000 * 1) / SRB_EMPTY_EACH; // m/s
 
 /**
- * Área de referencia por coeficiente de arrastre (m²). Las áreas salen de los diámetros
- * publicados (etapa central 8,41 m, boosters 3,7 m, ICPS 5,09 m, Orion 5,0 m).
- * SUPUESTO: Cd = 0,5 constante.
+ * Reference area times drag coefficient (m²). The areas come from the published
+ * diameters (core stage 8.41 m, boosters 3.7 m, ICPS 5.09 m, Orion 5.0 m).
+ * ASSUMPTION: Cd = 0.5 constant.
  */
 export function dragArea(cfg: VehicleConfig): number {
   const cd = 0.5;
@@ -252,18 +252,18 @@ export function dragArea(cfg: VehicleConfig): number {
   return cd * Math.PI * 2.5 ** 2;
 }
 
-/** Δv ideal (km/s) que da quemar `propellant` kg desde la masa `mass` con un motor (ecuación del cohete). */
+/** Ideal Δv (km/s) from burning `propellant` kg starting at mass `mass` with one engine (rocket equation). */
 export function idealDv(engine: EngineSpec, mass: number, propellant: number): number {
   const burn = Math.min(propellant, mass - 1);
   return burn <= 0 ? 0 : ((G0 * engine.ispVac) / 1000) * Math.log(mass / (mass - burn));
 }
 
-/** Duración (s) de un encendido a pleno empuje que entrega un Δv ideal `dv` (km/s) desde la masa `mass`. */
+/** Duration (s) of a full-thrust burn that delivers an ideal Δv `dv` (km/s) starting at mass `mass`. */
 export function burnDuration(engine: EngineSpec, mass: number, dv: number): number {
   return (mass / fullMassFlow(engine)) * (1 - Math.exp((-dv * 1000) / (G0 * engine.ispVac)));
 }
 
-/** Δv ideal (km/s) que entrega un encendido de `duration` segundos a pleno empuje desde la masa `mass`. */
+/** Ideal Δv (km/s) delivered by a full-thrust burn of `duration` seconds starting at mass `mass`. */
 export function dvForDuration(engine: EngineSpec, mass: number, duration: number): number {
   return ((G0 * engine.ispVac) / 1000) * Math.log(mass / (mass - fullMassFlow(engine) * duration));
 }

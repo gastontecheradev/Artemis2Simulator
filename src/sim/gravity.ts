@@ -1,7 +1,7 @@
 import { Ephemeris } from './bodies';
 import { Vec3 } from './math/vec3';
 
-/** Aceleración gravitatoria (km/s²) sobre la nave en la posición r y el instante t. */
+/** Gravitational acceleration (km/s²) on the spacecraft at position r and instant t. */
 export function acceleration(r: Vec3, t: number, eph: Ephemeris): Vec3 {
   const e = eph.earth(t).r;
   const dx = r.x - e.x;

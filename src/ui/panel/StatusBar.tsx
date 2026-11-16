@@ -6,7 +6,7 @@ import { ProcedureId, SimState } from '../../sim/state';
 import { useT } from '../i18n';
 import { act } from '../store';
 
-/** Procedimiento que atiende cada alarma, si hay uno. */
+/** Procedure that handles each alarm, if there is one. */
 function procedureFor(alarmId: string, s: SimState): ProcedureId | null {
   if (alarmId.startsWith('missed:')) return alarmId.slice(7) as ProcedureId;
   if (alarmId === 'cm-sep') return 'SEP_CM';
@@ -15,10 +15,10 @@ function procedureFor(alarmId: string, s: SimState): ProcedureId | null {
   return null;
 }
 
-/** Día de vuelo (FD01 el día del lanzamiento), como en el cronograma de NASA. */
+/** Flight day (FD01 on launch day), as in NASA's timeline. */
 const flightDay = (t: number): number => Math.max(1, Math.floor(t / 86400) + 1);
 
-/** Barra de estado: MET, fase, COMM, velocidad de simulación, próximo evento y Master Alarm. */
+/** Status bar: MET, phase, COMM, simulation speed, next event and Master Alarm. */
 export function StatusBar({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   const comm = s.comms.los ? 'LOS' : s.comms.network;
@@ -65,7 +65,7 @@ export function StatusBar({ s }: { s: SimState }): JSX.Element {
           {s.alarms.map((a) => {
             const cls = `ann ${a.level.toLowerCase()}${a.acked ? ' acked' : ''}`;
             const proc = procedureFor(a.id, s);
-            // Como en la cabina real, la alarma lleva al procedimiento que la atiende.
+            // As in the real cockpit, the alarm leads to the procedure that handles it.
             return proc ? (
               <button key={a.id} className={`${cls} link`} title={t('st.openProc')} onClick={() => act((x) => selectProcedure(x, proc))}>
                 {a.text} ▸

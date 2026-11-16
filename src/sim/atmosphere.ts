@@ -3,9 +3,9 @@ import { EARTH_ROTATION_IN_PLANE, R_EARTH } from './constants';
 import { Vec3, length, sub } from './math/vec3';
 
 /**
- * Atmósfera exponencial por capas (modelo de Vallado, "Fundamentals of Astrodynamics
- * and Applications", tabla 8‑4, derivado de la U.S. Standard Atmosphere 1976).
- * Cada fila: altitud base (km), densidad en la base (kg/m³) y altura de escala (km).
+ * Layered exponential atmosphere (Vallado model, "Fundamentals of Astrodynamics
+ * and Applications", table 8‑4, derived from the U.S. Standard Atmosphere 1976).
+ * Each row: base altitude (km), density at the base (kg/m³) and scale height (km).
  */
 const LAYERS: readonly (readonly [number, number, number])[] = [
   [0, 1.225, 7.249],
@@ -27,10 +27,10 @@ const LAYERS: readonly (readonly [number, number, number])[] = [
 ];
 
 export const SEA_LEVEL_DENSITY = LAYERS[0][1];
-/** Por encima de esta altitud el arrastre se desprecia (el vuelo orbital del simulador es sin atmósfera). */
+/** Above this altitude drag is neglected (the simulator's orbital flight has no atmosphere). */
 export const ATMOSPHERE_TOP = 200; // km
 
-/** Densidad del aire (kg/m³) a una altitud en km. */
+/** Air density (kg/m³) at an altitude in km. */
 export function airDensity(altitude: number): number {
   if (altitude >= ATMOSPHERE_TOP) return 0;
   const h = Math.max(0, altitude);
@@ -41,15 +41,15 @@ export function airDensity(altitude: number): number {
 }
 
 /**
- * Presión ambiente relativa a la del nivel del mar. Se aproxima con el cociente de
- * densidades (atmósfera isoterma): alcanza para interpolar el impulso específico.
+ * Ambient pressure relative to sea level. Approximated by the density
+ * ratio (isothermal atmosphere): good enough to interpolate the specific impulse.
  */
 export const pressureRatio = (altitude: number): number => airDensity(altitude) / SEA_LEVEL_DENSITY;
 
 /**
- * Velocidad del aire (y del suelo) en un punto: la atmósfera gira con la Tierra.
- * El modelo es plano, así que se usa la componente de la rotación terrestre en el
- * plano de la órbita (la del sitio de lanzamiento).
+ * Velocity of the air (and the ground) at a point: the atmosphere rotates with Earth.
+ * The model is planar, so the component of Earth's rotation in the orbital
+ * plane (that of the launch site) is used.
  */
 export function airVelocity(r: Vec3, earth: BodyState): Vec3 {
   const rel = sub(r, earth.r);

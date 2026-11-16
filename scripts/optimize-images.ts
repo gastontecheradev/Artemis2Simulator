@@ -1,15 +1,15 @@
 /**
- * Convierte los originales de NASA de assets-src/ a versiones livianas en
- * public/assets/nasa/. Es idempotente: se puede volver a correr sin duplicar nada.
+ * Converts the NASA originals in assets-src/ into lightweight versions in
+ * public/assets/nasa/. It is idempotent: it can be re-run without duplicating anything.
  *
- * - earth-* y moon-*: texturas equirectangulares → 2048×1024 (2D) y 4096×2048 (3D),
- *   en WebP con fallback JPG.
- * - El resto: fotos → 1200 px de ancho, WebP y JPG.
+ * - earth-* and moon-*: equirectangular textures → 2048×1024 (2D) and 4096×2048 (3D),
+ *   in WebP with JPG fallback.
+ * - The rest: photos → 1200 px wide, WebP and JPG.
  *
- * El nombre base de salida es el del original, que tiene que coincidir con su fila
- * en ASSETS.md.
+ * The output base name is the original's, which has to match its row
+ * in ASSETS.md.
  *
- * Uso: npm run images
+ * Usage: npm run images
  */
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';

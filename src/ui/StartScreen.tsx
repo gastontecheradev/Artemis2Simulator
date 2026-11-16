@@ -5,7 +5,7 @@ import { MISSION_PARAMS } from '../sim/mission/params';
 import { useT } from './i18n';
 import { setIntro, startMission } from './store';
 
-/** Pantalla de inicio: qué es, cómo se vuela y cómo empezar. */
+/** Start screen: what it is, how to fly it and how to begin. */
 export function StartScreen({ onCredits }: { onCredits: () => void }): JSX.Element {
   const t = useT();
   const [autoCrew, setAutoCrew] = useState(false);

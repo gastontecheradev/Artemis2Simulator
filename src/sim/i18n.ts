@@ -1,10 +1,10 @@
 /**
- * Textos de la simulación (log, procedimientos, alarmas, línea de tiempo) en inglés y
- * español. El idioma es un ajuste global que la interfaz fija antes de crear el estado
- * inicial; los textos ya escritos en el log no se traducen retroactivamente.
+ * Simulation texts (log, procedures, alarms, timeline) in English and
+ * Spanish. The language is a global setting that the UI sets before creating the initial
+ * state; texts already written to the log are not retroactively translated.
  *
- * Las siglas de la cabina (MET, LOS, AOS, NSN, DSN, TLI, EI, TIG) se mantienen en inglés
- * en los dos idiomas, como en las imágenes de referencia.
+ * Cockpit acronyms (MET, LOS, AOS, NSN, DSN, TLI, EI, TIG) stay in English
+ * in both languages, as in the reference images.
  */
 
 export type Locale = 'en' | 'es';
@@ -17,7 +17,7 @@ export function setLocale(locale: Locale): void {
 }
 
 const EN = {
-  // --- Log de eventos ---
+  // --- Event log ---
   'log.pad': 'E1 · Rocket on pad LC‑39B. Countdown at T‑6 s.',
   'log.liftoff': 'E1 · Booster ignition and liftoff.',
   'log.pitch': 'Tower clear. Pitch maneuver.',
@@ -62,7 +62,7 @@ const EN = {
   'log.maxQ': 'Max Q: peak dynamic pressure of {q} kPa at MET {met}.',
   'log.cmPrompt': 'E13 · CM/SM separation required: entry interface in {min} min.',
   'log.alarm': '{level} · {text}',
-  // --- Encendidos ---
+  // --- Burns ---
   'burn.E4': 'Perigee raise',
   'burn.E5': 'Apogee raise to high Earth orbit',
   'man.E7': 'Upper stage separation burn (USS)',
@@ -85,7 +85,7 @@ const EN = {
   'blk.coreAttached': 'The core stage is still attached',
   'blk.empty': 'No propellant',
   'blk.insufficient': 'Not enough propellant for that Δv',
-  // --- Finales ---
+  // --- Endings ---
   'out.moonImpact': 'The spacecraft impacted the Moon.',
   'out.crash': 'The vehicle fell to the surface without reaching orbit.',
   'out.reentryEarly': 'The spacecraft re-entered the atmosphere before the translunar injection.',
@@ -94,7 +94,7 @@ const EN = {
   'out.steep': 'Entry too steep ({data}): excessive deceleration and heating.',
   'out.success': 'Entry within the corridor ({data}). Splashdown in the Pacific.',
   'out.lost': 'Orbit lost: the spacecraft escaped the Earth‑Moon system.',
-  // --- Comandos ---
+  // --- Commands ---
   'cmd.disarmCancel': '{id} · {sw} disarmed: burn cancelled.',
   'cmd.autoCrewOn': 'Automatic crew enabled.',
   'cmd.autoCrewOff': 'Automatic crew disabled.',
@@ -112,7 +112,7 @@ const EN = {
   'guid.inTolerance': 'trajectory within tolerance, no correction needed',
   'guid.found': 'solution found',
   'guid.noConverge': 'guidance does not converge: use a manual maneuver',
-  // --- Alarmas ---
+  // --- Alarms ---
   'alm.moonImpact': 'LUNAR IMPACT PREDICTED',
   'alm.reentry': 'RE-ENTRY PREDICTED',
   'alm.missed': '{id} WINDOW LOST',
@@ -121,7 +121,7 @@ const EN = {
   'alm.dvLow': 'LOW PROPELLANT',
   'alm.los': 'LOS · NO LINK WITH EARTH',
   'alm.cmSep': 'CM/SM SEPARATION PENDING',
-  // --- Procedimientos ---
+  // --- Procedures ---
   'proc.sepIcps.title': 'Orion/ICPS separation and proximity demo',
   'proc.sepCm.title': 'Crew module / service module separation',
   'proc.waitIcps': 'Wait for the end of the ICPS burns: MET {met}',
@@ -143,7 +143,7 @@ const EN = {
   'proc.tigAuto': 'Ignition at TIG and automatic cutoff',
   'proc.radial': 'radial',
   'proc.prograde': 'prograde',
-  // --- Línea de tiempo ---
+  // --- Timeline ---
   'ev.E1.name': 'Launch from LC‑39B',
   'ev.E1.short': 'LAUNCH',
   'ev.E2.name': 'Booster, panel and LAS separation',
@@ -174,7 +174,7 @@ const EN = {
   'ev.E14.short': 'ENTRY EI',
   'ev.E15.name': 'Splashdown in the Pacific',
   'ev.E15.short': 'SPLASHDOWN',
-  // --- Fases ---
+  // --- Phases ---
   'phase.ASCENSO': 'ASCENT',
   'phase.INSERCION': 'INSERTION',
   'phase.ORBITA_BAJA': 'LOW ORBIT',
@@ -183,7 +183,7 @@ const EN = {
   'phase.SOBREVUELO': 'FLYBY',
   'phase.REGRESO': 'RETURN',
   'phase.ENTRADA': 'ENTRY',
-  // --- Estado de los sistemas ---
+  // --- System status ---
   'st.DISPONIBLE': 'AVAILABLE',
   'st.ENCENDIDO': 'FIRING',
   'st.ACOPLADO': 'ATTACHED',
@@ -363,7 +363,7 @@ const TABLES: Readonly<Record<Locale, Readonly<Record<SimKey, string>>>> = { en:
 
 export type Params = Readonly<Record<string, string | number>>;
 
-/** Texto de la simulación en el idioma actual, con parámetros `{nombre}`. */
+/** Simulation text in the current language, with `{name}` parameters. */
 export function tr(key: SimKey, params?: Params): string {
   const text = TABLES[current][key];
   if (!params) return text;

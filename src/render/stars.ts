@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 
 export interface Stars {
-  /** Dibuja el fondo. Llamar antes de la escena principal, con el buffer ya limpio. */
+  /** Draws the background. Call before the main scene, with the buffer already cleared. */
   render(renderer: THREE.WebGLRenderer, main: THREE.Camera, aspect: number, frameAngle: number): void;
   dispose(): void;
 }
 
-/** Generador determinista: el cielo es el mismo en cada carga. */
+/** Deterministic generator: the sky is the same on every load. */
 function mulberry32(seed: number): () => number {
   let a = seed;
   return () => {
@@ -18,10 +18,10 @@ function mulberry32(seed: number): () => number {
 }
 
 /**
- * Campo de estrellas de fondo. Es decorativo (posiciones al azar, no un catálogo real).
- * Se dibuja con una cámara propia que solo copia la orientación de la cámara principal,
- * así no depende del zoom ni del origen flotante. En el marco rotante el cielo gira,
- * que es justamente lo que se vería desde ese marco.
+ * Background star field. It is decorative (random positions, not a real catalog).
+ * Drawn with its own camera that only copies the main camera's orientation,
+ * so it does not depend on the zoom or the floating origin. In the rotating frame the sky turns,
+ * which is exactly what would be seen from that frame.
  */
 export function createStars(color: string, count = 1600): Stars {
   const random = mulberry32(20260401);
@@ -29,12 +29,12 @@ export function createStars(color: string, count = 1600): Stars {
   const colors = new Float32Array(count * 3);
   const base = new THREE.Color(color);
   for (let i = 0; i < count; i++) {
-    // Punto uniforme sobre la esfera.
+    // Uniform point on the sphere.
     const z = 2 * random() - 1;
     const phi = 2 * Math.PI * random();
     const r = Math.sqrt(1 - z * z);
     positions.set([10 * r * Math.cos(phi), 10 * r * Math.sin(phi), 10 * z], i * 3);
-    // Muchas estrellas tenues y pocas brillantes.
+    // Many faint stars and few bright ones.
     const brightness = 0.12 + 0.75 * Math.pow(random(), 3.2);
     colors.set([base.r * brightness, base.g * brightness, base.b * brightness], i * 3);
   }

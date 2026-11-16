@@ -3,7 +3,7 @@ import { MOON_SOI } from './constants';
 import { ShipState } from './integrator';
 import { Vec3, add, cross, distance, normalize, scale, sub } from './math/vec3';
 
-/** Delta‑v en el marco local de la nave (km/s). */
+/** Delta‑v in the spacecraft's local frame (km/s). */
 export interface DeltaV {
   readonly prograde: number;
   readonly normal: number;
@@ -22,9 +22,9 @@ export interface LocalFrame {
 }
 
 /**
- * Marco local respecto de un cuerpo: prograde = dirección de la velocidad relativa,
- * normal = dirección del momento angular, radial = prograde × normal (hacia afuera
- * en una órbita circular).
+ * Local frame relative to a body: prograde = direction of the relative velocity,
+ * normal = direction of the angular momentum, radial = prograde × normal (outwards
+ * in a circular orbit).
  */
 export function localFrame(ship: ShipState, body: BodyState): LocalFrame {
   const rRel = sub(ship.r, body.r);
@@ -36,15 +36,15 @@ export function localFrame(ship: ShipState, body: BodyState): LocalFrame {
 }
 
 /**
- * Cuerpo de referencia del marco local: la Luna dentro de su esfera de influencia,
- * la Tierra en el resto.
+ * Reference body of the local frame: the Moon inside its sphere of influence,
+ * Earth everywhere else.
  */
 export function referenceBody(ship: ShipState, t: number, eph: Ephemeris): BodyState {
   const moon = eph.moon(t);
   return distance(ship.r, moon.r) < MOON_SOI ? moon : eph.earth(t);
 }
 
-/** Encendido impulsivo: suma el delta‑v instantáneamente. Devuelve un estado nuevo. */
+/** Impulsive burn: adds the delta‑v instantaneously. Returns a new state. */
 export function applyBurn(ship: ShipState, dv: DeltaV, body: BodyState): ShipState {
   const f = localFrame(ship, body);
   const d = add(add(scale(f.prograde, dv.prograde), scale(f.normal, dv.normal)), scale(f.radial, dv.radial));
@@ -52,9 +52,9 @@ export function applyBurn(ship: ShipState, dv: DeltaV, body: BodyState): ShipSta
 }
 
 /**
- * Dirección del empuje de un encendido: la combinación de ejes del marco local que
- * pide el Δv, recalculada en cada instante (la nave sigue, por ejemplo, el prograde
- * mientras dura el encendido).
+ * Thrust direction of a burn: the combination of local-frame axes requested
+ * by the Δv, recomputed at every instant (the spacecraft follows, for example, prograde
+ * for the whole burn).
  */
 export function burnDirection(dv: DeltaV, eph: Ephemeris): (t: number, r: Vec3, v: Vec3) => Vec3 {
   return (t, r, v) => {

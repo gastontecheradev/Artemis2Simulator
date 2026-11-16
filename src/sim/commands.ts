@@ -17,11 +17,11 @@ import { burnBlocker } from './propulsion';
 import { DapMode, InitOptions, ProcedureId, SimState, SwitchName, createInitialState } from './state';
 
 /**
- * API de comandos: todo lo que la UI puede hacerle a la simulación pasa por acá.
- * Cada comando es una función pura estado → estado.
+ * Command API: everything the UI can do to the simulation goes through here.
+ * Each command is a pure state → state function.
  */
 
-/** Avanza un frame: `frameDt` segundos reales por la velocidad de simulación. */
+/** Advances one frame: `frameDt` real seconds times the simulation speed. */
 export const tick = (s: SimState, frameDt: number): SimState => advance(s, frameDt * s.clock.warp);
 
 export const play = (s: SimState): SimState =>
@@ -34,27 +34,27 @@ export const togglePlay = (s: SimState): SimState => (s.clock.running ? pause(s)
 
 export function setWarp(s: SimState, warp: number): SimState {
   const w = WARP_LEVELS.includes(warp as (typeof WARP_LEVELS)[number]) ? warp : 1;
-  // Un cambio manual cancela la restauración automática pendiente.
+  // A manual change cancels the pending automatic restore.
   return w === s.clock.warp ? s : { ...s, clock: { ...s.clock, warp: w }, warpRestore: null };
 }
 
 export const reset = (params: MissionParams, opts: InitOptions = {}): SimState =>
   produce(createInitialState(params, opts), () => undefined);
 
-/** Reconoce todas las alarmas activas (apaga el Master Alarm). */
+/** Acknowledges all active alarms (turns off the Master Alarm). */
 export function ackAlarms(s: SimState): SimState {
   if (s.alarms.every((a) => a.acked)) return s;
   return { ...s, alarms: s.alarms.map((a) => (a.acked ? a : { ...a, acked: true })) };
 }
 
-/** Acciona un interruptor. Bajar la guarda de un motor desarma y descompromete el encendido. */
+/** Actuates a switch. Lowering an engine's guard disarms it and uncommits the burn. */
 export function setSwitch(s: SimState, name: SwitchName, value: boolean): SimState {
   if (s.switches[name] === value || s.outcome) return s;
   return produce(s, (d) => {
     d.switches = { ...d.switches, [name]: value };
     if (!value && (name === 'mainArm' || name === 'auxArm')) {
       const system = name === 'mainArm' ? 'MAIN' : 'AUX';
-      // Con el motor encendido, bajar la guarda lo corta.
+      // With the engine firing, lowering the guard cuts it off.
       if (d.burn && d.burn.system === system) endBurn(d, 'cutoff');
       for (const m of Object.values(d.maneuvers)) {
         if (m.system === system && m.status === 'committed') {
@@ -70,9 +70,9 @@ export function setSwitch(s: SimState, name: SwitchName, value: boolean): SimSta
 }
 
 /**
- * Acciona el interruptor de un motor (FIRE). Requiere guarda levantada, maniobra
- * cargada en Procs para ese sistema y Δv confirmado. Antes del TIG el encendido
- * queda comprometido y se ejecuta solo en el TIG; después del TIG se ejecuta ya.
+ * Actuates an engine switch (FIRE). Requires the guard raised, a maneuver
+ * loaded in Procs for that system and a confirmed Δv. Before TIG the burn
+ * is committed and executes on its own at TIG; after TIG it executes immediately.
  */
 export function fireEngine(s: SimState, system: 'MAIN' | 'AUX'): SimState {
   if (s.outcome) return s;
@@ -132,7 +132,7 @@ export function cycleProcedure(s: SimState, dir: 1 | -1): SimState {
   return selectProcedure(s, PROCEDURE_ORDER[(i + dir + n) % n]);
 }
 
-/** Skip: saltea el paso actual. Saltear la confirmación equivale a aceptar el Δv planeado. */
+/** Skip: skips the current step. Skipping the confirmation is equivalent to accepting the planned Δv. */
 export function skipStep(s: SimState): SimState {
   const view = procedureView(s, s.proc.activeId);
   const i = currentStepIndex(s, view);
@@ -144,7 +144,7 @@ export function skipStep(s: SimState): SimState {
   });
 }
 
-/** Jump to Step: mueve el cursor al paso siguiente (cíclico). */
+/** Jump to Step: moves the cursor to the next step (cyclic). */
 export function jumpStep(s: SimState): SimState {
   const view = procedureView(s, s.proc.activeId);
   const n = view.steps.length;
@@ -166,7 +166,7 @@ export const toggleAdvanced = (s: SimState): SimState => ({
   proc: { ...s.proc, advanced: !s.proc.advanced },
 });
 
-/** Ajusta el Δv planeado de la maniobra activa (solo en modo avanzado). */
+/** Adjusts the planned Δv of the active maneuver (advanced mode only). */
 export function adjustDv(s: SimState, delta: number): SimState {
   const id = activeManeuverId(s);
   if (!id || !s.proc.advanced) return s;
@@ -178,13 +178,13 @@ export function adjustDv(s: SimState, delta: number): SimState {
   });
 }
 
-/** Cambia el sistema de la maniobra manual entre motor principal y auxiliares. */
+/** Switches the manual maneuver's system between main engine and auxiliaries. */
 export function toggleManualSystem(s: SimState): SimState {
   const m = s.maneuvers.MAN;
   return produce(s, (d) => setManeuver(d, 'MAN', { system: m.system === 'MAIN' ? 'AUX' : 'MAIN' }));
 }
 
-/** Guiado: calcula el Δv de la corrección activa (OTC u RTC). */
+/** Guidance: computes the Δv of the active correction (OTC or RTC). */
 export function computeCorrection(s: SimState): SimState {
   const id = activeManeuverId(s);
   if (id !== 'E10' && id !== 'E12') return s;
@@ -200,9 +200,9 @@ export function computeCorrection(s: SimState): SimState {
   });
 }
 
-// --- Actitud y controladores manuales ---
+// --- Attitude and hand controllers ---
 
-/** Cambia el modo del piloto automático (DAP). Durante el ascenso manda el guiado del cohete. */
+/** Changes the digital autopilot (DAP) mode. During the ascent the rocket guidance is in control. */
 export function setDapMode(s: SimState, mode: DapMode): SimState {
   if (s.outcome || s.attitude.mode === mode) return s;
   return produce(s, (d) => {
@@ -215,7 +215,7 @@ export function setDapMode(s: SimState, mode: DapMode): SimState {
   });
 }
 
-/** Controlador de rotación (RHC), eje de cabeceo: −1, 0 o +1. Solo actúa con el DAP en MAN. */
+/** Rotational hand controller (RHC), pitch axis: −1, 0 or +1. Only acts with the DAP in MAN. */
 export function setRhc(s: SimState, value: number): SimState {
   const v = Math.sign(value);
   if (s.outcome || s.attitude.rhc === v || s.attitude.mode !== 'MAN') return s;
@@ -223,9 +223,9 @@ export function setRhc(s: SimState, value: number): SimState {
 }
 
 /**
- * Controlador de traslación (THC) sobre el eje de la nave: +1 empuja hacia adelante,
- * −1 hacia atrás, con los propulsores de control de reacción del módulo de servicio
- * (o los de la cápsula, después de separarlo). Necesita Orion ya separado del ICPS.
+ * Translational hand controller (THC) along the spacecraft axis: +1 thrusts forward,
+ * −1 backward, with the service module's reaction control thrusters
+ * (or the capsule's, after separating it). Requires Orion already separated from the ICPS.
  */
 export function setThc(s: SimState, value: number): SimState {
   const v = Math.sign(value);

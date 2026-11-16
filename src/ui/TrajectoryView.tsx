@@ -27,7 +27,7 @@ function Group<T extends string>({ title, options, value, onChange }: GroupProps
   );
 }
 
-/** Lienzo de una vista: crea el renderer y lo destruye al desmontar. Solo el mapa marca el paso del tiempo. */
+/** Canvas of one view: creates the renderer and destroys it on unmount. Only the map drives the passage of time. */
 function Canvas({ dim, className }: { dim: ViewDim; className?: string }): JSX.Element {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -35,7 +35,7 @@ function Canvas({ dim, className }: { dim: ViewDim; className?: string }): JSX.E
     const handle = createTrajectoryView(ref.current, dim, {
       getState: simStore.getState,
       getSettings: () => getViewSettings(dim),
-      // Una sola vista marca el paso del tiempo; el avance pasa por sim/commands.
+      // Only one view drives the passage of time; the advance goes through sim/commands.
       onFrame: dim === '2d' ? (dt) => simStore.dispatch((s) => tick(s, dt)) : undefined,
     });
     return () => handle.dispose();
@@ -44,9 +44,9 @@ function Canvas({ dim, className }: { dim: ViewDim; className?: string }): JSX.E
 }
 
 /**
- * Área de la derecha, dividida en dos: arriba el mapa 2D, fijo como una infografía
- * (marco rotante o inercial, escala que abarca toda la misión y datos de vuelo), y abajo la vista
- * 3D, que sigue a la nave de cerca y a escala real, con el recuadro del entorno terrestre.
+ * Right-hand area, split in two: on top the 2D map, fixed like an infographic
+ * (rotating or inertial frame, scale covering the whole mission and flight data), and below the
+ * 3D view, which follows the spacecraft up close and at real scale, with the Earth-vicinity inset.
  */
 export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits: () => void; onTutorial: () => void; onGuides: () => void }): JSX.Element {
   const t = useT();
@@ -88,7 +88,7 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
       </section>
       <section className="pane pane-3d" data-tour="view-3d">
         <Canvas dim="3d" />
-        {/* El recuadro del entorno terrestre va sobre la vista 3D para no tapar la Luna del mapa. */}
+        {/* The Earth-vicinity inset goes over the 3D view so it does not cover the map's Moon. */}
         <div className="map-inset" data-tour="inset">
           <Canvas dim="inset" className="view-canvas-host" />
           <span className="inset-title">{t(insetTarget(s) === 'moon' ? 'map.insetMoon' : 'map.inset')}</span>

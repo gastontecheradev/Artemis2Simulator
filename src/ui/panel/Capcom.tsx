@@ -5,15 +5,15 @@ import { SimState } from '../../sim/state';
 import { useT } from '../i18n';
 
 /**
- * Ventana de control de misión: lo que Houston le va diciendo a la tripulación. Los
- * mensajes se derivan del estado (ver sim/capcom.ts); durante la pérdida de señal la
- * ventana queda muda.
+ * Mission control window: what Houston keeps telling the crew. The
+ * messages are derived from the state (see sim/capcom.ts); during loss of signal the
+ * window goes silent.
  */
 export function Capcom({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
-  // Se recalcula cuando cambia algo que puede sumar mensajes: el log, las alarmas o el tiempo (a pasos de 10 s).
+  // Recomputed when something that can add messages changes: the log, the alarms or the time (in 10 s steps).
   const bucket = Math.floor(s.t / 10);
   const feed = useMemo(() => capcomFeed(s), [s.log.length, s.alarms, s.markers, bucket, s.prediction]); // eslint-disable-line react-hooks/exhaustive-deps
   const count = feed.length;

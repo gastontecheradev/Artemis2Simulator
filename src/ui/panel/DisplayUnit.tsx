@@ -7,7 +7,7 @@ const MENU: readonly PageId[] = ['TRAJ', 'PFD', 'PROCS', 'PROP', 'COMM', 'TL'];
 const TOP_KEYS = 6;
 const SIDE_KEYS = 5;
 
-/** Tecla del bisel. Sin acción es decorativa: no es botón ni reacciona al mouse. */
+/** Bezel key. Without an action it is decorative: not a button and does not react to the mouse. */
 function Key({ action, label, press }: { action?: () => void; label?: string; press?: string }): JSX.Element {
   return action ? (
     <button className="softkey" onClick={action} aria-label={label} title={label} data-press={press} />
@@ -27,7 +27,7 @@ function SideKeys({ actions, side }: { actions: readonly SoftAction[]; side: 'L'
   );
 }
 
-/** Etiquetas en pantalla de las acciones, alineadas con las teclas laterales. */
+/** On-screen labels of the actions, aligned with the side keys. */
 function ActionLabels({ actions, side }: { actions: readonly SoftAction[]; side: 'L' | 'R' }): JSX.Element {
   return (
     <div className={`du-actions ${side === 'L' ? 'left' : 'right'}`}>
@@ -77,10 +77,10 @@ function Menu({ active, where }: { active: PageId; where: 'top' | 'bottom' }): J
 }
 
 /**
- * Display Unit: pantalla con bisel y soft keys (referencia: 9.png). La pantalla se
- * divide en mitad superior e inferior, cada una con una página. Las teclas de arriba
- * eligen la página superior, las de abajo la inferior, y las laterales ejecutan las
- * acciones de cada página.
+ * Display Unit: screen with bezel and soft keys (reference: 9.png). The screen is
+ * split into an upper and a lower half, each with one page. The top keys
+ * choose the upper page, the bottom ones the lower page, and the side ones run the
+ * actions of each page.
  */
 export function DisplayUnit({ s, initial }: { s: SimState; initial: [PageId, PageId] }): JSX.Element {
   const [upper, setUpper] = useState<PageId>(initial[0]);

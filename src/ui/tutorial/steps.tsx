@@ -3,22 +3,22 @@ import { Locale } from '../../sim/i18n';
 import { SimState } from '../../sim/state';
 
 export interface TourStep {
-  /** Valor de `data-tour` del elemento a señalar. Sin esto, el cartel va centrado. */
+  /** `data-tour` value of the element to point at. Without it, the callout is centered. */
   readonly target?: string;
   readonly title: string;
   readonly body: JSX.Element;
-  /** Paso de acción: se completa solo cuando la simulación cumple esta condición. */
+  /** Action step: completes on its own when the simulation meets this condition. */
   readonly until?: (s: SimState) => boolean;
   /**
-   * Botón que hay que apretar ahora (su `data-press`), o null si no hace falta ninguno.
-   * El tutorial lo señala con una mano animada mientras el paso no se cumpla.
+   * Button to press now (its `data-press`), or null if none is needed.
+   * The tutorial points at it with an animated hand while the step is not completed.
    */
   readonly press?: (s: SimState) => string | null;
 }
 
 type Parts = readonly { readonly name: string; readonly text: string }[];
 
-/** Diagrama del vehículo con sus partes numeradas. */
+/** Vehicle diagram with its numbered parts. */
 function VehicleDiagram({ parts }: { parts: Parts }): JSX.Element {
   return (
     <div className="tour-diagram">
@@ -69,9 +69,9 @@ function MissionDiagram({ items }: { items: Parts }): JSX.Element {
 
 const e7 = (s: SimState): SimState['maneuvers']['E7'] => s.maneuvers.E7;
 const fired = (s: SimState): boolean => ['committed', 'burning', 'done'].includes(e7(s).status);
-/** PLAY, si la simulación está en pausa. */
+/** PLAY, if the simulation is paused. */
 const playIfPaused = (s: SimState): string | null => (s.clock.running ? null : 'play');
-/** Warp alto: ×1000 si todavía está bajo (salvo que la simulación lo haya bajado sola para un encendido); después, PLAY. */
+/** High warp: ×1000 if it is still low (unless the simulation lowered it on its own for a burn); then, PLAY. */
 const highWarp = (s: SimState): string | null => (s.clock.warp < 100 && s.warpRestore === null ? 'warp-1000' : playIfPaused(s));
 
 const PARTS: Readonly<Record<Locale, Parts>> = {
@@ -447,7 +447,7 @@ const STEPS_ES = (): TourStep[] => [
 
 const cache: Partial<Record<Locale, readonly TourStep[]>> = {};
 
-/** Recorrido guiado en el idioma pedido: primero la nave y el panel, después los primeros pasos de la misión hechos a mano. */
+/** Guided tour in the requested language: first the spacecraft and the panel, then the first mission steps done by hand. */
 export function tourSteps(locale: Locale): readonly TourStep[] {
   return (cache[locale] ??= locale === 'es' ? STEPS_ES() : STEPS_EN());
 }

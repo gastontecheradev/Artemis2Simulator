@@ -23,8 +23,8 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      # Misma versión de npm que generó el lockfile: las anteriores a 11.6 lo rechazan
-      # ("Missing: @emnapi/runtime ... from lock file", deps opcionales WASM de rolldown).
+      # Same npm version that generated the lockfile: versions before 11.6 reject it
+      # ("Missing: @emnapi/runtime ... from lock file", optional WASM deps of rolldown).
       - run: npm install -g npm@11.6.2
       - run: npm ci
       - run: npm test

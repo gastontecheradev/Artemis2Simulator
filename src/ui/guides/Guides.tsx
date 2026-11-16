@@ -4,7 +4,7 @@ import { guideContent } from './content';
 
 export const GUIDE_IDS: readonly GuideId[] = ['objective', 'stages', 'budget', 'power', 'ship', 'docs'];
 
-/** Visor de una guía (modal). Se abre desde el menú de inicio o desde el botón GUÍAS. */
+/** Guide viewer (modal). Opened from the start menu or from the GUIDES button. */
 export function GuideViewer(): JSX.Element | null {
   const id = useGuide();
   const locale = useLocale();
@@ -79,7 +79,7 @@ export function GuideViewer(): JSX.Element | null {
   );
 }
 
-/** Segundo menú del inicio: elegir una guía o seguir a la pantalla de inicio. */
+/** Second start menu: pick a guide or continue to the start screen. */
 export function GuidesMenu(): JSX.Element {
   const t = useT();
   return (

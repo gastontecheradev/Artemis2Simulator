@@ -2,16 +2,16 @@ import { Ephemeris } from './bodies';
 import { acceleration } from './gravity';
 import { Vec3, distance, length } from './math/vec3';
 
-/** Estado dinámico de la nave en el marco inercial baricéntrico. */
+/** Dynamic state of the spacecraft in the barycentric inertial frame. */
 export interface ShipState {
   readonly r: Vec3; // km
   readonly v: Vec3; // km/s
 }
 
 /**
- * Fuerzas no gravitatorias: empuje y arrastre. Recibe el instante, el estado y el
- * propelente de cada tanque (kg) y devuelve la aceleración (km/s²) y el consumo de
- * cada tanque (kg/s, negativo). El integrador lleva el propelente como estado.
+ * Non-gravitational forces: thrust and drag. Takes the instant, the state and the
+ * propellant of each tank (kg) and returns the acceleration (km/s²) and the flow of
+ * each tank (kg/s, negative). The integrator carries the propellant as state.
  */
 export type PowerModel = (
   t: number,
@@ -21,32 +21,32 @@ export type PowerModel = (
 ) => { readonly a: Vec3; readonly dprop: readonly number[] };
 
 export interface StepperOptions {
-  /** Tolerancia relativa por paso (posición respecto del cuerpo más cercano). */
+  /** Relative tolerance per step (position relative to the nearest body). */
   rtol?: number;
-  /** Paso máximo en segundos. */
+  /** Maximum step in seconds. */
   maxStep?: number;
-  /** Vuelo propulsado o con arrastre. Sin esto, solo actúa la gravedad. */
+  /** Powered flight or flight with drag. Without this, only gravity acts. */
   power?: PowerModel;
 }
 
 export interface StepResult {
   readonly state: ShipState;
-  /** Propelente por tanque al final del paso (igual al de entrada si no hay `power`). */
+  /** Propellant per tank at the end of the step (same as the input if there is no `power`). */
   readonly prop: readonly number[];
   readonly t: number;
-  /** Paso sugerido para continuar. */
+  /** Suggested step to continue. */
   readonly hNext: number;
 }
 
 /**
- * Tolerancia por defecto. Es exigente a propósito: el retorno libre es muy sensible
- * y el resultado no puede depender de cómo los frames cortan los pasos.
+ * Default tolerance. It is strict on purpose: the free return is very sensitive
+ * and the result cannot depend on how frames split the steps.
  */
 export const DEFAULT_RTOL = 1e-11;
 
 const NO_PROP: readonly number[] = [];
 
-// Coeficientes de Dormand–Prince 5(4)
+// Dormand–Prince 5(4) coefficients
 const C2 = 1 / 5, C3 = 3 / 10, C4 = 4 / 5, C5 = 8 / 9;
 const A21 = 1 / 5;
 const A31 = 3 / 40, A32 = 9 / 40;
@@ -56,7 +56,7 @@ const A61 = 9017 / 3168, A62 = -355 / 33, A63 = 46732 / 5247, A64 = 49 / 176, A6
 const B1 = 35 / 384, B3 = 500 / 1113, B4 = 125 / 192, B5 = -2187 / 6784, B6 = 11 / 84;
 const E1 = 71 / 57600, E3 = -71 / 16695, E4 = 71 / 1920, E5 = -17253 / 339200, E6 = 22 / 525, E7 = -1 / 40;
 
-/** Derivada del vector de estado [r, v, propelente…]. */
+/** Derivative of the state vector [r, v, propellant…]. */
 function deriv(t: number, y: number[], eph: Ephemeris, power: PowerModel | undefined): number[] {
   const r = { x: y[0], y: y[1], z: y[2] };
   const g = acceleration(r, t, eph);
@@ -78,16 +78,16 @@ function deriv(t: number, y: number[], eph: Ephemeris, power: PowerModel | undef
   return out;
 }
 
-/** Paso de arranque: una fracción del tiempo dinámico local. */
+/** Initial step: a fraction of the local dynamical time. */
 export function initialStep(state: ShipState, t: number, eph: Ephemeris): number {
   const d = Math.min(distance(state.r, eph.earth(t).r), distance(state.r, eph.moon(t).r));
   return Math.max(1e-3, (1e-3 * d) / Math.max(length(state.v), 1e-3));
 }
 
 /**
- * Da un paso aceptado de Dormand–Prince 5(4) con control de error.
- * Intenta con `hTry` (recortado para no pasar `tMax`) y achica hasta aceptar.
- * El control de error mira posición y velocidad; el propelente acompaña.
+ * Takes one accepted Dormand–Prince 5(4) step with error control.
+ * Tries with `hTry` (clipped so as not to pass `tMax`) and shrinks it until accepted.
+ * Error control looks at position and velocity; the propellant goes along.
  */
 export function dp45Step(
   state: ShipState,
@@ -137,9 +137,9 @@ export function dp45Step(
     }
     const err = Math.max(Math.sqrt(er) / scR, Math.sqrt(ev) / scV);
     const factor = err === 0 ? 5 : Math.min(5, Math.max(0.2, 0.9 * Math.pow(err, -0.2)));
-    // Con pasos ya minúsculos se acepta igual: pasa en discontinuidades (apagado por tanque vacío).
+    // With already tiny steps it is accepted anyway: happens at discontinuities (shutdown on an empty tank).
     if (err <= 1 || hs < 1e-6) {
-      // Si el paso se recortó para caer justo en tMax, la sugerencia conserva el paso natural.
+      // If the step was clipped to land exactly on tMax, the suggestion keeps the natural step.
       const hNext = Math.min(maxStep, truncated ? Math.max(h, hs * factor) : hs * factor);
       return {
         state: { r: { x: yn[0], y: yn[1], z: yn[2] }, v: { x: yn[3], y: yn[4], z: yn[5] } },
@@ -156,17 +156,17 @@ export function dp45Step(
 export interface IntegrateOptions extends StepperOptions {
   hInit?: number;
   maxSteps?: number;
-  /** Propelente inicial por tanque (solo con `power`). */
+  /** Initial propellant per tank (only with `power`). */
   prop?: readonly number[];
 }
 
 export interface IntegrateResult extends StepResult {
   readonly steps: number;
-  /** false si se cortó por `maxSteps` antes de llegar a t1. */
+  /** false if it stopped on `maxSteps` before reaching t1. */
   readonly complete: boolean;
 }
 
-/** Integra de t0 a t1 (t1 ≥ t0) sin detección de eventos. */
+/** Integrates from t0 to t1 (t1 ≥ t0) without event detection. */
 export function integrate(
   state: ShipState,
   t0: number,

@@ -13,13 +13,13 @@ const DEG = 180 / Math.PI;
 const Z = { x: 0, y: 0, z: 1 };
 
 /**
- * Indicador de actitud. La simulación es plana, así que la esfera solo cabecea: muestra
- * el ángulo del eje de la nave sobre el horizonte local. El rombo magenta es la actitud
- * que comanda el guiado y el círculo verde, la dirección de la velocidad (prograde).
+ * Attitude indicator. The simulation is planar, so the sphere only pitches: it shows
+ * the angle of the spacecraft axis above the local horizon. The magenta diamond is the attitude
+ * commanded by guidance and the green circle, the velocity direction (prograde).
  */
 function AttitudeBall({ pitch, command, prograde }: { pitch: number; command: number; prograde: number }): JSX.Element {
   const R = 44;
-  // Paso de la escala: grados por unidad de dibujo.
+  // Scale step: degrees per drawing unit.
   const y = (deg: number): number => ((deg - pitch) * R) / 60;
   const ticks = [-150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150, 180];
   const wrap = (d: number): number => ((((d - pitch + 180) % 360) + 360) % 360) - 180 + pitch;
@@ -30,7 +30,7 @@ function AttitudeBall({ pitch, command, prograde }: { pitch: number; command: nu
       </clipPath>
       <g clipPath="url(#adi-clip)">
         <rect x={-R} y={-R * 4} width={R * 2} height={R * 8} className="adi-ground" />
-        {/* Cielo: la media vuelta que va del horizonte hacia arriba (se repite por si la nave da la vuelta). */}
+        {/* Sky: the half turn going up from the horizon (repeated in case the spacecraft flips over). */}
         {[-1, 0, 1].map((k) => (
           <rect key={k} x={-R} y={-y(180 + 360 * k)} width={R * 2} height={3 * R} className="adi-sky" />
         ))}
@@ -51,7 +51,7 @@ function AttitudeBall({ pitch, command, prograde }: { pitch: number; command: nu
         <path d="M 0 -4 L 4 0 L 0 4 L -4 0 Z" transform={`translate(0 ${-y(wrap(command))})`} className="adi-command" />
       </g>
       <circle r={R} className="adi-rim" />
-      {/* Símbolo fijo de la nave. */}
+      {/* Fixed spacecraft symbol. */}
       <path d="M -22 0 H -8 L -4 5 L 0 0 L 4 5 L 8 0 H 22" className="adi-ship" />
     </svg>
   );
@@ -68,8 +68,8 @@ function Readout({ label, value, unit, cls = 'val' }: { label: string; value: st
 }
 
 /**
- * Flight.PFD: actitud, piloto automático y fuerzas sobre la nave (inspirada en la
- * pantalla de vuelo principal de la cabina). Todo sale del estado simulado.
+ * Flight.PFD: attitude, autopilot and forces on the spacecraft (inspired by the
+ * cockpit's primary flight display). Everything comes from the simulated state.
  */
 export function Pfd({ s }: { s: SimState }): JSX.Element {
   const t = useT();
@@ -77,7 +77,7 @@ export function Pfd({ s }: { s: SimState }): JSX.Element {
   const earth = eph.earth(s.t);
   const up = normalize(sub(s.ship.r, earth.r));
   const east = normalize(cross(Z, up));
-  // Ángulo sobre el horizonte local, medido en el plano orbital (−180° a 180°).
+  // Angle above the local horizon, measured in the orbital plane (−180° to 180°).
   const elevation = (d: { x: number; y: number; z: number }): number => Math.atan2(dot(d, up), dot(d, east)) * DEG;
   const vRel = sub(s.ship.v, earth.v);
   const cmd = commandedDirection(s);
@@ -88,7 +88,7 @@ export function Pfd({ s }: { s: SimState }): JSX.Element {
   const vAir = length(sub(s.ship.v, airVelocity(s.ship.r, earth)));
   const altitude = length(sub(s.ship.r, earth.r)) - R_EARTH;
   const burn = s.burn;
-  // Δv entregado hasta ahora por el encendido en curso (ecuación del cohete).
+  // Δv delivered so far by the burn in progress (rocket equation).
   const delivered = burn
     ? ((G0 * ENGINES[burn.system === 'ICPS' ? 'RL10' : burn.system].ispVac) / 1000) *
       Math.log(burn.massStart / totalMass(s.vehicle, s.propulsion.prop))

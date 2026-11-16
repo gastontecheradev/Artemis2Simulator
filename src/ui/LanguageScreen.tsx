@@ -1,6 +1,6 @@
 import { chooseLanguage } from './store';
 
-/** Primer menú: idioma de la interfaz y de la simulación. El inglés es el predeterminado. */
+/** First menu: language of the interface and the simulation. English is the default. */
 export function LanguageScreen(): JSX.Element {
   return (
     <div className="modal intro">

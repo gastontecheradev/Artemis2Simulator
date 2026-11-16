@@ -25,7 +25,7 @@ import { ENGINES, burnDuration, dvForDuration, totalMass } from '../../src/sim/v
 
 export const PARAMS_PATH = fileURLToPath(new URL('../../src/sim/mission/params.json', import.meta.url));
 
-/** Sigue volando un estado hasta `until` (MET) o el final de la misión. */
+/** Keeps flying a state until `until` (MET) or the end of the mission. */
 export function flyFrom(state: SimState, until = Infinity): SimState {
   let s: SimState = state.clock.running ? state : { ...state, clock: { running: true, warp: 1 } };
   const limit = Math.min(until, 40 * 86400);
@@ -37,7 +37,7 @@ export function flyFrom(state: SimState, until = Infinity): SimState {
   return s;
 }
 
-/** Vuela la misión desde la plataforma, sin interfaz y con tripulación automática. */
+/** Flies the mission from the pad, without UI and with the automatic crew. */
 export const fly = (params: MissionParams, until = Infinity): SimState =>
   flyFrom(createInitialState(params, { headless: true, autoCrew: true }), until);
 
@@ -62,7 +62,7 @@ export function withBurn(p: MissionParams, id: BurnId, patch: { met?: number; pr
 const noBurn = (q: MissionParams, ids: BurnId[]): MissionParams =>
   ids.reduce((acc, id) => withBurn(acc, id, { prograde: 0, radial: 0 }), q);
 
-/** Bisección de f en [lo, hi] con f(lo) < 0 < f(hi). */
+/** Bisection of f on [lo, hi] with f(lo) < 0 < f(hi). */
 export function bisect(f: (x: number) => number, lo: number, hi: number, xtol: number): number {
   const flo = f(lo);
   const fhi = f(hi);
@@ -75,7 +75,7 @@ export function bisect(f: (x: number) => number, lo: number, hi: number, xtol: n
   return 0.5 * (lo + hi);
 }
 
-/** Resuelve F(x) = 0 en 3 dimensiones por Newton amortiguado con diferencias finitas. */
+/** Solves F(x) = 0 in 3 dimensions by damped Newton with finite differences. */
 export function newton3(
   f: (x: number[]) => number[],
   x0: number[],
@@ -89,7 +89,7 @@ export function newton3(
     const fx = f(x);
     log(`    it ${it}: x = [${x.map((v) => v.toPrecision(7)).join(', ')}] → F = [${fx.map((v) => v.toFixed(4)).join(', ')}]`);
     if (fx.every((v, i) => Math.abs(v) < tol[i])) return x;
-    // Jacobiano por columnas.
+    // Jacobian by columns.
     const J = [0, 1, 2].map(() => [0, 0, 0]);
     for (let j = 0; j < 3; j++) {
       const xp = [...x];
@@ -97,7 +97,7 @@ export function newton3(
       const fp = f(xp);
       for (let i = 0; i < 3; i++) J[i][j] = (fp[i] - fx[i]) / steps[j];
     }
-    // Regla de Cramer.
+    // Cramer's rule.
     const det = (m: number[][]): number =>
       m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
       m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
@@ -114,7 +114,7 @@ export function newton3(
   throw new Error('newton3: no converge');
 }
 
-/** Resuelve F(x) = 0 en 2 dimensiones por Newton amortiguado con diferencias finitas. */
+/** Solves F(x) = 0 in 2 dimensions by damped Newton with finite differences. */
 export function newton2(
   f: (x: number[]) => number[],
   x0: number[],
@@ -153,13 +153,13 @@ const firstApsis = (s: SimState, type: 'periapsis' | 'apoapsis', after: number):
 const elementsOf = (s: SimState): OrbitElements => earthElements(s.ship, s.t, ephemerisOf(s));
 
 /**
- * Ajusta el guiado del ascenso para que el cohete, con sus motores y masas reales,
- * reproduzca los tres datos publicados del final del ascenso:
- * - altitud en MECO,
- * - altitud en la separación de la etapa central, y
- * - velocidad (relativa a la Tierra) en la separación.
- * Las tres incógnitas son el cabeceo inicial, el ritmo de la tangente lineal y el
- * límite de aceleración de los RS‑25.
+ * Tunes the ascent guidance so that the rocket, with its real engines and masses,
+ * reproduces the three published figures at the end of the ascent:
+ * - altitude at MECO,
+ * - altitude at core stage separation, and
+ * - velocity (relative to Earth) at separation.
+ * The three unknowns are the initial pitch-over, the linear-tangent rate and the
+ * RS‑25 acceleration limit.
  */
 export function tuneAscent(base: MissionParams, log: (msg: string) => void = () => undefined): MissionParams {
   const S = ASCENT_SEQUENCE;
@@ -182,23 +182,23 @@ export function tuneAscent(base: MissionParams, log: (msg: string) => void = () 
 }
 
 /**
- * Calibra la fase en órbita terrestre contra las órbitas publicadas en la guía del SLS
- * para Artemis II. Los instantes de ignición de E4, E5 y E7 son los publicados; lo que
- * se ajusta es cuánto empuja cada encendido:
- * 1. Guiado del ascenso (ver `tuneAscent`).
- * 2. Δv de E4 (prograde): deja el perigeo publicado (100 NM).
- * 3. Δv de E7: dos minutos de auxiliares (duración publicada).
- * 4. Δv de E5 (prograde y radial): perigeo publicado (0) y el apogeo que hace que el TLI
- *    encienda en el MET del cronograma [TL] (~70.100 km; [SLS] da 40.000 NM = 74.080 km).
- * 5. TIG y Δv de E8: en el apogeo, sube el perigeo al publicado (100 NM).
- * 6. TIG de E9: centrado en el perigeo siguiente.
+ * Calibrates the Earth-orbit phase against the orbits published in the SLS guide
+ * for Artemis II. The ignition instants of E4, E5 and E7 are the published ones; what
+ * is tuned is how much each burn thrusts:
+ * 1. Ascent guidance (see `tuneAscent`).
+ * 2. E4 Δv (prograde): leaves the published perigee (100 NM).
+ * 3. E7 Δv: two minutes of auxiliaries (published duration).
+ * 4. E5 Δv (prograde and radial): published perigee (0) and the apogee that makes the TLI
+ *    ignite at the [TL] timeline MET (~70,100 km; [SLS] gives 40,000 NM = 74,080 km).
+ * 5. E8 TIG and Δv: at apogee, raises the perigee to the published one (100 NM).
+ * 6. E9 TIG: centered on the next perigee.
  */
 export function calibrate(base: MissionParams, log: (msg: string) => void = () => undefined): MissionParams {
   let p = tuneAscent(base, log);
   const a = p.ascent;
   log(`Ascenso: cabeceo ${a.kickDeg.toFixed(4)}°, tangente ${a.tanRate.toExponential(4)} 1/s, límite ${(a.gLimit / 9.80665).toFixed(3)} g`);
 
-  // 2 · E4: perigeo publicado.
+  // 2 · E4: published perigee.
   const afterE4 = (dv: number): OrbitElements =>
     elementsOf(fly(noBurn(withBurn(p, 'E4', { met: MET_E4_PERIGEE_RAISE, prograde: dv }), ['E5', 'E7', 'E8', 'E9']), MET_E4_PERIGEE_RAISE + 400));
   const dvE4 = bisect((dv) => afterE4(dv).rp - R_EARTH - POST_PRM_ORBIT.perigee, 0.005, 0.4, 1e-12);
@@ -206,14 +206,14 @@ export function calibrate(base: MissionParams, log: (msg: string) => void = () =
   const e4 = afterE4(dvE4);
   log(`E4: Δv = ${(dvE4 * 1000).toFixed(3)} m/s → ${(e4.rp - R_EARTH).toFixed(1)} × ${(e4.ra - R_EARTH).toFixed(0)} km`);
 
-  // 3 · E7: dos minutos de auxiliares. Su Δv solo depende de la masa de Orion, así que va antes que E5.
+  // 3 · E7: two minutes of auxiliaries. Its Δv only depends on Orion's mass, so it goes before E5.
   const atE7 = fly(noBurn(p, ['E7', 'E8', 'E9']), MET_E7_DEPARTURE);
   const dvE7 = dvForDuration(ENGINES.AUX, totalMass(atE7.vehicle, atE7.propulsion.prop), E7_BURN_DURATION);
   p = withBurn(p, 'E7', { met: MET_E7_DEPARTURE, prograde: dvE7 });
   log(`E7: Δv = ${(dvE7 * 1000).toFixed(3)} m/s en ${E7_BURN_DURATION} s`);
 
-  // 4 a 6 · E5, E8 y E9. El apogeo de E5 se busca (secante) para que el TLI encienda en el
-  // MET publicado del cronograma; los 40.000 NM de [SLS] quedan como control.
+  // 4 to 6 · E5, E8 and E9. The E5 apogee is searched (secant) so that the TLI ignites at the
+  // published timeline MET; the [SLS] 40,000 NM remain as a check value.
   const withApogee = (apogee: number): { p: MissionParams; tliMet: number } => highOrbit(p, apogee, log);
   let apoA = lastHeoApogee;
   let heo = withApogee(apoA);
@@ -235,17 +235,17 @@ export function calibrate(base: MissionParams, log: (msg: string) => void = () =
   return heo.p;
 }
 
-/** Último apogeo de la órbita alta encontrado: semilla para la siguiente calibración (el ajuste completo calibra varias veces). */
+/** Last high-orbit apogee found: seed for the next calibration (the full tuning calibrates several times). */
 let lastHeoApogee = 70100;
 
 /**
- * Pasos 4 a 6 de `calibrate` para un apogeo dado (km de altitud, medido después de E7):
- * Δv de E5, E8 en el apogeo y TIG del TLI centrado en el perigeo siguiente.
+ * Steps 4 to 6 of `calibrate` for a given apogee (km of altitude, measured after E7):
+ * E5 Δv, E8 at apogee and TLI TIG centered on the next perigee.
  */
 function highOrbit(base: MissionParams, apogee: number, log: (msg: string) => void): { p: MissionParams; tliMet: number } {
   let p = base;
-  // 4 · E5: perigeo publicado al terminar el encendido y el apogeo pedido después del
-  // encendido de salida de Orion (E7), con actitud inercial fija (prograde + radial en la ignición).
+  // 4 · E5: published perigee at the end of the burn and the requested apogee after
+  // Orion's departure burn (E7), with a fixed inertial attitude (prograde + radial at ignition).
   const afterE5 = ([prograde, radial]: number[]): { rp: number; ra: number } => {
     const q = noBurn(withBurn(p, 'E5', { met: MET_E5_APOGEE_RAISE, prograde, radial, hold: true }), ['E8', 'E9']);
     const s5 = fly(q, MET_E5_APOGEE_RAISE + 1900);
@@ -268,7 +268,7 @@ function highOrbit(base: MissionParams, apogee: number, log: (msg: string) => vo
   const e5 = afterE5(x5);
   log(`E5: Δv = ${(x5[0] * 1000).toFixed(3)} m/s prograde, ${(x5[1] * 1000).toFixed(3)} m/s radial → ${(e5.rp - R_EARTH).toFixed(1)} km de perigeo; apogeo tras E7 ${(e5.ra - R_EARTH).toFixed(0)} km`);
 
-  // 5 · E8 en el apogeo: perigeo publicado.
+  // 5 · E8 at apogee: published perigee.
   const coast = fly(noBurn(p, ['E8', 'E9']), MET_E7_DEPARTURE + 20 * 3600);
   const tApo = firstApsis(coast, 'apoapsis', MET_E5_APOGEE_RAISE + 3000);
   if (tApo === null) throw new Error('E8: sin apogeo en la órbita alta');
@@ -284,7 +284,7 @@ function highOrbit(base: MissionParams, apogee: number, log: (msg: string) => vo
   const e8 = afterE8(dvE8);
   log(`E8: Δv = ${(dvE8 * 1000).toFixed(3)} m/s, TIG ${e8Met.toFixed(1)} s → ${(e8.rp - R_EARTH).toFixed(1)} × ${(e8.ra - R_EARTH).toFixed(0)} km`);
 
-  // 6 · E9 centrado en el perigeo siguiente.
+  // 6 · E9 centered on the next perigee.
   const tPeri = firstApsis(fly(noBurn(p, ['E9']), e8Met + 30 * 3600), 'periapsis', e8Met + 600);
   if (tPeri === null) throw new Error('E9: sin perigeo después de E8');
   const tliMet = tPeri - TLI_HALF_BURN;

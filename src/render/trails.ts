@@ -16,16 +16,16 @@ export interface TrailColors {
 
 export interface Trails {
   readonly group: THREE.Group;
-  /** Trazo recorrido (sólido), coloreado por fase como en 1.png. */
+  /** Flown trail (solid), colored by phase as in 1.png. */
   setTraveled(points: readonly TrailPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame): void;
-  /** Trayectoria predicha (punteada), desde la nave hacia adelante. */
+  /** Predicted trajectory (dashed), from the spacecraft forward. */
   setPredicted(points: readonly TrajectoryPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame): void;
-  /** Plan nominal completo (tenue), dibujado desde el inicio. `points` = [t, x, y] en km inerciales. */
+  /** Whole nominal plan (faint), drawn from the start. `points` = [t, x, y] in inertial km. */
   setNominal(points: readonly (readonly [number, number, number])[], frame: ViewFrame): void;
-  /** Reubica las geometrías según el origen flotante actual. */
+  /** Repositions the geometries according to the current floating origin. */
   place(frame: ViewFrame): void;
   setResolution(width: number, height: number): void;
-  /** Largo de guion constante en pantalla: recibe el semialto visible en unidades de escena. */
+  /** Constant on-screen dash length: takes the visible half-height in scene units. */
   setDashScale(viewRadiusScene: number): void;
   dispose(): void;
 }
@@ -54,8 +54,8 @@ export function createTrails(colors: TrailColors): Trails {
   let predicted: Line2 | null = null;
   let nominal: Line2 | null = null;
   let nominalAnchor: Vec3 = { x: 0, y: 0, z: 0 };
-  // Cada geometría se construye relativa al origen flotante del momento: así los vértices
-  // (float32) son números chicos cerca de la nave y el trazo no tiembla en los primeros planos.
+  // Each geometry is built relative to the floating origin of the moment: that way the vertices
+  // (float32) are small numbers near the spacecraft and the trail does not jitter in close-ups.
   let traveledAnchor: Vec3 = { x: 0, y: 0, z: 0 };
   let predictedAnchor: Vec3 = { x: 0, y: 0, z: 0 };
 

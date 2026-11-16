@@ -10,40 +10,40 @@ export interface OverlayAnchors {
   readonly moon: Vec3;
   readonly ship: Vec3;
   readonly t: number;
-  /** Rumbo del eje de la nave en pantalla (rad, antihorario). */
+  /** Heading of the spacecraft axis on screen (rad, counterclockwise). */
   readonly shipAngle: number;
-  /** Largo de la nave en pantalla (px) en 3D; por debajo de unos píxeles se marca con un punto. */
+  /** Spacecraft length on screen (px) in 3D; below a few pixels it is marked with a dot. */
   readonly shipPx: number;
-  /** Íconos 2D de la nave y de las partes desprendidas (en 3D se dibujan como modelos). */
+  /** 2D icons of the spacecraft and the jettisoned parts (in 3D they are drawn as models). */
   readonly showIcons: boolean;
-  /** Radio en pantalla de cada cuerpo (px). */
+  /** On-screen radius of each body (px). */
   readonly radiusPx: { readonly earth: number; readonly moon: number };
-  /** Partes desprendidas, con el rumbo en pantalla de cada una. */
+  /** Jettisoned parts, with the on-screen heading of each one. */
   readonly debris: readonly { readonly item: Debris; readonly angle: number; readonly px: number }[];
-  /** Etiquetas de los cuerpos en el idioma actual. */
+  /** Body labels in the current language. */
   readonly labels: { readonly earth: string; readonly moon: string };
-  /** Posición futura de la Luna (contorno punteado con etiqueta), o null para ocultarla. */
+  /** Future position of the Moon (dashed outline with label), or null to hide it. */
   readonly ghost?: { readonly r: Vec3; readonly t: number; readonly radiusPx: number; readonly label: string } | null;
 }
 
 /**
- * Capa HTML sobre el canvas: marcadores numerados de eventos (como los de 1.png),
- * etiquetas y puntos de los cuerpos, íconos 2D de la nave y de las partes
- * desprendidas, y destello de encendido. Cada elemento se ubica proyectando su
- * posición con la cámara activa, así sirve igual en 2D y en 3D.
+ * HTML layer over the canvas: numbered event markers (like those in 1.png),
+ * body labels and dots, 2D icons of the spacecraft and the jettisoned
+ * parts, and the ignition flash. Each element is placed by projecting its
+ * position with the active camera, so it works the same in 2D and in 3D.
  */
 export interface Overlay {
-  /** `names` da el texto del tooltip de cada evento. */
+  /** `names` gives the tooltip text of each event. */
   setMarkers(markers: readonly Marker[], names: ReadonlyMap<string, string>): void;
   update(camera: THREE.Camera, width: number, height: number, frame: ViewFrame, anchors: OverlayAnchors): void;
   setShipIcon(svg: string): void;
-  /** Destello en la posición de la nave: se dispara con cada ignición. */
+  /** Flash at the spacecraft's position: triggered on every ignition. */
   flash(): void;
   dispose(): void;
 }
 
 const markerClass = (n: number): string => (n === 6 ? 'prox' : n >= 12 ? 'ret' : 'out');
-/** Por debajo de este radio en pantalla el cuerpo se marca con un punto para que no se pierda. */
+/** Below this on-screen radius the body is marked with a dot so it is not lost. */
 const MIN_VISIBLE_RADIUS_PX = 3;
 
 export function createOverlay(root: HTMLElement): Overlay {
@@ -71,8 +71,8 @@ export function createOverlay(root: HTMLElement): Overlay {
   let markers: readonly Marker[] = [];
   const markerEls = new Map<string, HTMLDivElement>();
   const debrisEls = new Map<string, HTMLDivElement>();
-  // Radio en pantalla (px) de cada ícono 2D: lo declara el SVG (`data-r`) y se escala con `--icon-k`
-  // de la capa (el recuadro lo achica). No se mide en el DOM: al crearse puede no tener layout.
+  // On-screen radius (px) of each 2D icon: declared by the SVG (`data-r`) and scaled by the layer's `--icon-k`
+  // (the inset shrinks it). It is not measured in the DOM: when created it may have no layout.
   let iconK = 0;
   const radiusOf = (el: HTMLElement): number => {
     if (!iconK) iconK = parseFloat(getComputedStyle(layer).getPropertyValue('--icon-k')) || 1;
@@ -90,7 +90,7 @@ export function createOverlay(root: HTMLElement): Overlay {
     el.style.display = p.visible && show ? '' : 'none';
     el.style.transform = `translate(${p.x.toFixed(1)}px, ${p.y.toFixed(1)}px) ${extra}`;
   };
-  // En pantalla el eje y va hacia abajo: el ángulo se invierte.
+  // On screen the y axis points down: the angle is inverted.
   const spin = (angle: number): string => `translate(-50%, -50%) rotate(${(-angle).toFixed(4)}rad)`;
 
   return {
@@ -122,7 +122,7 @@ export function createOverlay(root: HTMLElement): Overlay {
         const p = project(camera, w, h);
         const small = radiusPx < MIN_VISIBLE_RADIUS_PX;
         put(dot, p, 'translate(-50%, -50%)', small);
-        // Con el cuerpo más grande que la vista la etiqueta quedaría fuera: se oculta.
+        // With the body larger than the view the label would end up outside: it is hidden.
         const offset = (small ? MIN_VISIBLE_RADIUS_PX : radiusPx) + 6;
         put(label, p, `translate(-50%, ${offset.toFixed(1)}px)`, radiusPx < Math.max(w, h));
       };
@@ -131,7 +131,7 @@ export function createOverlay(root: HTMLElement): Overlay {
       body(a.earth, a.radiusPx.earth, earthDot, earthLabel);
       body(a.moon, a.radiusPx.moon, moonDot, moonLabel);
 
-      // Luna futura (mapa inercial).
+      // Future Moon (inertial map).
       const g = a.ghost;
       if (g) {
         worldToScene(g.r, g.t, frame, v);
@@ -152,7 +152,7 @@ export function createOverlay(root: HTMLElement): Overlay {
       put(ship, p, spin(a.shipAngle), a.showIcons);
       put(shipDot, p, 'translate(-50%, -50%)', !a.showIcons && a.shipPx < MIN_VISIBLE_RADIUS_PX);
       if (a.showIcons && shipRadius <= 0) shipRadius = radiusOf(ship);
-      // Partes desprendidas.
+      // Jettisoned parts.
       for (const { item, angle, px } of a.debris) {
         let el = debrisEls.get(item.id);
         if (!el) {
@@ -163,10 +163,10 @@ export function createOverlay(root: HTMLElement): Overlay {
         }
         worldToScene(item.ship.r, item.t, frame, v);
         const q = project(camera, w, h);
-        // En 3D el modelo va a escala real: si se ve más chico que unos píxeles, un punto.
-        // En 2D los íconos no van a la escala del mapa: mientras la parte está en el mismo
-        // lugar que la nave, su ícono la rodearía (los paneles del módulo de servicio
-        // alrededor de la cápsula); hasta que se separan en pantalla, un punto.
+        // In 3D the model is at real scale: if it looks smaller than a few pixels, a dot.
+        // In 2D the icons are not at map scale: while the part is in the same
+        // place as the spacecraft, its icon would surround it (the service module fairings
+        // around the capsule); until they separate on screen, a dot.
         const overlapping = a.showIcons && Math.hypot(q.x - p.x, q.y - p.y) < shipRadius + (debrisRadius.get(item.id) ?? 0);
         const dot = overlapping || (!a.showIcons && px < MIN_VISIBLE_RADIUS_PX);
         el.classList.toggle('dot', dot);
@@ -185,7 +185,7 @@ export function createOverlay(root: HTMLElement): Overlay {
       shipRadius = 0;
     },
     flash() {
-      // Reinicia la animación CSS.
+      // Restarts the CSS animation.
       burnFlash.classList.remove('on');
       void burnFlash.offsetWidth;
       burnFlash.classList.add('on');

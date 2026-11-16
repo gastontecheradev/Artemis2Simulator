@@ -12,15 +12,15 @@ export interface TrajectoryPoint {
 
 export interface EntryInterface {
   readonly t: number;
-  /** Ángulo de trayectoria respecto de la Tierra (grados, negativo = descendiendo). */
+  /** Flight-path angle relative to Earth (degrees, negative = descending). */
   readonly fpaDeg: number;
-  /** Velocidad respecto de la Tierra (km/s). */
+  /** Velocity relative to Earth (km/s). */
   readonly speed: number;
 }
 
 export interface Perilune {
   readonly t: number;
-  /** km sobre la superficie lunar */
+  /** km above the lunar surface */
   readonly altitude: number;
 }
 
@@ -30,17 +30,17 @@ export interface Prediction {
   readonly points: readonly TrajectoryPoint[];
   readonly end: 'horizon' | 'ei' | 'moon-impact';
   readonly ei: EntryInterface | null;
-  /** Máximo acercamiento a la Luna más cercano dentro de la predicción. */
+  /** Nearest closest approach to the Moon within the prediction. */
   readonly perilune: Perilune | null;
-  /** Primer periapsis terrestre de la predicción. */
+  /** First Earth periapsis of the prediction. */
   readonly periapsis: { readonly t: number; readonly altitude: number; readonly rp: number } | null;
   readonly events: readonly SimEvent[];
   readonly final: ShipState;
 }
 
 /**
- * Intervalo de muestreo del trazo: una fracción del tiempo dinámico local,
- * así hay más puntos cerca de los cuerpos y menos en crucero.
+ * Trail sampling interval: a fraction of the local dynamical time,
+ * so there are more points near the bodies and fewer in cruise.
  */
 export function sampleInterval(s: ShipState, t: number, eph: Ephemeris): number {
   const e = eph.earth(t);
@@ -61,8 +61,8 @@ export const periluneOf = (ev: SimEvent, eph: Ephemeris): Perilune => ({
 });
 
 /**
- * Propaga el estado `duration` segundos hacia adelante sin encendidos (trayectoria
- * predicha). Corta en la interfaz de entrada o en un impacto lunar.
+ * Propagates the state `duration` seconds ahead without burns (predicted
+ * trajectory). Stops at entry interface or on a lunar impact.
  */
 export function propagate(
   state: ShipState,

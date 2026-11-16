@@ -5,39 +5,39 @@ import { DirectionLaw } from '../power';
 import { SRB_BURN_TIME } from '../vehicle';
 
 /**
- * Ascenso simulado (E1 → E3): empuje, masa, arrastre y gravedad reales. Lo único
- * programado es lo que en el cohete real también lo está: la secuencia de eventos
- * por tiempo y la ley de guiado que orienta el empuje.
+ * Simulated ascent (E1 → E3): real thrust, mass, drag and gravity. The only things
+ * programmed are what is also programmed in the real rocket: the time-based event
+ * sequence and the guidance law that points the thrust.
  */
 
-/** Secuencia del ascenso (MET en s). Los tiempos son los publicados por NASA para Artemis II. */
+/** Ascent sequence (MET in s). The times are the ones published by NASA for Artemis II. */
 export const ASCENT_SEQUENCE = {
-  /** Torre despejada: empieza la maniobra de cabeceo. */
+  /** Tower cleared: the pitch maneuver begins. */
   pitchStart: 7,
-  /** Fin del cabeceo inicial; sigue el giro por gravedad. */
+  /** End of the initial pitch-over; the gravity turn follows. */
   pitchEnd: 17,
   srbBurnout: SRB_BURN_TIME,
   srbSeparation: 128,
-  /** Empieza el guiado de tangente lineal (fuera de la atmósfera densa). */
+  /** Linear-tangent guidance begins (outside the dense atmosphere). */
   linearTangentStart: 135,
   lasJettison: 208,
   meco: 486,
   coreSeparation: 498,
 } as const;
 
-/** Parámetros del guiado. Los ajusta `tuneAscent` en scripts/lib/calibration.ts (viven en params.json). */
+/** Guidance parameters. Tuned by `tuneAscent` in scripts/lib/calibration.ts (they live in params.json). */
 export interface AscentParams {
-  /** Ángulo del cabeceo inicial respecto de la vertical (grados). */
+  /** Initial pitch-over angle from the vertical (degrees). */
   readonly kickDeg: number;
-  /** Ritmo al que baja la tangente del ángulo de cabeceo en el guiado de tangente lineal (1/s). */
+  /** Rate at which the tangent of the pitch angle decreases in linear-tangent guidance (1/s). */
   readonly tanRate: number;
-  /** Límite de aceleración de los RS‑25 (m/s²). */
+  /** RS‑25 acceleration limit (m/s²). */
   readonly gLimit: number;
 }
 
 const Z: Vec3 = { x: 0, y: 0, z: 1 };
 
-/** Ejes locales en un punto: vertical (hacia arriba) y horizontal hacia el este (sentido del giro terrestre). */
+/** Local axes at a point: vertical (up) and horizontal towards the east (direction of Earth's rotation). */
 function localAxes(r: Vec3, t: number, eph: Ephemeris): { up: Vec3; east: Vec3 } {
   const up = normalize(sub(r, eph.earth(t).r));
   return { up, east: normalize(cross(Z, up)) };
@@ -49,7 +49,7 @@ const blend = (up: Vec3, east: Vec3, pitchFromVertical: number): Vec3 => {
   return { x: c * up.x + s * east.x, y: c * up.y + s * east.y, z: c * up.z + s * east.z };
 };
 
-/** Tangente del ángulo de la velocidad relativa al aire sobre la horizontal local. */
+/** Tangent of the angle of the air-relative velocity above the local horizontal. */
 export function airPathTangent(r: Vec3, v: Vec3, t: number, eph: Ephemeris): number {
   const { up, east } = localAxes(r, t, eph);
   const vAir = sub(v, airVelocity(r, eph.earth(t)));
@@ -57,12 +57,12 @@ export function airPathTangent(r: Vec3, v: Vec3, t: number, eph: Ephemeris): num
 }
 
 /**
- * Ley de guiado del ascenso:
- * 1. Subida vertical hasta despejar la torre.
- * 2. Cabeceo: el empuje se inclina hacia el este hasta `kickDeg`.
- * 3. Giro por gravedad: el empuje sigue a la velocidad relativa al aire (ángulo de ataque nulo).
- * 4. Tangente lineal: la tangente del cabeceo sobre la horizontal baja a ritmo constante
- *    desde el valor que tenía al terminar el giro por gravedad (`tanAtHandover`).
+ * Ascent guidance law:
+ * 1. Vertical rise until the tower is cleared.
+ * 2. Pitch-over: the thrust tilts east up to `kickDeg`.
+ * 3. Gravity turn: the thrust follows the air-relative velocity (zero angle of attack).
+ * 4. Linear tangent: the tangent of the pitch above the horizontal decreases at a constant rate
+ *    from the value it had at the end of the gravity turn (`tanAtHandover`).
  */
 export function ascentDirection(p: AscentParams, tanAtHandover: number | null, eph: Ephemeris): DirectionLaw {
   const S = ASCENT_SEQUENCE;

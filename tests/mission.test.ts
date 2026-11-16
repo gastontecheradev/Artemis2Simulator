@@ -43,13 +43,13 @@ const DAY = 86400;
 const S = ASCENT_SEQUENCE;
 
 const launch = (): SimState => createInitialState(P, { headless: true, autoCrew: true });
-/** Velocidad relativa a la Tierra en rotación (la de las tablas de ascenso). */
+/** Velocity relative to the rotating Earth (the one in the ascent tables). */
 const speedRel = (s: SimState): number => length(sub(s.ship.v, airVelocity(s.ship.r, ephemerisOf(s).earth(s.t))));
-/** Velocidad inercial respecto de la Tierra (la de las tablas en órbita). */
+/** Inertial velocity relative to Earth (the one in the orbit tables). */
 const speedIn = (s: SimState): number => length(sub(s.ship.v, ephemerisOf(s).earth(s.t).v));
 const elements = (s: SimState) => earthElements(s.ship, s.t, ephemerisOf(s));
 
-/** Corre el bucle de frames como lo hace la app. `crew` actúa cuando la sim se pausa. */
+/** Runs the frame loop as the app does. `crew` acts when the sim pauses. */
 function runFrames(s0: SimState, crew: (s: SimState) => SimState, until = Infinity, maxFrames = 400000): SimState {
   let s = s0;
   for (let i = 0; i < maxFrames && !s.outcome && s.t < until; i++) {
@@ -59,9 +59,9 @@ function runFrames(s0: SimState, crew: (s: SimState) => SimState, until = Infini
   return s;
 }
 
-/** Tripulación que sigue los procedimientos con los interruptores del panel. */
+/** Crew that follows the procedures with the panel switches. */
 function followProcedures(s: SimState): SimState {
-  // Como una tripulación real: no actúa hasta que el primer paso (la espera) esté cumplido.
+  // Like a real crew: it does not act until the first step (the wait) is complete.
   if (!procedureView(s, s.proc.activeId).steps[0].done) return s;
   switch (s.proc.activeId) {
     case 'SEP_ICPS':
@@ -81,19 +81,19 @@ function followProcedures(s: SimState): SimState {
 describe('ascenso simulado (E1–E3)', () => {
   it('el cohete despega con sus motores y masas reales y reproduce los datos publicados', () => {
     let s = flyFrom(launch(), S.pitchStart);
-    // Torre despejada: 468 ft y 70 mph publicados.
+    // Tower cleared: published 468 ft and 70 mph.
     expect(altitudeOf(s)).toBeGreaterThan(0.08);
     expect(altitudeOf(s)).toBeLessThan(0.2);
-    // 70 mph publicados; la aceleración inicial depende de la rampa de empuje de los boosters (supuesta).
+    // Published 70 mph; the initial acceleration depends on the boosters' thrust ramp (assumed).
     expect(Math.abs(speedRel(s) - 0.031)).toBeLessThan(0.01);
-    // Separación de los boosters: 45,2 km y 1,34 km/s publicados (no son objetivo del ajuste).
-    // Los primeros dos minutos salen ~10 % más rápidos que lo publicado (ver process.md).
+    // Booster separation: published 45.2 km and 1.34 km/s (not tuning targets).
+    // The first two minutes come out ~10 % faster than published (see process.md).
     s = flyFrom(s, S.srbSeparation);
     expect(s.vehicle.srbSeparated).toBe(true);
     expect(Math.abs(altitudeOf(s) - 45.23)).toBeLessThan(8);
     expect(Math.abs(speedRel(s) - 1.344)).toBeLessThan(0.1);
     expect(s.propulsion.prop[TANK.SRB]).toBe(0);
-    // MECO y separación de la etapa central: los tres datos que sí ajusta el guiado.
+    // MECO and core stage separation: the three figures the guidance does tune.
     s = flyFrom(s, S.meco);
     expect(altitudeOf(s)).toBeCloseTo(MECO_ALTITUDE, 3);
     expect(s.propulsion.prop[TANK.CORE]).toBeGreaterThan(0);
@@ -101,7 +101,7 @@ describe('ascenso simulado (E1–E3)', () => {
     expect(s.phase).toBe('INSERCION');
     expect(s.record.insertion!.altitude).toBeCloseTo(INSERTION_ALTITUDE, 3);
     expect(s.record.insertion!.speedRel).toBeCloseTo(INSERTION_SPEED_REL, 5);
-    // La velocidad inercial es mayor: el dato publicado es relativo a la Tierra en rotación.
+    // The inertial velocity is higher: the published figure is relative to the rotating Earth.
     expect(s.record.insertion!.speed - INSERTION_SPEED_REL).toBeGreaterThan(0.35);
     expect(s.markers.map((m) => m.eventId)).toEqual(['E1', 'E2', 'E3']);
   });
@@ -109,20 +109,20 @@ describe('ascenso simulado (E1–E3)', () => {
   it('Max Q cae cerca del instante publicado, y la aceleración respeta el límite de los RS‑25', () => {
     let s = flyFrom(launch(), 100);
     const q = s.record.maxQ!;
-    // Publicado: 00:01:11. El perfil de empuje de los boosters tiene su mínimo ahí.
+    // Published: 00:01:11. The booster thrust profile has its minimum there.
     expect(Math.abs(q.t - 71)).toBeLessThan(15);
     expect(q.q).toBeGreaterThan(15000);
     expect(q.q).toBeLessThan(45000);
     expect(s.log.some((l) => l.text.startsWith('Max Q'))).toBe(true);
-    // Cerca del final del quemado la masa es chica: sin el límite pasaría de 4 g.
+    // Near the end of the burn the mass is small: without the limit it would exceed 4 g.
     s = flyFrom(s, 470);
     const f = forces(powerInputOf(s)!, s.t, s.ship.r, s.ship.v, s.propulsion.prop);
     expect(f.thrustAccel).toBeCloseTo(P.ascent.gLimit, 3);
     expect(f.thrustAccel / G0).toBeLessThan(4);
-    // Los últimos 5 s van al 67 %: la aceleración baja.
+    // The last 5 s are at 67 %: the acceleration drops.
     const end = flyFrom(s, 484);
     const fe = forces(powerInputOf(end)!, end.t, end.ship.r, end.ship.v, end.propulsion.prop);
-    // (el límite de aceleración ya tenía los motores cerca del 70 %, así que la bajada es chica)
+    // (the acceleration limit already had the engines near 70 %, so the drop is small)
     expect(fe.thrustAccel).toBeLessThan(f.thrustAccel);
     expect(fe.thrust / f.thrust).toBeLessThan(0.95);
   });
@@ -131,21 +131,21 @@ describe('ascenso simulado (E1–E3)', () => {
     const pad = launch();
     expect(pad.t).toBe(INITIAL_MET);
     expect(pad.ascentEngines).toEqual(['RS25']);
-    // Masa en la plataforma: 2.604 t del SLS cargado + Orion (guías de NASA; el modelo suma sus partes).
+    // Mass on the pad: 2,604 t of loaded SLS + Orion (NASA guides; the model sums its parts).
     expect(totalMass(pad.vehicle, pad.propulsion.prop) / 1e6).toBeCloseTo(2.63, 1);
     const s = flyFrom(pad, 0);
     expect(s.t).toBe(0);
     expect(altitudeOf(s)).toBeCloseTo(0, 6);
     expect(s.ascentEngines).toEqual(['SRB', 'RS25']);
-    // Seis segundos de RS‑25 gastan propelente de la etapa central antes de despegar.
+    // Six seconds of RS‑25 burn core stage propellant before liftoff.
     expect(MASS.coreProp - s.propulsion.prop[TANK.CORE]).toBeGreaterThan(4000);
     expect(MASS.coreProp - s.propulsion.prop[TANK.CORE]).toBeLessThan(9000);
-    // Empuje al despegue publicado: 36.787 kN.
+    // Published liftoff thrust: 36,787 kN.
     const f = forces(powerInputOf(s)!, 0, s.ship.r, s.ship.v, s.propulsion.prop);
     expect(f.thrust / 1e3).toBeCloseTo(36787, -3);
     expect(f.thrustAccel / G0).toBeGreaterThan(1.2);
     expect(f.thrustAccel / G0).toBeLessThan(1.7);
-    // El impulso específico efectivo de los boosters sale de la curva y el propelente publicados.
+    // The boosters' effective specific impulse comes from the published curve and propellant.
     expect(SRB_ISP).toBeGreaterThan(255);
     expect(SRB_ISP).toBeLessThan(275);
   });
@@ -154,8 +154,8 @@ describe('ascenso simulado (E1–E3)', () => {
     let s = launch();
     for (const row of ASCENT_TABLE.slice(1)) {
       s = flyFrom(s, row.met);
-      // Altitud dentro de 3 km o del 15 %; velocidad relativa dentro de 0,1 km/s o del 7 %.
-      // En los primeros dos minutos el modelo va ~10 % más rápido que la tabla (ver process.md).
+      // Altitude within 3 km or 15 %; relative velocity within 0.1 km/s or 7 %.
+      // In the first two minutes the model runs ~10 % faster than the table (see process.md).
       expect(Math.abs(altitudeOf(s) - row.altitude)).toBeLessThan(Math.max(3, 0.15 * row.altitude));
       expect(Math.abs(speedRel(s) - row.speed)).toBeLessThan(Math.max(0.1, 0.07 * row.speed));
     }
@@ -201,9 +201,9 @@ describe('H6 · fase en órbita terrestre', () => {
     const arb = fly(P, MET_E5_APOGEE_RAISE + 1900);
     expect(arb.burn).toBeNull();
     expect(Math.abs(elements(arb).rp - R_EARTH - POST_ARB_ORBIT.perigee)).toBeLessThan(1);
-    // Al ICPS le queda margen: el encendido no terminó por agotamiento.
+    // The ICPS has margin left: the burn did not end by depletion.
     expect(arb.propulsion.prop[TANK.ICPS]).toBeGreaterThan(500);
-    // El apogeo lo fija el horario del TLI del cronograma (~70.100 km); los 40.000 NM de la guía del SLS son control.
+    // The apogee is set by the timeline's TLI time (~70,100 km); the SLS guide's 40,000 NM are a check value.
     const afterE7 = elements(fly(P, MET_E7_DEPARTURE + E7_BURN_DURATION + 60));
     expect(Math.abs(afterE7.ra - R_EARTH - POST_ARB_ORBIT.apogee) / POST_ARB_ORBIT.apogee).toBeLessThan(0.07);
     const heo = elements(fly(P, P.burns.E8.met + 600));
@@ -221,7 +221,7 @@ describe('H6 · fase en órbita terrestre', () => {
     expect(before.burn!.tEnd - before.burn!.tStart).toBeCloseTo(duration, 6);
     expect(duration / 60).toBeGreaterThan(15);
     expect(duration / 60).toBeLessThan(21);
-    // E5 mantiene la actitud inercial de la ignición.
+    // E5 holds the inertial attitude from ignition.
     expect(before.burn!.fixedDir).not.toBeNull();
     const e7 = fly(P, MET_E7_DEPARTURE + 1).burn!;
     expect(e7.tEnd - e7.tStart).toBeCloseTo(E7_BURN_DURATION, 3);
@@ -232,14 +232,14 @@ describe('H6 · fase en órbita terrestre', () => {
     expect(s.phase).toBe('ORBITA_ALTA');
     const high = apsides.find((a) => a.type === 'apoapsis' && a.t > MET_E5_APOGEE_RAISE + 3000)!;
     expect(high.radius - R_EARTH).toBeGreaterThan(65000);
-    // Cronograma [TL]: elevación del perigeo en el apogeo a ~0/13:30 y TLI a 1/01:08:42.
+    // [TL] timeline: perigee raise at apogee at ~0/13:30 and TLI at 1/01:08:42.
     expect(Math.abs(high.t - PUBLISHED_MET.prb)).toBeLessThan(15 * 60);
     expect(Math.abs(P.burns.E9.met - PUBLISHED_MET.tli)).toBeLessThan(5);
     const next = fly(withBurn(P, 'E9', { prograde: 0 }), P.burns.E9.met + 1200);
     const peri = next.record.apsides.find((a) => a.type === 'periapsis' && a.t > high.t)!;
     expect(Math.abs(peri.t - (P.burns.E9.met + TLI_HALF_BURN))).toBeLessThan(5);
     expect(peri.radius - R_EARTH).toBeGreaterThan(150);
-    // Sin E8, Orion reentra en el perigeo: la órbita publicada tras E5 tiene el perigeo a altitud cero.
+    // Without E8, Orion reenters at perigee: the published orbit after E5 has its perigee at zero altitude.
     const noE8 = fly(withBurn(withBurn(P, 'E8', { prograde: 0 }), 'E9', { prograde: 0 }), P.burns.E9.met + 3600);
     expect(noE8.outcome?.kind).toBe('reentry-early');
   });
@@ -288,7 +288,7 @@ describe('H7 · retorno libre', () => {
     expect(s.propulsion.orionDvUsed).toBeCloseTo(orion, 6);
     expect(s.propulsion.mainBurns).toBe(2);
     expect(s.propulsion.auxBurns).toBe(1);
-    // Antes de separar el módulo de servicio, el propelente gastado es el de la ecuación del cohete.
+    // Before separating the service module, the propellant spent is the one from the rocket equation.
     const pre = fly(P, P.nominal.eiMet - 2 * 3600);
     const used = FULL_TANKS[TANK.ESM] - pre.propulsion.prop[TANK.ESM];
     const m0 = MASS.cm + MASS.cmProp + MASS.smDry + MASS.esmProp;
@@ -312,7 +312,7 @@ describe('H7 · retorno libre', () => {
   it('crucero: prograde en el tránsito, retrógrado con la cápsula sola y nada durante un encendido o su orientación previa', () => {
     expect(cruiseSense(fly(P, 3 * 86400))).toBe(1);
     expect(cruiseSense(fly(P, P.nominal.eiMet - 600))).toBe(-1);
-    // El TLI enciende 185 s antes del perigeo; 60 s antes de su TIG la nave ya se orienta.
+    // The TLI ignites 185 s before perigee; 60 s before its TIG the spacecraft is already orienting.
     const tig = P.burns.E9.met;
     expect(cruiseSense(fly(P, tig - 60))).toBe(0);
     expect(cruiseSense(fly(P, tig + 60))).toBe(0);
@@ -370,7 +370,7 @@ describe('H8 · la misión se vuela desde el panel', () => {
     let s = flyFrom(createInitialState(P, { headless: true, autoCrew: true }), P.burns.E9.met + 100);
     expect(s.burn?.id).toBe('E9');
     expect(s.maneuvers.E9.status).toBe('burning');
-    // La tripulación automática no arma el interruptor: se arma y se baja para cortar.
+    // The automatic crew does not arm the switch: it is armed and lowered to cut off.
     s = cmd.setSwitch(cmd.setSwitch(s, 'mainArm', true), 'mainArm', false);
     expect(s.burn).toBeNull();
     expect(s.maneuvers.E9.status).toBe('done');
@@ -386,14 +386,14 @@ describe('partes que se desprenden', () => {
     s = flyFrom(s, S.srbSeparation + 1);
     const boosters = s.debris.filter((d) => d.kind === 'SRB');
     expect(boosters.length).toBe(2);
-    // Se alejan uno para cada lado.
+    // They move apart, one to each side.
     expect(length(sub(boosters[0].ship.r, boosters[1].ship.r))).toBeGreaterThan(0.012);
     s = flyFrom(s, S.lasJettison + 1);
     expect(s.debris.some((d) => d.kind === 'LAS')).toBe(true);
     s = flyFrom(s, S.coreSeparation + 60);
     const core = s.debris.find((d) => d.kind === 'CORE')!;
     expect(length(sub(core.ship.r, s.ship.r))).toBeGreaterThan(0.05);
-    // Los boosters caen en minutos; la etapa central reentra en la primera vuelta.
+    // The boosters fall within minutes; the core stage reenters on the first orbit.
     s = flyFrom(s, 3 * 3600);
     expect(s.debris.some((d) => d.kind === 'SRB')).toBe(false);
     expect(s.debris.some((d) => d.kind === 'CORE')).toBe(false);
@@ -417,7 +417,7 @@ describe('partes que se desprenden', () => {
 });
 
 describe('actitud y controladores manuales', () => {
-  // Orion ya separada del ICPS, en crucero.
+  // Orion already separated from the ICPS, in cruise.
   const base = fly(P, 4 * 3600);
 
   it('durante el ascenso el piloto automático no se puede sacar de AUTO', () => {
@@ -431,7 +431,7 @@ describe('actitud y controladores manuales', () => {
     expect(angleBetween(base.attitude.dir, prograde)).toBeLessThan(0.02);
     let s = cmd.setRhc(cmd.setDapMode(base, 'MAN'), 1);
     s = flyFrom(s, base.t + 30);
-    // 3°/s durante 30 s = 90°.
+    // 3°/s for 30 s = 90°.
     expect(angleBetween(s.attitude.dir, base.attitude.dir)).toBeCloseTo(Math.PI / 2, 2);
     s = flyFrom(cmd.setRhc(s, 0), s.t + 30);
     expect(angleBetween(s.attitude.dir, base.attitude.dir)).toBeCloseTo(Math.PI / 2, 2);
@@ -441,7 +441,7 @@ describe('actitud y controladores manuales', () => {
     const coast = flyFrom(base, base.t + 100);
     const pushed = flyFrom(cmd.setThc(cmd.setDapMode(base, 'INRTL'), 1), base.t + 100);
     const dv = sub(pushed.ship.v, coast.ship.v);
-    // 880 N sobre ~26,5 t durante 100 s ≈ 3,3 m/s.
+    // 880 N on ~26.5 t for 100 s ≈ 3.3 m/s.
     expect(length(dv) * 1000).toBeGreaterThan(3);
     expect(length(dv) * 1000).toBeLessThan(3.7);
     expect(angleBetween(normalize(dv), base.attitude.dir)).toBeLessThan(0.02);
@@ -450,7 +450,7 @@ describe('actitud y controladores manuales', () => {
   });
 
   it('un encendido con la nave mal orientada empuja para donde apunta la nave', () => {
-    // Nave girada 180° y actitud fija: el encendido "prograde" de E7 frena en vez de acelerar.
+    // Spacecraft turned 180° with a fixed attitude: the "prograde" E7 burn slows down instead of speeding up.
     let s = flyFrom(cmd.setRhc(cmd.setDapMode(base, 'MAN'), 1), base.t + 60);
     s = cmd.setDapMode(cmd.setRhc(s, 0), 'INRTL');
     const good = fly(P, P.burns.E7.met + E7_BURN_DURATION + 10);
@@ -477,17 +477,17 @@ describe('guiado de correcciones', () => {
       executeManeuver(d, 'E10');
     });
     while (!s.record.perilune && !s.outcome) s = advance(s, DAY, Infinity);
-    // El guiado supone un impulso instantáneo y el encendido real dura: queda un error chico.
+    // Guidance assumes an instantaneous impulse and the real burn takes time: a small error remains.
     expect(Math.abs(s.record.perilune!.altitude - FLYBY_ALTITUDE_TARGET)).toBeLessThan(25);
     expect(s.propulsion.auxBurns).toBe(2);
   });
 
   it('una RTC devuelve al corredor una trayectoria con el TLI desviado', () => {
     const off = withBurn(P, 'E9', { prograde: P.burns.E9.dv.prograde + 0.0002 });
-    // Sin corrección la entrada queda fuera del corredor.
+    // Without a correction the entry falls outside the corridor.
     const bad = fly(off, P.nominal.eiMet + DAY);
     expect(bad.outcome?.kind).not.toBe('success');
-    // Con una corrección un día y medio después del sobrevuelo, vuelve a entrar.
+    // With a correction a day and a half after the flyby, it enters again.
     let s = fly(off, P.nominal.flybyMet + 1.5 * DAY);
     expect(s.phase).toBe('REGRESO');
     const res = solveCorrection(s, 'entry', 'radial');
