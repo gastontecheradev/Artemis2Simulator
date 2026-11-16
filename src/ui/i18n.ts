@@ -160,7 +160,6 @@ const EN = {
   'lang.title': 'LANGUAGE · IDIOMA',
   'lang.en': 'ENGLISH',
   'lang.es': 'ESPAÑOL',
-  'start.kicker': 'MISSION SIMULATOR',
   'start.intro':
     'A crewed flight around the Moon on a free-return trajectory, from the launch pad to atmospheric entry. Nothing is pre-drawn: the rocket climbs on the thrust and mass of its engines, and the trajectory is decided by the gravity of the Earth and the Moon.',
   'start.flyby': 'NOMINAL LUNAR FLYBY',
@@ -374,7 +373,6 @@ const ES: Readonly<Record<UiKey, string>> = {
   'lang.title': 'LANGUAGE · IDIOMA',
   'lang.en': 'ENGLISH',
   'lang.es': 'ESPAÑOL',
-  'start.kicker': 'SIMULADOR DE MISIÓN',
   'start.intro':
     'Vuelo tripulado alrededor de la Luna con retorno libre, desde la plataforma hasta la entrada a la atmósfera. Nada está dibujado de antemano: el cohete sube con el empuje y la masa de sus motores, y la trayectoria la decide la gravedad de la Tierra y de la Luna.',
   'start.flyby': 'SOBREVUELO LUNAR NOMINAL',

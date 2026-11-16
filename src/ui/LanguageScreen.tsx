@@ -5,8 +5,8 @@ export function LanguageScreen(): JSX.Element {
   return (
     <div className="modal intro">
       <div className="modal-card intro-card lang-card">
-        <span className="end-kicker">ARTEMIS II</span>
-        <h2>LANGUAGE · IDIOMA</h2>
+        <h2>ARTEMIS II SIMULATOR</h2>
+        <h3>LANGUAGE · IDIOMA</h3>
         <div className="lang-buttons">
           <button className="guide-btn lang-btn" onClick={() => chooseLanguage('en')}>
             <span className="guide-n">EN</span>

@@ -99,7 +99,7 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 ## Historial de sesiones
 
 ## Sesión 17 — 2026-11-15 — Aviso de datos ilustrativos
-**Hecho:** `ui/LanguageScreen.tsx` (un párrafo por idioma) y `start.foot` en `ui/i18n.ts`: además de "no afiliado ni avalado por NASA", aclaran que las cifras salen de un modelo físico simplificado y son ilustrativas, no datos oficiales de la misión.
+**Hecho:** `ui/LanguageScreen.tsx` (un párrafo por idioma, con prefijos EN:/ES:) y `start.foot` en `ui/i18n.ts`: además de "no afiliado ni avalado por NASA", aclaran que las cifras salen de un modelo físico simplificado y son ilustrativas, no datos oficiales de la misión. **Nombre del proyecto: "Artemis II Simulator"** (en inglés, en todos lados): título grande en el menú de idioma (con "LANGUAGE · IDIOMA" como subtítulo) y en la pantalla de inicio (se quitó la clave `start.kicker`), `<title>` de `index.html` (y `lang="en"`), encabezado de `README.md` y `CLAUDE.md`.
 **Tests:** build sin errores; captura headless del menú de idioma. La pantalla de inicio usa la misma clase y la clave traducida, sin captura propia.
 **Próximo paso:** el de "Estado actual".
 

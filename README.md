@@ -1,4 +1,4 @@
-# Simulador Artemis II
+# Artemis II Simulator
 
 Simulador web de la misión Artemis II: un vuelo tripulado alrededor de la Luna con retorno libre, desde la plataforma de lanzamiento hasta la entrada a la atmósfera. Nada está dibujado de antemano. El cohete sube con el empuje y la masa de sus motores, y la trayectoria la decide la gravedad de la Tierra y de la Luna.
 
