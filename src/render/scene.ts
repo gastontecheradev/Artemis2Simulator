@@ -33,7 +33,6 @@ export interface ViewSettings {
   readonly frame: 'inertial' | 'rotating';
   /** Marco del mapa 2D: rotante (Tierra y Luna quietas) o inercial (la Luna recorre su órbita). */
   readonly mapFrame: 'inertial' | 'rotating';
-  readonly exaggerate: boolean;
 }
 
 export interface TrajectoryViewDeps {
@@ -50,8 +49,6 @@ const NOMINAL_PATH = nominalRaw as unknown as readonly (readonly [number, number
 const Z: Vec3 = { x: 0, y: 0, z: 1 };
 /** 1 m en unidades de escena. */
 const M_TO_SCENE = KM_TO_SCENE / 1000;
-/** Agrandamiento de los cuerpos en el mapa. La vista 3D y el recuadro van siempre a escala real. */
-const MAP_EXAGGERATION = 3;
 /** Radios fijos del recuadro del entorno terrestre (km): fase de órbita baja y después. */
 const INSET_RADIUS_LOW = 9000;
 const INSET_RADIUS_HIGH = 95000;
@@ -152,7 +149,7 @@ function mapFraming(
   };
   for (const [t, x, y] of NOMINAL_PATH) take(toDisplayFrame({ x, y, z: 0 }, t, frame));
   const earth = toDisplayFrame(eph.earth(0).r, 0, frame);
-  const re = R_EARTH * MAP_EXAGGERATION;
+  const re = R_EARTH;
   take(add(earth, { x: re, y: re, z: 0 }));
   take(add(earth, { x: -re, y: -re, z: 0 }));
   if (frame.rotating) {
@@ -163,7 +160,7 @@ function mapFraming(
   } else {
     // La Luna se mueve: entra su arco completo, del lanzamiento al final del plan.
     const tEnd = NOMINAL_PATH.length ? NOMINAL_PATH[NOMINAL_PATH.length - 1][0] : 0;
-    const r = R_MOON * MAP_EXAGGERATION * 2;
+    const r = R_MOON * 2;
     for (let i = 0; i <= 64; i++) {
       const m = toDisplayFrame(eph.moon((tEnd * i) / 64).r, 0, frame);
       take(add(m, { x: r, y: r, z: 0 }));
@@ -257,8 +254,6 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   resize();
 
   // Cachés para no reconstruir geometrías sin necesidad.
-  let lastSettings: ViewSettings | null = null;
-  let lastBodyScale = 0;
   let lastTrail: TrailPoint[] | null = null;
   let lastTrailKey = '';
   let lastPrediction: Prediction | null | undefined;
@@ -336,15 +331,6 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     const displayDir = (d: Vec3): Vec3 => (frameAngle ? rotateZ(d, -frameAngle) : d);
     const toSun = displayDir(sunDirection(s.t));
     sun.position.set(toSun.x, toSun.y, toSun.z);
-
-    // En 3D todo va a escala real (cuerpos y nave): con la Tierra agrandada, la nave en
-    // órbita baja quedaba adentro del planeta.
-    const bodyScale = isMap && settings.exaggerate ? MAP_EXAGGERATION : 1;
-    if (settings !== lastSettings || bodyScale !== lastBodyScale) {
-      bodies.setBodyScale(bodyScale);
-      lastSettings = settings;
-      lastBodyScale = bodyScale;
-    }
 
     // --- Cámara: modo efectivo y encuadre ---
     const base: ViewFrame = { eph, rotating, angle: mapAngle, origin: ZERO };
@@ -522,8 +508,8 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
       shipPx: is3d ? shipLengthM * M_TO_SCENE * pxPerScene : Infinity,
       showIcons: !is3d,
       radiusPx: {
-        earth: R_EARTH * bodyScale * KM_TO_SCENE * pxPerScene,
-        moon: R_MOON * bodyScale * KM_TO_SCENE * pxPerScene,
+        earth: R_EARTH * KM_TO_SCENE * pxPerScene,
+        moon: R_MOON * KM_TO_SCENE * pxPerScene,
       },
       debris: s.debris.map((item) => {
         const d = displayDir(item.dir);
@@ -536,7 +522,7 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
           ? {
               r: eph.moon(flybyMet).r,
               t: flybyMet,
-              radiusPx: R_MOON * bodyScale * KM_TO_SCENE * pxPerScene,
+              radiusPx: R_MOON * KM_TO_SCENE * pxPerScene,
               label: es ? 'LUNA EN EL SOBREVUELO' : 'MOON AT FLYBY',
             }
           : null,
