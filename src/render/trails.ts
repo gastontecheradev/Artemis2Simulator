@@ -16,7 +16,7 @@ export interface TrailColors {
 
 export interface Trails {
   readonly group: THREE.Group;
-  /** Flown trail (solid), colored by phase as in 1.png. */
+  /** Flown trail (solid), colored by phase as in NASA's mission map. */
   setTraveled(points: readonly TrailPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame): void;
   /** Predicted trajectory (dashed), from the spacecraft forward. */
   setPredicted(points: readonly TrajectoryPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame): void;

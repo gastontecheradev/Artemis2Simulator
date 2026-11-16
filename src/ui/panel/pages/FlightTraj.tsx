@@ -28,7 +28,7 @@ function Row({ label, value, unit, cls = 'val' }: { label: string; value: string
 const W = 200;
 const H = 110;
 
-/** Altitude vs. time mini-chart (logarithmic scale), like the curve in 10.png. */
+/** Altitude vs. time mini-chart (logarithmic scale), like the curve on Orion's ascent display. */
 function AltitudeGraph({ s }: { s: SimState }): JSX.Element {
   const trail = s.trail;
   const t0 = trail[0].t;
@@ -62,7 +62,7 @@ function AltitudeGraph({ s }: { s: SimState }): JSX.Element {
   );
 }
 
-/** Flight.Traj: flight data (inspired by the PFD in 10.png, without the attitude ball). */
+/** Flight.Traj: flight data (inspired by Orion's ascent PFD, without the attitude ball). */
 export function FlightTraj({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   const eph = ephemerisOf(s);

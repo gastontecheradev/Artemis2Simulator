@@ -1,4 +1,4 @@
-/* Layout and components. Colors come from theme.css (palette extracted from docs/reference/). */
+/* Layout and components. Colors come from theme.css (palette extracted from NASA reference images). */
 
 /* ---------- General layout ---------- */
 .app {
@@ -546,7 +546,7 @@ button.softkey:active {
 .step.skipped .txt {
   color: var(--c-label-dim);
 }
-/* Current step highlighted in magenta, as in the procedure viewer of 11.png. */
+/* Current step highlighted in magenta, as in the procedure viewer of Orion's cockpit. */
 .step.current {
   background: var(--c-command);
 }
@@ -826,7 +826,7 @@ button.softkey:active {
   align-items: center;
   gap: 2px;
   padding: 4px;
-  /* Yellow and black guard stripes, as in 9.png. */
+  /* Yellow and black guard stripes, as on Orion's cockpit panels. */
   background: repeating-linear-gradient(-45deg, var(--c-hazard) 0 6px, var(--c-switch-plate) 6px 12px);
   border-radius: 2px;
 }
@@ -1010,7 +1010,7 @@ button.softkey:active {
   color: var(--c-label-dim);
   white-space: nowrap;
 }
-/* Numbered event markers, with the colors of 1.png. */
+/* Numbered event markers, with the colors of NASA's mission map. */
 .event-marker {
   display: flex;
   align-items: center;

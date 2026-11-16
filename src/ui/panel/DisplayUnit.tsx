@@ -77,7 +77,7 @@ function Menu({ active, where }: { active: PageId; where: 'top' | 'bottom' }): J
 }
 
 /**
- * Display Unit: screen with bezel and soft keys (reference: 9.png). The screen is
+ * Display Unit: screen with bezel and soft keys (reference: Orion's cockpit displays). The screen is
  * split into an upper and a lower half, each with one page. The top keys
  * choose the upper page, the bottom ones the lower page, and the side ones run the
  * actions of each page.

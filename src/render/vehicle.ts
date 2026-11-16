@@ -7,7 +7,7 @@ import { EngineId, VehicleConfig } from '../sim/vehicle';
  * (nose towards +x) and the origin at the base of the capsule. The dimensions are the
  * ones published by NASA (98 m rocket, 64.6 m × 8.4 m core stage, 54 m × 3.7 m
  * boosters, 13.7 m × 5.1 m ICPS, 5 m diameter capsule); the detail of
- * each piece is our own and simplified. No logos. References: 4.png and 6.png.
+ * each piece is our own and simplified. No logos. References: NASA's Orion and SLS illustrations.
  */
 
 export interface VehicleColors {
@@ -187,7 +187,7 @@ function buildPart(id: PartId, kit: Kit): THREE.Group {
   }
   if (id === 'SM') {
     // Four solar arrays in an X. Each wing faces the spacecraft axis (seen face-on
-    // looking at the spacecraft from the front, as in 4.png): the plane is rotated 90° about its
+    // looking at the spacecraft from the front, as in NASA's Orion illustrations): the plane is rotated 90° about its
     // length, which is radial.
     const wing = kit.track(new THREE.PlaneGeometry(WING.width, WING.length));
     wing.rotateY(Math.PI / 2);

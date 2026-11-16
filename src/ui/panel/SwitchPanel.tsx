@@ -5,7 +5,7 @@ import { act } from '../store';
 
 type Led = 'off' | 'armed' | 'active' | 'done';
 
-/** Toggle seen from the front, like the switches on panels F1–F4 in 9.png. */
+/** Toggle seen from the front, like the switches on Orion's F1–F4 panels. */
 function Lever({ up }: { up: boolean }): JSX.Element {
   return (
     <svg className="lever" viewBox="0 0 40 40" aria-hidden="true">

@@ -43,7 +43,7 @@ export function procsActions(s: SimState): SoftAction[] {
   return actions;
 }
 
-/** Procs: procedure viewer (inspired by 11.png). It is the command interface. */
+/** Procs: procedure viewer (inspired by Orion's cockpit). It is the command interface. */
 export function Procs({ s }: { s: SimState }): JSX.Element {
   const t = useT();
   const view = procedureView(s, s.proc.activeId);

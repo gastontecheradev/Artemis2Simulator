@@ -27,7 +27,7 @@ export interface OverlayAnchors {
 }
 
 /**
- * HTML layer over the canvas: numbered event markers (like those in 1.png),
+ * HTML layer over the canvas: numbered event markers (like those on NASA's mission map),
  * body labels and dots, 2D icons of the spacecraft and the jettisoned
  * parts, and the ignition flash. Each element is placed by projecting its
  * position with the active camera, so it works the same in 2D and in 3D.

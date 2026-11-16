@@ -4,7 +4,7 @@ import { useT } from './i18n';
 import { showIntro } from './store';
 
 /**
- * End-of-mission banner, styled like one of the panel's Display Units (9.png): metallic
+ * End-of-mission banner, styled like one of the panel's Display Units (after Orion's cockpit): metallic
  * bezel, black screen, title bar and an annunciator lit green if
  * it ended successfully (E15) or red for any of the other endings decided by the
  * physics. It sits over the views without darkening them, so the trajectory stays visible.

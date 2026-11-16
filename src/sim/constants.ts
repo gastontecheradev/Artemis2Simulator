@@ -7,7 +7,7 @@
  * - [A2]  NASA, "Artemis II Reference Guide", 2026.
  * - [TL]  NASA, "Artemis II Overview Timeline", 18/03/2026 (STRIVES 20260002249).
  * - [AV]  NASA, "Artemis II Mission Availability – April 2026" (launch windows).
- * - [3.png] ascent and Earth-orbit infographic (docs/reference/3.png), same as the [SLS] table.
+ * - [ASC] NASA, ascent and Earth-orbit infographic for Artemis II, same as the [SLS] table.
  * - [JPL] NASA/JPL, Horizons ephemeris system (ssd.jpl.nasa.gov/horizons), accessed 2026-11-15.
  * - [ORG] NASA, "Orion Reference Guide", 2022-11-10 (predates Artemis I; Orion data).
  */
@@ -78,7 +78,7 @@ export const MI_TO_KM = 1.609344;
 const hms = (h: number, m: number, s: number): number => h * 3600 + m * 60 + s;
 const dhms = (d: number, h: number, m: number, s: number): number => d * 86400 + hms(h, m, s);
 
-// --- Ascent data from 3.png and the [SLS] event table (converted once, here) ---
+// --- Ascent data from [ASC] and the [SLS] event table (converted once, here) ---
 export interface AscentPoint {
   readonly label: string;
   readonly met: number; // s
@@ -114,11 +114,11 @@ export const ORBIT_TABLE: readonly AscentPoint[] = [
   { label: 'Liberación de CubeSats', met: hms(5, 20, 23), speed: 5896 * MPH_TO_KMS, altitude: 137337463 * FT_TO_KM },
 ];
 
-// --- Event METs ([SLS] event table; E4 and E6 match 3.png) ---
+// --- Event METs ([SLS] event table; E4 and E6 match [ASC]) ---
 export const MET_MECO = hms(0, 8, 6);
 export const MET_CORE_SEPARATION = hms(0, 8, 18); // E3
 export const MET_E4_PERIGEE_RAISE = hms(0, 49, 52);
-/** [SLS] table: 01:46:37 (3.png gives 01:48:48 and the [TL] timeline 0/01:47; the table, the most detailed, is used). */
+/** [SLS] table: 01:46:37 ([ASC] gives 01:48:48 and the [TL] timeline 0/01:47; the table, the most detailed, is used). */
 export const MET_E5_APOGEE_RAISE = hms(1, 46, 37);
 /** [SLS] Orion/ICPS separation 03:22:46 and proximity demo until Orion's departure burn at 04:53:15. */
 export const MET_E6_PROX_OPS_START = hms(3, 22, 46);
@@ -210,7 +210,7 @@ export const APOLLO_13_RECORD_DISTANCE = 400171;
 // --- Mission ---
 /** Entry interface: 400,000 ft. */
 export const EI_ALTITUDE = 400000 * FT_TO_KM; // 121.92 km
-/** Mean lunar flyby altitude (1.png). [A2] says "~4,700 miles"; the 1.png value is kept. */
+/** Mean lunar flyby altitude (NASA's Artemis II mission map). [A2] says "~4,700 miles"; the map value is kept. */
 export const FLYBY_ALTITUDE_TARGET = 6513; // km
 
 /**
@@ -222,7 +222,7 @@ export const FLYBY_ALTITUDE_TARGET = 6513; // km
 export const ENTRY_CORRIDOR = { min: -6.66, target: -5.66, max: -4.66 } as const;
 
 /**
- * NSN/DSN boundary by altitude. 2.png is schematic and does not give the value, but it shows NSN
+ * NSN/DSN boundary by altitude. NASA's Artemis II network map is schematic and does not give the value, but it shows NSN
  * at the TLI (near perigee) and DSN in the high orbit: the boundary lies within that
  * orbit. Geostationary altitude is used, where the Near Space Network relay satellites
  * orbit; above it, Deep Space Network takes over.

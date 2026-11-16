@@ -16,7 +16,7 @@ export type Responsible = 'AUTO' | 'CREW' | 'NONE';
 
 export interface MissionEvent {
   readonly id: EventId;
-  /** Event number in 1.png. */
+  /** Event number on NASA's mission map. */
   readonly n: number;
   readonly name: string;
   /** Short name for tables and countdowns. */
@@ -26,7 +26,7 @@ export interface MissionEvent {
   readonly met: number | null;
 }
 
-/** Events E1–E15 with the numbering of docs/reference/1.png. */
+/** Events E1–E15 with the numbering of NASA's Artemis II mission map. */
 export function timeline(params: MissionParams): readonly MissionEvent[] {
   const b = params.burns;
   const n = params.nominal;

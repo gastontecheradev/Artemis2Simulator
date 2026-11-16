@@ -2,7 +2,7 @@ import { getLocale } from './i18n';
 
 const pad = (n: number, w: number): string => String(n).padStart(w, '0');
 
-/** MET in DDD/HH:MM:SS format (like the clock in 9.png, but with mission time). Before liftoff, signed: -000/00:00:06. */
+/** MET in DDD/HH:MM:SS format (like the cockpit clock, but with mission time). Before liftoff, signed: -000/00:00:06. */
 export function formatMet(t: number): string {
   const neg = t < 0;
   const s = Math.floor(Math.abs(neg ? Math.ceil(t) : t));

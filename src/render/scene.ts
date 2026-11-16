@@ -77,7 +77,7 @@ export function insetTarget(s: SimState): 'earth' | 'moon' {
  * Orientation of the 2D map (rotation subtracted from the drawing). The camera looks from +z
  * (north), so any rotation keeps the real sense: Earth spins, the spacecraft
  * orbits Earth and the Moon orbits its own counterclockwise, and in the rotating frame the
- * flyby goes around the Moon clockwise over the far side (as in 1.png, which
+ * flyby goes around the Moon clockwise over the far side (as in NASA's mission map, which
  * is drawn with Earth on the left: this is that view rotated 180°, not mirrored).
  * Rotating: the Moon (on +x in the frame) ends up on the left and Earth on the right.
  * Inertial: the Moon at the nominal flyby ends up to the left of Earth.

@@ -24,7 +24,7 @@ export interface SoftAction {
 }
 
 export interface PageDef {
-  /** Title in System.Page format, as in 9.png. */
+  /** Title in System.Page format, as on Orion's displays. */
   readonly title: string;
   /** Short menu label. */
   readonly menu: string;

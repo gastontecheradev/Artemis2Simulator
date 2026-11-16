@@ -6,7 +6,7 @@ import { useT } from '../../i18n';
 const WHO = { AUTO: 'AUTO', CREW: 'CREW', NONE: '' } as const;
 
 /**
- * Mission.Tl: the 15 mission events (numbering from 1.png) with their status and their actual,
+ * Mission.Tl: the 15 mission events (numbering from NASA's mission map) with their status and their actual,
  * predicted or planned MET. The next event is highlighted in magenta.
  */
 export function Timeline({ s }: { s: SimState }): JSX.Element {
