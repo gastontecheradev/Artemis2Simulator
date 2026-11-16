@@ -17,7 +17,12 @@ export function LanguageScreen(): JSX.Element {
             ESPAÑOL
           </button>
         </div>
-        <p className="dim intro-foot">Educational project, not affiliated with or endorsed by NASA · Proyecto educativo, no afiliado ni avalado por NASA.</p>
+        <p className="dim intro-foot">
+          Educational project, not affiliated with or endorsed by NASA. Figures come from a simplified physics model: they are illustrative, not official mission data.
+        </p>
+        <p className="dim intro-foot">
+          Proyecto educativo, no afiliado ni avalado por NASA. Las cifras salen de un modelo físico simplificado: son ilustrativas, no datos oficiales de la misión.
+        </p>
       </div>
     </div>
   );

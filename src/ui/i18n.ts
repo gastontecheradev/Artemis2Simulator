@@ -176,7 +176,7 @@ const EN = {
   'start.tutorial': 'GUIDED TUTORIAL',
   'start.guides': 'GUIDES',
   'start.credits': 'CREDITS',
-  'start.foot': 'Educational project, not affiliated with or endorsed by NASA.',
+  'start.foot': 'Educational project, not affiliated with or endorsed by NASA. Figures come from a simplified physics model: they are illustrative, not official mission data.',
   // Menú de guías
   'gd.title': 'BEFORE THE FLIGHT',
   'gd.intro': 'Five short guides about the mission and the spacecraft. You can read them now or come back to them from the GUIDES button during the flight.',
@@ -390,7 +390,7 @@ const ES: Readonly<Record<UiKey, string>> = {
   'start.tutorial': 'TUTORIAL GUIADO',
   'start.guides': 'GUÍAS',
   'start.credits': 'CRÉDITOS',
-  'start.foot': 'Proyecto educativo, no afiliado ni avalado por NASA.',
+  'start.foot': 'Proyecto educativo, no afiliado ni avalado por NASA. Las cifras salen de un modelo físico simplificado: son ilustrativas, no datos oficiales de la misión.',
   'gd.title': 'ANTES DEL VUELO',
   'gd.intro': 'Cinco guías cortas sobre la misión y la nave. Podés leerlas ahora o volver a ellas desde el botón GUÍAS durante el vuelo.',
   'gd.continue': 'CONTINUAR',

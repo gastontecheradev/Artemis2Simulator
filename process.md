@@ -98,6 +98,11 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 
 ## Historial de sesiones
 
+## Sesión 17 — 2026-11-15 — Aviso de datos ilustrativos
+**Hecho:** `ui/LanguageScreen.tsx` (un párrafo por idioma) y `start.foot` en `ui/i18n.ts`: además de "no afiliado ni avalado por NASA", aclaran que las cifras salen de un modelo físico simplificado y son ilustrativas, no datos oficiales de la misión.
+**Tests:** build sin errores; captura headless del menú de idioma. La pantalla de inicio usa la misma clase y la clave traducida, sin captura propia.
+**Próximo paso:** el de "Estado actual".
+
 ## Sesión 16 — 2026-11-15 — Ícono 2D con las piezas reales de cada etapa
 **Hecho:** `render/vehicle.ts`: geometría común (`PROFILE`, `FAIRING_PANEL`, `WING`, `ARM_ANGLES`, `FLAMES`, `arraysDeployed`) que usan `buildPart` (3D) y los nuevos `vehicleIconSvg` / `debrisIconSvg` (proyección desde +z, tamaño `pxPerMeter`). `ui/styles.css`: el SVG trae su tamaño, clases iguales a los materiales (`hull`, `dark`, `core`, `solar`, `flame`), trazo que no escala, nave con `z-index` sobre las partes, `--icon-k` 0,65 en el recuadro.
 **Decisiones:** 30.
