@@ -111,15 +111,12 @@ const CAMERAS = ['auto', 'overview', 'ship', 'earth', 'moon'] as const;
 /** Ajustes compartidos por las dos vistas, más la cámara de cada una. */
 export interface ViewState {
   readonly mapFrame: ViewSettings['mapFrame'];
-  readonly exaggerate: boolean;
   readonly camera: Readonly<Record<ViewDim, CameraMode>>;
 }
 
-// También por URL: ?cam3d=earth, ?map=inertial (solo el mapa 2D),
-// ?real (cuerpos a escala real)
+// También por URL: ?cam3d=earth, ?map=inertial (solo el mapa 2D).
 const view = createValue<ViewState>({
   mapFrame: pick('map', ['inertial', 'rotating'] as const, 'rotating'),
-  exaggerate: !query.has('real'),
   camera: { '2d': 'overview', '3d': pick('cam3d', CAMERAS, 'auto'), inset: 'earth' },
 });
 
@@ -135,7 +132,7 @@ export function getViewSettings(dim: ViewDim): ViewSettings {
   const hit = settingsCache[dim];
   if (hit && hit.from === v) return hit.value;
   const value: ViewSettings = { cameraMode: v.camera[dim], frame: 'inertial', // la vista 3D va siempre en marco inercial
-     mapFrame: v.mapFrame, exaggerate: v.exaggerate };
+     mapFrame: v.mapFrame };
   settingsCache[dim] = { from: v, value };
   return value;
 }

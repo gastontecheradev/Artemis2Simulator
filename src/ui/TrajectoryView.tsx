@@ -69,9 +69,6 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
             onChange={(mapFrame) => setViewState({ mapFrame })}
           />
           <div className="tb-group">
-            <button className={view.exaggerate ? 'tb-btn' : 'tb-btn on'} onClick={() => setViewState({ exaggerate: !view.exaggerate })}>
-              {t('vw.scale')}
-            </button>
             <button className="tb-btn" onClick={onGuides}>
               {t('vw.guides')}
             </button>
