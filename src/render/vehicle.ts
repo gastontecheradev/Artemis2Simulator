@@ -44,9 +44,7 @@ const partsOf = (cfg: VehicleConfig): PartId[] => {
 
 /** Extremos del vehículo completo en su configuración actual (m). */
 export function vehicleExtent(cfg: VehicleConfig): { x0: number; x1: number; length: number; center: number } {
-  const parts = partsOf(cfg);
-  const x0 = Math.min(...parts.map((p) => EXTENT[p].x0));
-  const x1 = Math.max(...parts.map((p) => EXTENT[p].x1));
+  const { x0, x1 } = extentOf(partsOf(cfg));
   return { x0, x1, length: x1 - x0, center: (x0 + x1) / 2 };
 }
 
@@ -71,6 +69,83 @@ export const debrisLength = (id: string): number => {
   return e.x1 - e.x0;
 };
 
+// ---------- Geometría común (3D e ícono 2D) ----------
+
+type Mat = 'hull' | 'dark' | 'core';
+
+/**
+ * Tramo de revolución sobre el eje x: radio `r0` en `x0` y `r1` en `x0 + len`, con su eje
+ * corrido a (y, z). El modelo 3D lo hace cilindro o cono; el ícono 2D, el trapecio que se
+ * ve mirando desde +z, que es como mira el mapa (el eje z local de la nave es la normal
+ * del plano, ver `orient` en `scene.ts`).
+ */
+interface Seg {
+  readonly r0: number;
+  readonly r1: number;
+  readonly x0: number;
+  readonly len: number;
+  readonly mat: Mat;
+  readonly open?: boolean;
+  readonly y?: number;
+  readonly z?: number;
+}
+
+const seg = (r0: number, r1: number, x0: number, len: number, mat: Mat, more: Partial<Seg> = {}): Seg => ({ r0, r1, x0, len, mat, ...more });
+
+const srbProfile = (y: number): Seg[] => [
+  seg(1.86, 1.86, -86, 50, 'hull', { y }),
+  seg(1.86, 0.2, -36, 4, 'hull', { y }),
+  seg(1.9, 1.2, -88.5, 2.5, 'dark', { y, open: true }),
+];
+
+/** Piezas de revolución de cada parte. Los paneles protectores y las alas solares van aparte. */
+const PROFILE: Readonly<Record<PartId, readonly Seg[]>> = {
+  // Módulo de tripulación: cono truncado sobre el escudo térmico.
+  CM: [seg(2.51, 0.6, 0, 3.3, 'hull'), seg(2.3, 2.51, -0.2, 0.2, 'dark')],
+  // Torre de escape: carenado ojival sobre la cápsula, torre con los motores y punta.
+  LAS: [seg(2.62, 0.55, 0.2, 5.6, 'hull'), seg(0.55, 0.45, 5.8, 6.2, 'hull'), seg(0.9, 0.55, 8.6, 0.9, 'dark'), seg(0.45, 0.05, 12, 1.4, 'hull')],
+  FAIRING: [],
+  // Módulo de servicio: cuerpo y tobera del motor principal.
+  SM: [seg(2.05, 2.05, -4.2, 4.2, 'hull'), seg(0.95, 0.4, -5.6, 1.4, 'dark', { open: true })],
+  // Etapa superior: adaptador hacia Orion, tanque y tobera del RL10.
+  ICPS: [seg(2.55, 2.1, -6, 1.6, 'hull'), seg(2.55, 2.55, -15.5, 9.5, 'hull'), seg(1.05, 0.3, -18.3, 2.8, 'dark', { open: true })],
+  // Etapa central: adaptador cónico, tanques y cuatro RS‑25.
+  CORE: [
+    seg(4.2, 2.55, -22.5, 7, 'hull'),
+    seg(4.2, 4.2, -84.5, 62, 'core'),
+    ...[[1.9, 1.9], [1.9, -1.9], [-1.9, 1.9], [-1.9, -1.9]].map(([y, z]) => seg(1.15, 0.4, -87.5, 3, 'dark', { open: true, y, z })),
+  ],
+  SRB_L: srbProfile(EXTENT.SRB_L.y),
+  SRB_R: srbProfile(EXTENT.SRB_R.y),
+};
+
+/** Paneles protectores del módulo de servicio: tres tramos de un cilindro abierto. */
+const FAIRING_PANEL = { r: 2.62, x0: -4.6, len: 4.6 };
+
+/**
+ * Alas solares en X: cada brazo gira `ARM_ANGLES` alrededor del eje; el ala tiene su
+ * centro a `r` del eje y en `x`, con la cara hacia el eje de la nave e inclinada `tilt` hacia atrás.
+ */
+const WING = { width: 1.9, length: 7, x: -3.2, r: 5.6, tilt: 0.22 };
+const ARM_ANGLES = [0, 1, 2, 3].map((i) => Math.PI / 4 + (i * Math.PI) / 2);
+
+/** Los paneles solares se despliegan ya en órbita, sin los paneles protectores. */
+const arraysDeployed = (cfg: VehicleConfig): boolean => cfg.lasJettisoned && cfg.coreSeparated;
+
+/** Llama de cada motor: cono que sale de la tobera (en `x`) hacia −x. */
+const FLAMES: Readonly<Record<EngineId, readonly { x: number; y: number; radius: number; len: number }[]>> = {
+  SRB: [
+    { x: -88.5, y: 6.3, radius: 1.7, len: 34 },
+    { x: -88.5, y: -6.3, radius: 1.7, len: 34 },
+  ],
+  RS25: [{ x: -87.5, y: 0, radius: 3.1, len: 26 }],
+  RL10: [{ x: -18.3, y: 0, radius: 1.0, len: 11 }],
+  MAIN: [{ x: -5.6, y: 0, radius: 0.9, len: 7 }],
+  AUX: [{ x: -5.2, y: 0, radius: 1.6, len: 3 }],
+  RCS: [{ x: -4.4, y: 0, radius: 2.3, len: 1.2 }],
+  CMRCS: [{ x: 0.2, y: 0, radius: 2.4, len: 1.0 }],
+};
+
 // ---------- Geometría 3D ----------
 
 interface Kit {
@@ -93,77 +168,38 @@ function tube(kit: Kit, r0: number, r1: number, x0: number, len: number, materia
 
 function buildPart(id: PartId, kit: Kit): THREE.Group {
   const g = new THREE.Group();
-  switch (id) {
-    case 'CM':
-      // Módulo de tripulación: cono truncado sobre el escudo térmico.
-      g.add(tube(kit, 2.51, 0.6, 0, 3.3, kit.hull), tube(kit, 2.3, 2.51, -0.2, 0.2, kit.dark));
-      break;
-    case 'LAS':
-      // Torre de escape: carenado ojival sobre la cápsula, torre con los motores y punta.
-      g.add(
-        tube(kit, 2.62, 0.55, 0.2, 5.6, kit.hull),
-        tube(kit, 0.55, 0.45, 5.8, 6.2, kit.hull),
-        tube(kit, 0.9, 0.55, 8.6, 0.9, kit.dark),
-        tube(kit, 0.45, 0.05, 12, 1.4, kit.hull),
-      );
-      break;
-    case 'FAIRING': {
-      // Tres paneles que cubren el módulo de servicio durante el ascenso.
-      for (let i = 0; i < 3; i++) {
-        const geo = kit.track(new THREE.CylinderGeometry(2.62, 2.62, 4.6, 16, 1, true, (i * 2 * Math.PI) / 3 + 0.04, (2 * Math.PI) / 3 - 0.08));
-        geo.rotateZ(-Math.PI / 2);
-        const panel = new THREE.Mesh(geo, kit.hull);
-        panel.position.x = -2.3;
-        g.add(panel);
-      }
-      break;
+  for (const s of PROFILE[id]) {
+    const piece = tube(kit, s.r0, s.r1, s.x0, s.len, kit[s.mat], s.open);
+    piece.position.y = s.y ?? 0;
+    piece.position.z = s.z ?? 0;
+    g.add(piece);
+  }
+  if (id === 'FAIRING') {
+    // Tres paneles que cubren el módulo de servicio durante el ascenso.
+    const { r, x0, len } = FAIRING_PANEL;
+    for (let i = 0; i < 3; i++) {
+      const geo = kit.track(new THREE.CylinderGeometry(r, r, len, 16, 1, true, (i * 2 * Math.PI) / 3 + 0.04, (2 * Math.PI) / 3 - 0.08));
+      geo.rotateZ(-Math.PI / 2);
+      const panel = new THREE.Mesh(geo, kit.hull);
+      panel.position.x = x0 + len / 2;
+      g.add(panel);
     }
-    case 'SM': {
-      // Módulo de servicio: cuerpo, tobera del motor principal y cuatro paneles solares en X.
-      g.add(tube(kit, 2.05, 2.05, -4.2, 4.2, kit.hull), tube(kit, 0.95, 0.4, -5.6, 1.4, kit.dark, true));
-      // Cada ala con la cara hacia el eje de la nave (se ve de frente mirando la nave desde
-      // adelante, como en 4.png): el plano se gira 90° sobre su largo, que es radial.
-      const wing = kit.track(new THREE.PlaneGeometry(1.9, 7));
-      wing.rotateY(Math.PI / 2);
-      for (let i = 0; i < 4; i++) {
-        const arm = new THREE.Group();
-        arm.rotation.x = Math.PI / 4 + (i * Math.PI) / 2;
-        const panel = new THREE.Mesh(wing, kit.solar);
-        panel.position.set(-3.2, 5.6, 0);
-        panel.rotation.z = 0.22;
-        arm.add(panel);
-        arm.name = 'array';
-        g.add(arm);
-      }
-      break;
-    }
-    case 'ICPS':
-      // Etapa superior: adaptador hacia Orion, tanque y tobera del RL10.
-      g.add(
-        tube(kit, 2.55, 2.1, -6, 1.6, kit.hull),
-        tube(kit, 2.55, 2.55, -15.5, 9.5, kit.hull),
-        tube(kit, 1.05, 0.3, -18.3, 2.8, kit.dark, true),
-      );
-      break;
-    case 'CORE': {
-      // Etapa central: adaptador cónico, tanques y cuatro RS‑25.
-      g.add(tube(kit, 4.2, 2.55, -22.5, 7, kit.hull), tube(kit, 4.2, 4.2, -84.5, 62, kit.core));
-      for (const [y, z] of [[1.9, 1.9], [1.9, -1.9], [-1.9, 1.9], [-1.9, -1.9]]) {
-        const nozzle = tube(kit, 1.15, 0.4, -87.5, 3, kit.dark, true);
-        nozzle.position.y = y;
-        nozzle.position.z = z;
-        g.add(nozzle);
-      }
-      break;
-    }
-    case 'SRB_L':
-    case 'SRB_R': {
-      const y = EXTENT[id].y;
-      for (const piece of [tube(kit, 1.86, 1.86, -86, 50, kit.hull), tube(kit, 1.86, 0.2, -36, 4, kit.hull), tube(kit, 1.9, 1.2, -88.5, 2.5, kit.dark, true)]) {
-        piece.position.y = y;
-        g.add(piece);
-      }
-      break;
+  }
+  if (id === 'SM') {
+    // Cuatro paneles solares en X. Cada ala con la cara hacia el eje de la nave (se ve de
+    // frente mirando la nave desde adelante, como en 4.png): el plano se gira 90° sobre su
+    // largo, que es radial.
+    const wing = kit.track(new THREE.PlaneGeometry(WING.width, WING.length));
+    wing.rotateY(Math.PI / 2);
+    for (const angle of ARM_ANGLES) {
+      const arm = new THREE.Group();
+      arm.rotation.x = angle;
+      const panel = new THREE.Mesh(wing, kit.solar);
+      panel.position.set(WING.x, WING.r, 0);
+      panel.rotation.z = WING.tilt;
+      arm.add(panel);
+      arm.name = 'array';
+      g.add(arm);
     }
   }
   return g;
@@ -216,28 +252,21 @@ export function createVehicleModel(colors: VehicleColors): VehicleModel {
     parts.set(id, g);
     stack.add(g);
   }
-  const flames: Readonly<Record<EngineId, THREE.Object3D[]>> = {
-    SRB: [flame(kit, -88.5, 6.3, 1.7, 34), flame(kit, -88.5, -6.3, 1.7, 34)],
-    RS25: [flame(kit, -87.5, 0, 3.1, 26)],
-    RL10: [flame(kit, -18.3, 0, 1.0, 11)],
-    MAIN: [flame(kit, -5.6, 0, 0.9, 7)],
-    AUX: [flame(kit, -5.2, 0, 1.6, 3)],
-    RCS: [flame(kit, -4.4, 0, 2.3, 1.2)],
-    CMRCS: [flame(kit, 0.2, 0, 2.4, 1.0)],
-  };
-  for (const list of Object.values(flames)) for (const f of list) stack.add(f);
+  const flames = new Map<EngineId, THREE.Object3D[]>(
+    (Object.keys(FLAMES) as EngineId[]).map((id) => [id, FLAMES[id].map((f) => flame(kit, f.x, f.y, f.radius, f.len))]),
+  );
+  for (const list of flames.values()) for (const f of list) stack.add(f);
 
   return {
     group,
     update(cfg, running, anchorBase = false) {
       const present = partsOf(cfg);
       for (const [id, g] of parts) g.visible = present.includes(id);
-      // Los paneles solares se despliegan ya en órbita, sin los paneles protectores.
-      const deployed = cfg.lasJettisoned && cfg.coreSeparated;
+      const deployed = arraysDeployed(cfg);
       parts.get('SM')?.children.forEach((c) => {
         if (c.name === 'array') c.visible = deployed;
       });
-      for (const [id, list] of Object.entries(flames)) for (const f of list) f.visible = running.includes(id as EngineId);
+      for (const [id, list] of flames) for (const f of list) f.visible = running.includes(id);
       const ext = vehicleExtent(cfg);
       stack.position.x = anchorBase ? -ext.x0 : -ext.center;
       return ext.length;
@@ -280,63 +309,170 @@ export function createDebrisModels(colors: VehicleColors): DebrisModels {
 
 // ---------- Íconos 2D ----------
 
-const CM_ICON = '<path d="M 15 0 L 12.5 -2.2 L 5 -5.6 L 5 5.6 L 12.5 2.2 Z" class="hull"/>';
-const SM_ICON = '<path d="M -9 -2.2 L -13.5 -4 L -13.5 4 L -9 2.2 Z" class="nozzle"/><rect x="-9" y="-5" width="11" height="10" class="hull"/><rect x="2" y="-5.6" width="3" height="11.2" class="adapter"/>';
-const ARRAYS_ICON =
-  '<path d="M -2 -3 L -16 -17 L -12.5 -18.5 L 1 -4 Z" class="wing"/><path d="M -2 3 L -16 17 L -12.5 18.5 L 1 4 Z" class="wing"/>' +
-  '<path d="M -3 -3 L 9 -13 L 11 -10.5 L 0 -2 Z" class="wing far"/><path d="M -3 3 L 9 13 L 11 10.5 L 0 2 Z" class="wing far"/>';
-const svg = (body: string): string => `<svg viewBox="-20 -20 40 40" class="ship-icon">${body}</svg>`;
-const fire = (x: number, half: number, len: number, y = 0): string =>
-  `<path d="M ${x} ${y - half} L ${x - len} ${y} L ${x} ${y + half} Z" class="flame"/>`;
+/**
+ * El ícono 2D es la misma nave que el modelo 3D, vista desde +z (como mira el mapa):
+ * cada tramo de revolución se ve como un trapecio y cada ala solar como su proyección.
+ * Así cambia con las mismas piezas que el 3D y con sus proporciones reales.
+ */
+type Pt = readonly [number, number];
+interface Shape {
+  readonly pts: readonly Pt[];
+  readonly cls: string;
+}
+
+/** Orden de dibujo: lo que en 3D queda adentro de otra pieza va antes (la tobera del ICPS dentro del adaptador de la etapa central, la cápsula bajo la torre). */
+const DRAW_ORDER: readonly PartId[] = ['SM', 'CM', 'ICPS', 'CORE', 'SRB_L', 'SRB_R', 'FAIRING', 'LAS'];
+const ALL_PARTS = Object.keys(EXTENT) as PartId[];
+
+const segShape = (s: Seg): Shape => {
+  const y = s.y ?? 0;
+  const x1 = s.x0 + s.len;
+  return {
+    pts: [
+      [s.x0, y - s.r0],
+      [x1, y - s.r1],
+      [x1, y + s.r1],
+      [s.x0, y + s.r0],
+    ],
+    cls: s.mat,
+  };
+};
+
+const partShapes = (id: PartId): Shape[] => {
+  if (id !== 'FAIRING') return PROFILE[id].map(segShape);
+  const { r, x0, len } = FAIRING_PANEL;
+  return [segShape(seg(r, r, x0, len, 'hull'))];
+};
+
+/** Alas solares proyectadas sobre el plano: `near` = las que quedan del lado de la cámara (+z). */
+function wingShapes(near: boolean): Shape[] {
+  const { width, length: span, x, r, tilt } = WING;
+  return ARM_ANGLES.filter((a) => Math.sin(a) > 0 === near).map((a) => ({
+    pts: ([[-1, -1], [1, -1], [1, 1], [-1, 1]] as const).map(([su, sv]): Pt => {
+      const u = (su * width) / 2;
+      const v = (sv * span) / 2;
+      return [x - v * Math.sin(tilt), (r + v * Math.cos(tilt)) * Math.cos(a) + u * Math.sin(a)];
+    }),
+    cls: near ? 'solar' : 'solar far',
+  }));
+}
+
+function sideView(parts: readonly PartId[], arrays: boolean): Shape[] {
+  const out: Shape[] = arrays ? wingShapes(false) : [];
+  for (const id of DRAW_ORDER) {
+    if (!parts.includes(id)) continue;
+    out.push(...partShapes(id));
+    if (id === 'SM' && arrays) out.push(...wingShapes(true));
+  }
+  return out;
+}
+
+const flameShape = (f: (typeof FLAMES)[EngineId][number]): Shape => ({
+  pts: [
+    [f.x, f.y - f.radius],
+    [f.x - f.len, f.y - 0.05],
+    [f.x - f.len, f.y + 0.05],
+    [f.x, f.y + f.radius],
+  ],
+  cls: 'flame',
+});
+
+function extentOf(parts: readonly PartId[]): { x0: number; x1: number } {
+  return { x0: Math.min(...parts.map((p) => EXTENT[p].x0)), x1: Math.max(...parts.map((p) => EXTENT[p].x1)) };
+}
+const lengthOf = (parts: readonly PartId[]): number => {
+  const e = extentOf(parts);
+  return e.x1 - e.x0;
+};
 
 /**
- * Ícono 2D propio de la nave, visto de costado y apuntando hacia +x. Cambia con la
- * etapa: cohete completo, sin boosters, ICPS + Orion, Orion y cápsula sola.
+ * Tamaño en pantalla: el cohete completo mide `ICON_FULL_PX` y cada configuración, según
+ * su largo elevado a `ICON_POWER` (elección de dibujo, no un dato). A escala lineal la
+ * cápsula sola sería 29 veces más corta que el cohete; así queda ~4,5 veces más corta y
+ * se sigue viendo. Dentro de cada configuración las proporciones son las reales.
  */
-export function vehicleIconSvg(cfg: VehicleConfig, running: readonly EngineId[]): string {
-  if (cfg.cmSeparated) return svg(`${CM_ICON}<path d="M 5 -5.6 Q 3.2 0 5 5.6" class="shield"/>`);
-  if (cfg.icpsSeparated) {
-    const f = running.includes('MAIN') ? fire(-13.5, 3.4, 9) : running.includes('AUX') ? fire(-13.5, 4, 4) : '';
-    return svg(`${f}${ARRAYS_ICON}${SM_ICON}${CM_ICON}`);
-  }
-  if (cfg.coreSeparated) {
-    // ICPS + Orion: la etapa superior detrás del módulo de servicio.
-    const f = running.includes('RL10') ? fire(-19, 2.6, 9) : '';
-    return svg(
-      `${f}<path d="M -15 -2.4 L -19 -3.6 L -19 3.6 L -15 2.4 Z" class="nozzle"/><rect x="-15" y="-4.6" width="13" height="9.2" class="hull"/>` +
-        '<rect x="-2" y="-4.1" width="6" height="8.2" class="hull"/><path d="M 14 0 L 12 -1.8 L 5 -4.6 L 5 4.6 L 12 1.8 Z" class="hull"/><rect x="4" y="-4.6" width="1.6" height="9.2" class="adapter"/>',
-    );
-  }
-  // Cohete: etapa central, parte superior y, si siguen, boosters y torre de escape.
-  const boosters = cfg.srbSeparated
-    ? ''
-    : '<rect x="-18" y="-6.6" width="15" height="2.6" class="hull"/><path d="M -3 -6.6 L -1 -5.3 L -3 -4 Z" class="hull"/>' +
-      '<rect x="-18" y="4" width="15" height="2.6" class="hull"/><path d="M -3 4 L -1 5.3 L -3 6.6 Z" class="hull"/>';
-  const tower = cfg.lasJettisoned ? '<path d="M 14.5 0 L 12.5 -1.6 L 11 -1.6 L 11 1.6 L 12.5 1.6 Z" class="hull"/>' : '<path d="M 19 0 L 15 -0.5 L 13 -1.7 L 11 -1.7 L 11 1.7 L 13 1.7 L 15 0.5 Z" class="hull"/>';
-  const f =
-    (running.includes('RS25') ? fire(-18, 2.2, 10) : '') +
-    (running.includes('SRB') && !cfg.srbSeparated ? fire(-18, 1.2, 12, -5.3) + fire(-18, 1.2, 12, 5.3) : '');
-  return svg(
-    `${f}${boosters}<rect x="-18" y="-2.8" width="22" height="5.6" class="core"/><path d="M 4 -2.8 L 6.5 -1.8 L 6.5 1.8 L 4 2.8 Z" class="hull"/><rect x="6.5" y="-1.8" width="4.5" height="3.6" class="hull"/>${tower}`,
+const ICON_FULL_PX = 72;
+const ICON_POWER = 0.45;
+/** Lado mínimo (px) de un ícono, para que una pieza chica (un CubeSat) no desaparezca. */
+const ICON_MIN_PX = 5;
+const FULL_LENGTH = lengthOf(ALL_PARTS);
+const pxPerMeter = (lengthM: number): number => (ICON_FULL_PX * Math.pow(lengthM / FULL_LENGTH, ICON_POWER)) / lengthM;
+
+const fmt = (n: number): string => n.toFixed(2);
+const pathOf = (s: Shape): string => `<path d="M ${s.pts.map(([x, y]) => `${fmt(x)} ${fmt(-y)}`).join(' L ')} Z" class="${s.cls}"/>`;
+
+/**
+ * SVG con el eje de la nave hacia +x, centrado en las piezas (las llamas salen del recuadro).
+ * Mide `pxPerM` píxeles por metro, multiplicado por `--icon-k` (el recuadro lo achica).
+ */
+function iconSvg(shapes: readonly Shape[], flames: readonly Shape[], pxPerM: number): string {
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  let y1 = -Infinity;
+  for (const s of shapes)
+    for (const [x, y] of s.pts) {
+      x0 = Math.min(x0, x);
+      x1 = Math.max(x1, x);
+      y0 = Math.min(y0, y);
+      y1 = Math.max(y1, y);
+    }
+  const w = x1 - x0;
+  const h = y1 - y0;
+  const k = Math.max(pxPerM, ICON_MIN_PX / Math.max(w, h));
+  const size = (m: number): string => `calc(var(--icon-k, 1) * ${(m * k).toFixed(1)}px)`;
+  // En SVG el eje y va hacia abajo: se invierte (y = −y) para que el lado +y local quede a la izquierda del rumbo.
+  return (
+    `<svg viewBox="${fmt(x0)} ${fmt(-y1)} ${fmt(w)} ${fmt(h)}" class="ship-icon" style="width:${size(w)};height:${size(h)}">` +
+    `${[...flames, ...shapes].map(pathOf).join('')}</svg>`
   );
 }
 
-/** Ícono 2D de una parte desprendida. */
+/**
+ * Ícono 2D de la nave, apuntando hacia +x: las mismas piezas que el modelo 3D en la
+ * etapa actual (cohete completo, sin boosters, sin torre, ICPS + Orion, Orion, cápsula
+ * sola), con los paneles solares desplegados en órbita y la llama de cada motor encendido.
+ */
+export function vehicleIconSvg(cfg: VehicleConfig, running: readonly EngineId[]): string {
+  const parts = partsOf(cfg);
+  const flames = running.flatMap((id) => FLAMES[id].map(flameShape));
+  return iconSvg(sideView(parts, arraysDeployed(cfg)), flames, pxPerMeter(lengthOf(parts)));
+}
+
+/** Pieza que representa cada tipo de parte desprendida. */
+const DEBRIS_KIND_PART: Readonly<Record<Exclude<DebrisKind, 'CUBESAT'>, PartId>> = {
+  SRB: 'SRB_L',
+  LAS: 'LAS',
+  FAIRING: 'FAIRING',
+  CORE: 'CORE',
+  ICPS: 'ICPS',
+  SM: 'SM',
+};
+
+/**
+ * Configuración de la que se desprende cada parte: el ícono de la parte usa su misma
+ * escala, así al separarse se ve del tamaño que tenía unida a la nave.
+ */
+const DEBRIS_PARENT: Readonly<Record<DebrisKind, readonly PartId[]>> = {
+  SRB: ALL_PARTS,
+  LAS: ALL_PARTS.filter((p) => p !== 'SRB_L' && p !== 'SRB_R'),
+  FAIRING: ALL_PARTS.filter((p) => p !== 'SRB_L' && p !== 'SRB_R'),
+  CORE: ['CM', 'SM', 'ICPS', 'CORE'],
+  ICPS: ['CM', 'SM', 'ICPS'],
+  SM: ['CM', 'SM'],
+  CUBESAT: ['ICPS'],
+};
+
+/** Ícono 2D de una parte desprendida, centrado en su propio centro (como su modelo 3D). */
 export function debrisIconSvg(kind: DebrisKind): string {
-  switch (kind) {
-    case 'SRB':
-      return svg('<rect x="-9" y="-1.4" width="16" height="2.8" class="hull"/><path d="M 7 -1.4 L 9.5 0 L 7 1.4 Z" class="hull"/>');
-    case 'LAS':
-      return svg('<path d="M 8 0 L 2 -0.7 L -1 -2.6 L -5 -2.6 L -5 2.6 L -1 2.6 L 2 0.7 Z" class="hull"/>');
-    case 'FAIRING':
-      return svg('<path d="M -4 -4 Q 0 -6 4 -4" class="arc"/><path d="M -4 0 Q 0 -2 4 0" class="arc"/><path d="M -4 4 Q 0 2 4 4" class="arc"/>');
-    case 'CORE':
-      return svg('<rect x="-12" y="-2.8" width="22" height="5.6" class="core"/><path d="M 10 -2.8 L 12.5 -1.8 L 12.5 1.8 L 10 2.8 Z" class="hull"/>');
-    case 'ICPS':
-      return svg('<path d="M -5 -2.4 L -9 -3.6 L -9 3.6 L -5 2.4 Z" class="nozzle"/><rect x="-5" y="-4.6" width="13" height="9.2" class="hull"/>');
-    case 'SM':
-      return svg(`${ARRAYS_ICON}${SM_ICON}`);
-    case 'CUBESAT':
-      return svg('<rect x="-2.5" y="-1.6" width="5" height="3.2" class="hull"/><rect x="-6" y="-0.5" width="3" height="1" class="wing"/><rect x="3" y="-0.5" width="3" height="1" class="wing"/>');
+  const scale = pxPerMeter(lengthOf(DEBRIS_PARENT[kind]));
+  if (kind === 'CUBESAT') {
+    const { x, y } = CUBESAT_SIZE;
+    return iconSvg([segShape(seg(y / 2, y / 2, -x / 2, x, 'hull'))], [], scale);
   }
+  const part = DEBRIS_KIND_PART[kind];
+  const e = EXTENT[part];
+  const dx = -(e.x0 + e.x1) / 2;
+  const shapes = sideView([part], part === 'SM').map((s) => ({ ...s, pts: s.pts.map(([x, y]): Pt => [x + dx, y - e.y]) }));
+  return iconSvg(shapes, [], scale);
 }

@@ -1032,35 +1032,39 @@ button.softkey:active {
 .event-marker.prox {
   background: color-mix(in srgb, var(--c-trail-prox) 85%, black);
 }
+/* Íconos 2D: el SVG trae su tamaño (proporciones reales de cada etapa, `render/vehicle.ts`). */
 .ship-marker {
-  width: 40px;
-  height: 40px;
+  z-index: 2;
 }
 .ship-icon {
   display: block;
-  width: 100%;
-  height: 100%;
   overflow: visible;
+}
+.ship-icon path {
+  stroke: var(--c-screen);
+  stroke-width: 0.5px;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 .ship-icon .hull {
   fill: var(--c-label);
-  stroke: var(--c-screen);
-  stroke-width: 0.6;
 }
-.ship-icon .adapter,
-.ship-icon .nozzle,
-.ship-icon .shield {
+.ship-icon .dark {
   fill: var(--c-key-lo);
-  stroke: var(--c-screen);
-  stroke-width: 0.6;
 }
-.ship-icon .wing {
-  fill: var(--c-key);
-  stroke: var(--c-screen);
-  stroke-width: 0.6;
+.ship-icon .core {
+  fill: var(--c-ship-core);
 }
-.ship-icon .wing.far {
-  fill: var(--c-key-lo);
+.ship-icon .solar {
+  fill: var(--c-ship-solar);
+}
+.ship-icon .solar.far {
+  fill: color-mix(in srgb, var(--c-ship-solar) 60%, black);
+}
+.ship-icon .flame {
+  fill: var(--c-trail-prox);
+  stroke: none;
+  opacity: 0.9;
 }
 
 .toolbar {
@@ -1564,28 +1568,10 @@ button.softkey:active {
 .legend-colors {
   z-index: 1;
 }
+/* Las partes desprendidas van debajo de la nave: recién separadas quedan tapadas y aparecen al alejarse. */
 .debris-marker {
-  width: 30px;
-  height: 30px;
-  opacity: 0.85;
-}
-.ship-marker {
-  width: 46px;
-  height: 46px;
-}
-.ship-icon .core {
-  fill: var(--c-ship-core);
-  stroke: var(--c-screen);
-  stroke-width: 0.6;
-}
-.ship-icon .flame {
-  fill: var(--c-trail-prox);
-  opacity: 0.9;
-}
-.ship-icon .arc {
-  fill: none;
-  stroke: var(--c-label);
-  stroke-width: 1.4;
+  z-index: 1;
+  opacity: 0.6;
 }
 
 /* ---------- Flight.PFD ---------- */
@@ -1941,9 +1927,8 @@ button.ann.link.acked {
   position: absolute;
   inset: 0;
 }
-.map-inset .view-overlay .ship-marker {
-  width: 30px;
-  height: 30px;
+.map-inset .view-overlay {
+  --icon-k: 0.65;
 }
 .map-inset .view-overlay .event-marker {
   width: 14px;
