@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { EARTH_MOON_DISTANCE, EI_ALTITUDE, GM_EARTH, GM_MOON, MOON_SOI, R_EARTH, R_MOON } from '../sim/constants';
+import { Vec3 } from '../sim/math/vec3';
 import { KM_TO_SCENE } from './worldToScene';
 
 /** Brillo propio de la Tierra en 3D (fracción de su color), solo para que se vea el lado nocturno. */
@@ -11,14 +12,14 @@ export interface BodyMeshes {
   readonly group: THREE.Group;
   readonly earth: THREE.Mesh;
   readonly moon: THREE.Mesh;
-  /** Circunferencia de la órbita lunar alrededor del baricentro (referencia). */
+  /** Órbita lunar alrededor del baricentro (referencia; elipse, inercial, sin el giro del dibujo). */
   readonly moonOrbit: THREE.LineLoop;
+  /** Reemplaza la órbita lunar por estos puntos (km, inerciales, relativos al baricentro). */
+  setMoonOrbit(points: readonly Vec3[]): void;
   /** Altitud de la interfaz de entrada (400.000 ft) alrededor de la Tierra. */
   readonly eiRing: THREE.LineLoop;
   /** Esfera de influencia lunar (en el plano orbital). */
   readonly soiRing: THREE.Line;
-  /** Factor de tamaño de los cuerpos (1 = escala real). */
-  setBodyScale(k: number): void;
   /** En 3D los cuerpos se iluminan con el "Sol"; en 2D son discos planos. */
   setLit(on: boolean): void;
   dispose(): void;
@@ -63,8 +64,9 @@ export function createBodies(
   const earth: THREE.Mesh = new THREE.Mesh(geometry, earthMat.flat);
   const moon: THREE.Mesh = new THREE.Mesh(geometry, moonMat.flat);
 
+  // Círculo medio hasta que la escena pase la órbita real con `setMoonOrbit`.
   const mu = GM_MOON / (GM_EARTH + GM_MOON);
-  const orbitGeometry = circle((1 - mu) * EARTH_MOON_DISTANCE * KM_TO_SCENE, 256, true);
+  let orbitGeometry = circle((1 - mu) * EARTH_MOON_DISTANCE * KM_TO_SCENE, 256, true);
   const orbitMaterial = new THREE.LineBasicMaterial({ color: colors.orbit, transparent: true, opacity: contrast ? 0.42 : 0.18 });
   const moonOrbit = new THREE.LineLoop(orbitGeometry, orbitMaterial);
 
@@ -79,13 +81,9 @@ export function createBodies(
 
   group.add(earth, moon, moonOrbit, eiRing, soiRing);
 
-  const setBodyScale = (k: number): void => {
-    earth.scale.setScalar(R_EARTH * KM_TO_SCENE * k);
-    moon.scale.setScalar(R_MOON * KM_TO_SCENE * k);
-    // El anillo de EI está a escala real: con la Tierra agrandada quedaría adentro del disco.
-    eiRing.visible = k === 1;
-  };
-  setBodyScale(1);
+  // Tierra y Luna siempre a escala real, en las tres vistas.
+  earth.scale.setScalar(R_EARTH * KM_TO_SCENE);
+  moon.scale.setScalar(R_MOON * KM_TO_SCENE);
 
   return {
     group,
@@ -94,7 +92,12 @@ export function createBodies(
     moonOrbit,
     eiRing,
     soiRing,
-    setBodyScale,
+    setMoonOrbit(points) {
+      const next = new THREE.BufferGeometry().setFromPoints(points.map((p) => new THREE.Vector3(p.x * KM_TO_SCENE, p.y * KM_TO_SCENE, p.z * KM_TO_SCENE)));
+      orbitGeometry.dispose();
+      orbitGeometry = next;
+      moonOrbit.geometry = next;
+    },
     setLit(on) {
       earth.material = on ? earthMat.lit : earthMat.flat;
       moon.material = on ? moonMat.lit : moonMat.flat;

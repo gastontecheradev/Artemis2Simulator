@@ -165,6 +165,19 @@ export function commandedDirection(s: SimState): Vec3 {
   return normalize(sub(s.ship.v, referenceBody(s.ship, s.t, eph).v));
 }
 
+/**
+ * Crucero: el DAP en AUTO solo mantiene la nave prograde (1) o, con la cápsula sola,
+ * retrógrada (−1), sin encendido en curso ni por venir, sin traslación y fuera del
+ * ascenso. Devuelve 0 en cualquier otro caso. Las vistas lo usan para dibujar la nave
+ * sobre su trazo: "prograde" es respecto del cuerpo de referencia, que no coincide con
+ * la tangente del trazo en el marco rotante ni, cerca de la Luna, en el inercial.
+ */
+export function cruiseSense(s: SimState): 1 | -1 | 0 {
+  if (s.phase === 'ASCENSO' || s.attitude.mode !== 'AUTO' || s.burn || s.thc !== 0) return 0;
+  if (s.vehicle.cmSeparated) return -1;
+  return attitudeTargetDv(s) === null ? 1 : 0;
+}
+
 /** Avanza la actitud `dt` segundos según el modo del piloto automático. */
 function updateAttitude(d: Draft, dt: number): void {
   const a = d.attitude;

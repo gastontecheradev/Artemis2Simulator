@@ -79,7 +79,8 @@ export const moonElements = (s: ShipState, t: number, eph: Ephemeris): OrbitElem
   relElements(s, eph.moon(t), eph.gmMoon);
 
 /**
- * Constante de Jacobi del CR3BP circular, evaluada con el estado inercial baricéntrico:
+ * Constante de Jacobi del CR3BP circular (solo vale con `createCircularEphemeris`; con la
+ * órbita lunar elíptica de la misión no se conserva), evaluada con el estado inercial baricéntrico:
  * C = 2·(GM_T/r1 + GM_L/r2) + 2·ω·(x·vy − y·vx) − v².
  */
 export function jacobiConstant(s: ShipState, t: number, eph: Ephemeris): number {

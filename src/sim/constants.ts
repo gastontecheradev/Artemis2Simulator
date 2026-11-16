@@ -8,6 +8,8 @@
  * - [TL]  NASA, "Artemis II Overview Timeline", 18/03/2026 (STRIVES 20260002249).
  * - [AV]  NASA, "Artemis II Mission Availability – April 2026" (ventanas de lanzamiento).
  * - [3.png] infografía de ascenso y órbita terrestre (docs/reference/3.png), igual a la tabla de [SLS].
+ * - [JPL] NASA/JPL, sistema de efemérides Horizons (ssd.jpl.nasa.gov/horizons), consultado el 15/11/2026.
+ * - [ORG] NASA, "Orion Reference Guide", 10/11/2022 (de antes de Artemis I; datos de Orion).
  */
 
 // --- Física ---
@@ -15,7 +17,11 @@ export const GM_EARTH = 398600.4418; // km³/s²
 export const GM_MOON = 4902.8; // km³/s²
 export const R_EARTH = 6378.137; // km
 export const R_MOON = 1737.4; // km
-export const EARTH_MOON_DISTANCE = 384400; // km (fija en el modelo circular)
+/**
+ * Distancia media Tierra‑Luna. La usan el modelo circular (tests de CR3BP) y la esfera de
+ * influencia; la misión vuela con la órbita elíptica de `MOON_ORBIT`.
+ */
+export const EARTH_MOON_DISTANCE = 384400; // km
 export const MOON_SIDEREAL_PERIOD = 27.321661 * 86400; // s
 export const MOON_ANGULAR_RATE = (2 * Math.PI) / MOON_SIDEREAL_PERIOD; // rad/s
 export const C_LIGHT = 299792.458; // km/s
@@ -40,6 +46,25 @@ export const EARTH_ROTATION_IN_PLANE = EARTH_ROTATION_RATE * Math.cos((LAUNCH_LA
 export const LAUNCH_BEFORE_SUNSET = 1.28 * 3600; // s
 /** Movimiento medio de la Tierra alrededor del Sol (año sidéreo de 365,256 días): el Sol avanza ~0,99°/día. */
 export const EARTH_ORBIT_RATE = (2 * Math.PI) / (365.256 * 86400); // rad/s
+
+/**
+ * [JPL] Órbita de la Luna durante la misión: elipse kepleriana (dos cuerpos, GM_T + GM_L)
+ * ajustada por mínimos cuadrados a los vectores geocéntricos de JPL Horizons (Luna, código
+ * 301, centro 500@399), cada hora del 01/04/2026 12:00 al 12/04/2026 12:00 UTC,
+ * proyectados en su plano medio. MET 0 = 01/04/2026 22:24 UTC ([AV]).
+ * Error contra Horizons: < 400 km en distancia entre MET 3 d y 6 d (sobrevuelo), 1.860 km
+ * como máximo (al despegue) y < 811 km a lo largo de la órbita.
+ * La Luna pasó por el apogeo el 07/04/2026 (404.964 km): durante el sobrevuelo estaba ~5 %
+ * más lejos que la distancia media, y eso alarga los dos tránsitos. La dirección del
+ * apogeo no sale de acá: la fija la fase lunar del retorno libre (`moonAngle0Deg`).
+ */
+export const MOON_ORBIT = {
+  /** Semieje mayor (km). */
+  a: 382778.4,
+  e: 0.05777,
+  /** MET del paso por el apogeo (s): 5,2027 d. */
+  apogeeMet: 5.2027 * 86400,
+} as const;
 
 /** Radio de la esfera de influencia lunar (Laplace): D·(GM_L/GM_T)^(2/5). */
 export const MOON_SOI = EARTH_MOON_DISTANCE * Math.pow(GM_MOON / GM_EARTH, 2 / 5);
@@ -130,9 +155,14 @@ export interface PublishedOrbit {
 export const INSERTION_ORBIT: PublishedOrbit = { perigee: 15 * NM_TO_KM, apogee: 1200 * NM_TO_KM };
 /** Tras la elevación del perigeo del ICPS (E4): 100 × 1.200 NM. Objetivo de E4: el perigeo. */
 export const POST_PRM_ORBIT: PublishedOrbit = { perigee: 100 * NM_TO_KM, apogee: 1200 * NM_TO_KM };
-/** Tras la elevación del apogeo (E5): 0 × 40.000 NM. Objetivo de E5: las dos cosas (el perigeo a cero deja al ICPS reentrando solo). */
+/**
+ * Tras la elevación del apogeo (E5): 0 × 40.000 NM. Objetivo de E5: el perigeo (a cero
+ * deja al ICPS reentrando solo). El apogeo es control, no objetivo: con 40.000 NM el
+ * período es de ~25,1 h y el TLI caería 1 h 45 min después del cronograma [TL]. E5 se
+ * ajusta para que el TLI encienda en el MET publicado (ver `PUBLISHED_MET.tli`).
+ */
 export const POST_ARB_ORBIT: PublishedOrbit = { perigee: 0, apogee: 40000 * NM_TO_KM };
-/** Órbita alta tras la elevación del perigeo de Orion (E8): 100 × 40.000 NM. Objetivo de E8: el perigeo. */
+/** Órbita alta tras la elevación del perigeo de Orion (E8): 100 × 40.000 NM. Objetivo de E8: el perigeo (el apogeo es control). */
 export const HEO_ORBIT: PublishedOrbit = { perigee: 100 * NM_TO_KM, apogee: 40000 * NM_TO_KM };
 
 /** Altitudes publicadas en MECO y en la separación de la etapa central: objetivos del guiado del ascenso. */
@@ -149,6 +179,16 @@ export const TLI_HALF_BURN = 185; // s
 
 // --- Cronograma publicado [TL] (control: el modelo calcula los suyos por física) ---
 export const PUBLISHED_MET = {
+  /** Elevación del perigeo de Orion (E8), "~0/13:30". */
+  prb: dhms(0, 13, 30, 0),
+  /**
+   * Ignición del TLI. Es objetivo de la calibración: el apogeo de la órbita alta (E5) se
+   * ajusta para que el perigeo siguiente caiga TLI_HALF_BURN después. El cronograma
+   * implica media vuelta de ~11 h 41 min entre la elevación del perigeo y el TLI, o sea un
+   * período de ~23,4 h y un apogeo de ~70.100 km (37.850 NM), no los 40.000 NM de [SLS]
+   * (25,1 h). Se sigue el cronograma porque es el documento más reciente y el que fija
+   * los horarios; la contradicción está anotada en process.md.
+   */
   tli: dhms(1, 1, 8, 42),
   otc1: dhms(2, 1, 8, 42),
   otc2: dhms(3, 1, 8, 42),

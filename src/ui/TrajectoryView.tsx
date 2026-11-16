@@ -68,19 +68,7 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
             value={view.mapFrame}
             onChange={(mapFrame) => setViewState({ mapFrame })}
           />
-          <Group
-            title={t('vw.trail')}
-            options={[
-              { id: 'phase', label: t('vw.phase') },
-              { id: 'network', label: t('vw.network') },
-            ]}
-            value={view.colorMode}
-            onChange={(colorMode) => setViewState({ colorMode })}
-          />
           <div className="tb-group">
-            <button className={view.exaggerate ? 'tb-btn' : 'tb-btn on'} onClick={() => setViewState({ exaggerate: !view.exaggerate })}>
-              {t('vw.scale')}
-            </button>
             <button className="tb-btn" onClick={onGuides}>
               {t('vw.guides')}
             </button>
@@ -114,19 +102,9 @@ export function TrajectoryView({ onCredits, onTutorial, onGuides }: { onCredits:
         </div>
       </section>
       <div className="legend legend-colors">
-        {view.colorMode === 'phase' ? (
-          <>
-            <span><i className="swatch out" /> {t('lg.out')}</span>
-            <span><i className="swatch prox" /> {t('lg.prox')}</span>
-            <span><i className="swatch ret" /> {t('lg.ret')}</span>
-          </>
-        ) : (
-          <>
-            <span><i className="swatch nsn" /> NSN</span>
-            <span><i className="swatch dsn" /> DSN</span>
-            <span><i className="swatch los" /> LOS</span>
-          </>
-        )}
+        <span><i className="swatch out" /> {t('lg.out')}</span>
+        <span><i className="swatch prox" /> {t('lg.prox')}</span>
+        <span><i className="swatch ret" /> {t('lg.ret')}</span>
         <span><i className="swatch pred" /> {t('lg.pred')}</span>
         <span><i className="swatch plan" /> {t('lg.plan')}</span>
       </div>

@@ -8,9 +8,9 @@ const TOP_KEYS = 6;
 const SIDE_KEYS = 5;
 
 /** Tecla del bisel. Sin acción es decorativa: no es botón ni reacciona al mouse. */
-function Key({ action, label }: { action?: () => void; label?: string }): JSX.Element {
+function Key({ action, label, press }: { action?: () => void; label?: string; press?: string }): JSX.Element {
   return action ? (
-    <button className="softkey" onClick={action} aria-label={label} title={label} />
+    <button className="softkey" onClick={action} aria-label={label} title={label} data-press={press} />
   ) : (
     <span className="softkey inert" />
   );
@@ -21,7 +21,7 @@ function SideKeys({ actions, side }: { actions: readonly SoftAction[]; side: 'L'
     <div className="du-keygroup">
       {Array.from({ length: SIDE_KEYS }, (_, i) => {
         const a = actions.find((x) => x.side === side && x.slot === i && !x.disabled);
-        return <Key key={i} action={a?.run} label={a?.label.replace('\n', ' ')} />;
+        return <Key key={i} action={a?.run} label={a?.label.replace('\n', ' ')} press={a?.press} />;
       })}
     </div>
   );

@@ -19,6 +19,8 @@ export interface SoftAction {
   readonly lit?: boolean;
   readonly disabled?: boolean;
   readonly tone?: 'command';
+  /** Valor de `data-press` de la tecla: el tutorial la señala con la mano. */
+  readonly press?: string;
 }
 
 export interface PageDef {

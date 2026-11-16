@@ -1,4 +1,4 @@
-# Simulador Artemis II
+# Artemis II Simulator
 
 Simulador web de la misión Artemis II: un vuelo tripulado alrededor de la Luna con retorno libre, desde la plataforma de lanzamiento hasta la entrada a la atmósfera. Nada está dibujado de antemano. El cohete sube con el empuje y la masa de sus motores, y la trayectoria la decide la gravedad de la Tierra y de la Luna.
 
@@ -40,7 +40,7 @@ Abrí la dirección que muestra la terminal. Primero se elige el idioma; despué
 | `←` y `→` | Rotar la nave (con el piloto automático en MAN) |
 | `↑` y `↓` | Empujar hacia adelante o atrás con los propulsores chicos |
 
-El mapa 2D no tiene zoom: la Tierra y la Luna quedan quietas (marco rotante, donde se ve el "8" del retorno libre), el plan nominal se dibuja tenue desde el principio y se va completando con el trazo real. Los datos de vuelo (tiempo, velocidad, distancias, temperatura y propelente) quedan sobre el mapa. El trazo se puede colorear por fase o por red de comunicaciones. En la vista 3D se elige cámara y marco, un recuadro muestra el entorno terrestre visto desde arriba, y se ve cómo se desprenden los boosters, la torre de escape, cada etapa y los CubeSats.
+El mapa 2D no tiene zoom: la Tierra y la Luna quedan quietas (marco rotante, donde se ve el "8" del retorno libre), el plan nominal se dibuja tenue desde el principio y se va completando con el trazo real. Los datos de vuelo (tiempo, velocidad, distancias, temperatura y propelente) quedan sobre el mapa. El trazo se colorea por fase. En la vista 3D (que muestra solo el trazo ya recorrido) se elige la cámara, un recuadro muestra el entorno terrestre visto desde arriba, y se ve cómo se desprenden los boosters, la torre de escape, cada etapa y los CubeSats.
 
 ## Qué simula y qué no
 
@@ -62,7 +62,7 @@ El mapa 2D no tiene zoom: la Tierra y la Luna quedan quietas (marco rotante, don
 - El sistema eléctrico (la guía de energía lo explica, pero no hay valores simulados).
 - La temperatura con un modelo térmico de verdad: la que se muestra es una estimación simple.
 
-**No reproduce el vuelo real.** Los tiempos de E1 a E7 son los publicados, y el guiado y los encendidos se ajustan para reproducir el final del ascenso y las órbitas terrestres publicadas. El resto lo decide la física: el sobrevuelo y la vuelta salen algo antes que en el cronograma oficial (duración total de 8,6 días contra 9,1), sobre todo porque el modelo usa una distancia Tierra‑Luna fija. Varios datos del vehículo son supuestos, y están marcados como tales en el código.
+**No reproduce el vuelo real al segundo.** Los tiempos de E1 a E7 son los publicados, y el guiado y los encendidos se ajustan para reproducir el final del ascenso, las órbitas terrestres publicadas y el horario del TLI del cronograma oficial. La Luna recorre su órbita real de abril de 2026 (ajustada a JPL Horizons). El resto lo decide la física: el sobrevuelo sale 17 minutos después del publicado y la interfaz de entrada, 36 minutos antes (9,04 días contra 9,06). Varios datos del vehículo son supuestos, y están marcados como tales en el código.
 
 ## Desarrollo
 

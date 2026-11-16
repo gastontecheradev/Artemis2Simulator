@@ -7,22 +7,17 @@ import { TrajectoryPoint } from '../sim/propagate';
 import { TrailPoint } from '../sim/state';
 import { KM_TO_SCENE, ViewFrame, worldToScene } from './worldToScene';
 
-export type TrailColorMode = 'phase' | 'network';
-
 export interface TrailColors {
   readonly out: string;
   readonly ret: string;
   readonly prox: string;
-  readonly nsn: string;
-  readonly dsn: string;
-  readonly los: string;
   readonly predicted: string;
 }
 
 export interface Trails {
   readonly group: THREE.Group;
-  /** Trazo recorrido (sólido), coloreado por fase (1.png) o por red (2.png). */
-  setTraveled(points: readonly TrailPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame, mode: TrailColorMode): void;
+  /** Trazo recorrido (sólido), coloreado por fase como en 1.png. */
+  setTraveled(points: readonly TrailPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame): void;
   /** Trayectoria predicha (punteada), desde la nave hacia adelante. */
   setPredicted(points: readonly TrajectoryPoint[], tip: { t: number; r: Vec3 }, frame: ViewFrame): void;
   /** Plan nominal completo (tenue), dibujado desde el inicio. `points` = [t, x, y] en km inerciales. */
@@ -68,12 +63,8 @@ export function createTrails(colors: TrailColors): Trails {
     out: new THREE.Color(colors.out),
     ret: new THREE.Color(colors.ret),
     prox: new THREE.Color(colors.prox),
-    nsn: new THREE.Color(colors.nsn),
-    dsn: new THREE.Color(colors.dsn),
-    los: new THREE.Color(colors.los),
   };
-  const colorOf = (p: TrailPoint, mode: TrailColorMode): THREE.Color => {
-    if (mode === 'network') return p.net === 'LOS' ? c.los : p.net === 'NSN' ? c.nsn : c.dsn;
+  const colorOf = (p: TrailPoint): THREE.Color => {
     if (p.prox) return c.prox;
     return p.phase === 'REGRESO' || p.phase === 'ENTRADA' ? c.ret : c.out;
   };
@@ -97,7 +88,7 @@ export function createTrails(colors: TrailColors): Trails {
   const v = new THREE.Vector3();
   return {
     group,
-    setTraveled(points, tip, frame, mode) {
+    setTraveled(points, tip, frame) {
       const f = frame;
       traveledAnchor = frame.origin;
       const positions: number[] = [];
@@ -106,7 +97,7 @@ export function createTrails(colors: TrailColors): Trails {
       for (const p of points) {
         worldToScene(p.r, p.t, f, v);
         positions.push(v.x, v.y, v.z);
-        last = colorOf(p, mode);
+        last = colorOf(p);
         cols.push(last.r, last.g, last.b);
       }
       worldToScene(tip.r, tip.t, f, v);
