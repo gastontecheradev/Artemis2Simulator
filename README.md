@@ -62,7 +62,7 @@ El mapa 2D no tiene zoom: la Tierra y la Luna quedan quietas (marco rotante, don
 - El sistema eléctrico (la guía de energía lo explica, pero no hay valores simulados).
 - La temperatura con un modelo térmico de verdad: la que se muestra es una estimación simple.
 
-**No reproduce el vuelo real.** Los tiempos de E1 a E7 son los publicados, y el guiado y los encendidos se ajustan para reproducir el final del ascenso y las órbitas terrestres publicadas. El resto lo decide la física: el sobrevuelo y la vuelta salen algo antes que en el cronograma oficial (duración total de 8,6 días contra 9,1), sobre todo porque el modelo usa una distancia Tierra‑Luna fija. Varios datos del vehículo son supuestos, y están marcados como tales en el código.
+**No reproduce el vuelo real al segundo.** Los tiempos de E1 a E7 son los publicados, y el guiado y los encendidos se ajustan para reproducir el final del ascenso, las órbitas terrestres publicadas y el horario del TLI del cronograma oficial. La Luna recorre su órbita real de abril de 2026 (ajustada a JPL Horizons). El resto lo decide la física: el sobrevuelo sale 17 minutos después del publicado y la interfaz de entrada, 36 minutos antes (9,04 días contra 9,06). Varios datos del vehículo son supuestos, y están marcados como tales en el código.
 
 ## Desarrollo
 

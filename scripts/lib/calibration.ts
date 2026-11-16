@@ -12,9 +12,11 @@ import {
   MET_E7_DEPARTURE,
   POST_ARB_ORBIT,
   POST_PRM_ORBIT,
+  PUBLISHED_MET,
   R_EARTH,
   TLI_HALF_BURN,
 } from '../../src/sim/constants';
+import { formatMet } from '../../src/sim/format';
 import { ASCENT_SEQUENCE, AscentParams } from '../../src/sim/mission/ascent';
 import { BurnParams, MissionParams } from '../../src/sim/mission/params';
 import { OrbitElements, earthElements } from '../../src/sim/orbit';
@@ -185,8 +187,9 @@ export function tuneAscent(base: MissionParams, log: (msg: string) => void = () 
  * se ajusta es cuánto empuja cada encendido:
  * 1. Guiado del ascenso (ver `tuneAscent`).
  * 2. Δv de E4 (prograde): deja el perigeo publicado (100 NM).
- * 3. Δv de E5 (prograde y radial): deja la órbita publicada de 0 × 40.000 NM.
- * 4. Δv de E7: dos minutos de auxiliares (duración publicada).
+ * 3. Δv de E7: dos minutos de auxiliares (duración publicada).
+ * 4. Δv de E5 (prograde y radial): perigeo publicado (0) y el apogeo que hace que el TLI
+ *    encienda en el MET del cronograma [TL] (~70.100 km; [SLS] da 40.000 NM = 74.080 km).
  * 5. TIG y Δv de E8: en el apogeo, sube el perigeo al publicado (100 NM).
  * 6. TIG de E9: centrado en el perigeo siguiente.
  */
@@ -209,7 +212,39 @@ export function calibrate(base: MissionParams, log: (msg: string) => void = () =
   p = withBurn(p, 'E7', { met: MET_E7_DEPARTURE, prograde: dvE7 });
   log(`E7: Δv = ${(dvE7 * 1000).toFixed(3)} m/s en ${E7_BURN_DURATION} s`);
 
-  // 4 · E5: perigeo publicado al terminar el encendido y apogeo publicado después del
+  // 4 a 6 · E5, E8 y E9. El apogeo de E5 se busca (secante) para que el TLI encienda en el
+  // MET publicado del cronograma; los 40.000 NM de [SLS] quedan como control.
+  const withApogee = (apogee: number): { p: MissionParams; tliMet: number } => highOrbit(p, apogee, log);
+  let apoA = lastHeoApogee;
+  let heo = withApogee(apoA);
+  let errA = heo.tliMet - PUBLISHED_MET.tli;
+  let apoB = apoA + (errA > 0 ? -300 : 300);
+  for (let i = 0; i < 12 && Math.abs(errA) > 0.5; i++) {
+    const b = withApogee(apoB);
+    const errB = b.tliMet - PUBLISHED_MET.tli;
+    log(`  órbita alta: apogeo ${apoB.toFixed(1)} km → TLI ${formatMet(b.tliMet)} (error ${errB.toFixed(1)} s)`);
+    const next = apoB - (errB * (apoB - apoA)) / (errB - errA);
+    apoA = apoB;
+    errA = errB;
+    heo = b;
+    apoB = next;
+  }
+  if (Math.abs(errA) > 0.5) throw new Error(`Órbita alta: el TLI no converge al MET publicado (error ${errA.toFixed(1)} s)`);
+  lastHeoApogee = apoA;
+  log(`Órbita alta: apogeo objetivo de E5 ${apoA.toFixed(1)} km (publicado en [SLS]: ${POST_ARB_ORBIT.apogee.toFixed(0)} km) → TLI ${formatMet(heo.tliMet)}`);
+  return heo.p;
+}
+
+/** Último apogeo de la órbita alta encontrado: semilla para la siguiente calibración (el ajuste completo calibra varias veces). */
+let lastHeoApogee = 70100;
+
+/**
+ * Pasos 4 a 6 de `calibrate` para un apogeo dado (km de altitud, medido después de E7):
+ * Δv de E5, E8 en el apogeo y TIG del TLI centrado en el perigeo siguiente.
+ */
+function highOrbit(base: MissionParams, apogee: number, log: (msg: string) => void): { p: MissionParams; tliMet: number } {
+  let p = base;
+  // 4 · E5: perigeo publicado al terminar el encendido y el apogeo pedido después del
   // encendido de salida de Orion (E7), con actitud inercial fija (prograde + radial en la ignición).
   const afterE5 = ([prograde, radial]: number[]): { rp: number; ra: number } => {
     const q = noBurn(withBurn(p, 'E5', { met: MET_E5_APOGEE_RAISE, prograde, radial, hold: true }), ['E8', 'E9']);
@@ -221,7 +256,7 @@ export function calibrate(base: MissionParams, log: (msg: string) => void = () =
   const x5 = newton2(
     (x) => {
       const el = afterE5(x);
-      return [el.rp - R_EARTH - POST_ARB_ORBIT.perigee, el.ra - R_EARTH - POST_ARB_ORBIT.apogee];
+      return [el.rp - R_EARTH - POST_ARB_ORBIT.perigee, el.ra - R_EARTH - apogee];
     },
     [Math.max(1.5, p.burns.E5.dv.prograde), p.burns.E5.dv.radial],
     [1e-6, 1e-6],
@@ -255,7 +290,7 @@ export function calibrate(base: MissionParams, log: (msg: string) => void = () =
   const tliMet = tPeri - TLI_HALF_BURN;
   p = withBurn(p, 'E9', { met: tliMet });
   log(`TLI TIG = ${tliMet.toFixed(1)} s (perigeo en ${tPeri.toFixed(1)} s)`);
-  return p;
+  return { p, tliMet };
 }
 
 export function saveParams(p: MissionParams): void {

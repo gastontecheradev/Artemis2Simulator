@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { EARTH_MOON_DISTANCE, EI_ALTITUDE, GM_EARTH, GM_MOON, MOON_SOI, R_EARTH, R_MOON } from '../sim/constants';
+import { Vec3 } from '../sim/math/vec3';
 import { KM_TO_SCENE } from './worldToScene';
 
 /** Brillo propio de la Tierra en 3D (fracción de su color), solo para que se vea el lado nocturno. */
@@ -11,8 +12,10 @@ export interface BodyMeshes {
   readonly group: THREE.Group;
   readonly earth: THREE.Mesh;
   readonly moon: THREE.Mesh;
-  /** Circunferencia de la órbita lunar alrededor del baricentro (referencia). */
+  /** Órbita lunar alrededor del baricentro (referencia; elipse, inercial, sin el giro del dibujo). */
   readonly moonOrbit: THREE.LineLoop;
+  /** Reemplaza la órbita lunar por estos puntos (km, inerciales, relativos al baricentro). */
+  setMoonOrbit(points: readonly Vec3[]): void;
   /** Altitud de la interfaz de entrada (400.000 ft) alrededor de la Tierra. */
   readonly eiRing: THREE.LineLoop;
   /** Esfera de influencia lunar (en el plano orbital). */
@@ -61,8 +64,9 @@ export function createBodies(
   const earth: THREE.Mesh = new THREE.Mesh(geometry, earthMat.flat);
   const moon: THREE.Mesh = new THREE.Mesh(geometry, moonMat.flat);
 
+  // Círculo medio hasta que la escena pase la órbita real con `setMoonOrbit`.
   const mu = GM_MOON / (GM_EARTH + GM_MOON);
-  const orbitGeometry = circle((1 - mu) * EARTH_MOON_DISTANCE * KM_TO_SCENE, 256, true);
+  let orbitGeometry = circle((1 - mu) * EARTH_MOON_DISTANCE * KM_TO_SCENE, 256, true);
   const orbitMaterial = new THREE.LineBasicMaterial({ color: colors.orbit, transparent: true, opacity: contrast ? 0.42 : 0.18 });
   const moonOrbit = new THREE.LineLoop(orbitGeometry, orbitMaterial);
 
@@ -88,6 +92,12 @@ export function createBodies(
     moonOrbit,
     eiRing,
     soiRing,
+    setMoonOrbit(points) {
+      const next = new THREE.BufferGeometry().setFromPoints(points.map((p) => new THREE.Vector3(p.x * KM_TO_SCENE, p.y * KM_TO_SCENE, p.z * KM_TO_SCENE)));
+      orbitGeometry.dispose();
+      orbitGeometry = next;
+      moonOrbit.geometry = next;
+    },
     setLit(on) {
       earth.material = on ? earthMat.lit : earthMat.flat;
       moon.material = on ? moonMat.lit : moonMat.flat;

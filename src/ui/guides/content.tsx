@@ -2,6 +2,7 @@ import {
   APOLLO_13_RECORD_DISTANCE,
   CUBESAT_DEPLOYMENTS,
   E7_BURN_DURATION,
+  EARTH_MOON_DISTANCE,
   FLYBY_ALTITUDE_TARGET,
   HEO_ORBIT,
   INSERTION_ORBIT,
@@ -11,6 +12,7 @@ import {
   MET_E7_DEPARTURE,
   MET_ICPS_DISPOSAL,
   MET_ICPS_SPLASHDOWN,
+  MOON_ORBIT,
   POST_ARB_ORBIT,
   POST_PRM_ORBIT,
   PUBLISHED_MET,
@@ -48,6 +50,7 @@ const SRC_SLS = 'NASA, "Space Launch System Reference Guide for Artemis II" (SLS
 const SRC_A2 = 'NASA, "Artemis II Reference Guide" (2026)';
 const SRC_TL = 'NASA, "Artemis II Overview Timeline" (18/03/2026)';
 const SRC_OBJ = 'NASA, "Artemis II Priorities and Objectives" (2026)';
+const SRC_JPL = 'NASA/JPL, Horizons ephemeris system';
 
 // ---------- Objetivo ----------
 
@@ -130,10 +133,10 @@ function stages(l: Locale): GuideContent {
             row('E2', L(l, 'Booster separation at 2:08; launch abort system jettison at 3:28.', 'Separación de boosters a 2:08; eyección de la torre de escape a 3:28.'), '000/00:02:08', '000/00:02:08'),
             row('E3', L(l, `MECO at 8:06 and core stage separation into a ${formatNumber(INSERTION_ORBIT.perigee)} × ${formatNumber(INSERTION_ORBIT.apogee)} km orbit.`, `MECO a 8:06 y separación de la etapa central en una órbita de ${formatNumber(INSERTION_ORBIT.perigee)} × ${formatNumber(INSERTION_ORBIT.apogee)} km.`), '000/00:08:18', '000/00:08:18'),
             row('E4', L(l, `ICPS perigee raise (~30 s) to ${formatNumber(POST_PRM_ORBIT.perigee)} km.`, `Elevación del perigeo con el ICPS (~30 s) a ${formatNumber(POST_PRM_ORBIT.perigee)} km.`), met(MET_E4_PERIGEE_RAISE), met(P.burns.E4.met)),
-            row('E5', L(l, `ICPS apogee raise (~20 min) to ${formatNumber(POST_ARB_ORBIT.apogee)} km, perigee left at zero so the stage re-enters by itself.`, `Elevación del apogeo con el ICPS (~20 min) a ${formatNumber(POST_ARB_ORBIT.apogee)} km, con el perigeo en cero para que la etapa reentre sola.`), met(MET_E5_APOGEE_RAISE), met(P.burns.E5.met)),
+            row('E5', L(l, `ICPS apogee raise (~20 min), perigee left at zero so the stage re-enters by itself. The SLS guide gives a ${formatNumber(POST_ARB_ORBIT.apogee)} km apogee; the model sizes it so the TLI falls on the timeline’s time (a slightly lower apogee).`, `Elevación del apogeo con el ICPS (~20 min), con el perigeo en cero para que la etapa reentre sola. La guía del SLS da un apogeo de ${formatNumber(POST_ARB_ORBIT.apogee)} km; el modelo lo ajusta para que el TLI caiga en el horario del cronograma (un apogeo algo más bajo).`), met(MET_E5_APOGEE_RAISE), met(P.burns.E5.met)),
             row('E6', L(l, 'Orion/ICPS separation and ~90 min of manual proximity operations.', 'Separación Orion/ICPS y ~90 min de operaciones de proximidad manuales.'), met(MET_E6_PROX_OPS_START), met(MET_E6_PROX_OPS_START)),
             row('E7', L(l, `Orion departure burn: ${E7_BURN_DURATION} s on the auxiliary thrusters. Then the ICPS does its disposal burn (${met(MET_ICPS_DISPOSAL)}), releases the CubeSats and falls into the Pacific at ${met(MET_ICPS_SPLASHDOWN)}.`, `Encendido de salida de Orion: ${E7_BURN_DURATION} s con los auxiliares. Después el ICPS hace su encendido de eliminación (${met(MET_ICPS_DISPOSAL)}), libera los CubeSats y cae al Pacífico a las ${met(MET_ICPS_SPLASHDOWN)}.`), met(MET_E7_DEPARTURE), met(P.burns.E7.met)),
-            row('E8', L(l, `Orion perigee raise at apogee, to ${formatNumber(HEO_ORBIT.perigee)} km (${ms(P.burns.E8.dv.prograde)} m/s).`, `Elevación del perigeo de Orion en el apogeo, a ${formatNumber(HEO_ORBIT.perigee)} km (${ms(P.burns.E8.dv.prograde)} m/s).`), '~000/13:30', met(P.burns.E8.met)),
+            row('E8', L(l, `Orion perigee raise at apogee, to ${formatNumber(HEO_ORBIT.perigee)} km (${ms(P.burns.E8.dv.prograde)} m/s).`, `Elevación del perigeo de Orion en el apogeo, a ${formatNumber(HEO_ORBIT.perigee)} km (${ms(P.burns.E8.dv.prograde)} m/s).`), `~${met(PUBLISHED_MET.prb)}`, met(P.burns.E8.met)),
             row('E9', L(l, `Translunar injection at perigee: ${ms(P.burns.E9.dv.prograde)} m/s with the main engine.`, `Inyección translunar en el perigeo: ${ms(P.burns.E9.dv.prograde)} m/s con el motor principal.`), met(PUBLISHED_MET.tli), met(P.burns.E9.met)),
             row('E10', L(l, 'Outbound transit with up to three correction burns (OTC‑1, 2 and 3).', 'Tránsito de ida con hasta tres correcciones (OTC‑1, 2 y 3).'), `${met(PUBLISHED_MET.otc1)} …`, '—'),
             row('E11', L(l, `Lunar flyby at ${formatNumber(FLYBY_ALTITUDE_TARGET)} km over the far side, out of contact; farthest humans ever (past Apollo 13’s ${formatNumber(APOLLO_13_RECORD_DISTANCE)} km).`, `Sobrevuelo lunar a ${formatNumber(FLYBY_ALTITUDE_TARGET)} km sobre la cara oculta, sin contacto; el punto más lejano alcanzado por humanos (más allá de los ${formatNumber(APOLLO_13_RECORD_DISTANCE)} km del Apollo 13).`), met(PUBLISHED_MET.flyby), met(n.flybyMet)),
@@ -145,8 +148,8 @@ function stages(l: Locale): GuideContent {
         },
         note: L(
           l,
-          `Total: ${formatDuration(PUBLISHED_MET.splashdown)} published versus ${formatDuration(n.eiMet)} in the model. The difference comes mostly from the fixed Earth‑Moon distance of the model (384,400 km). Sources: ${SRC_SLS}; ${SRC_TL}.`,
-          `Total: ${formatDuration(PUBLISHED_MET.splashdown)} publicado contra ${formatDuration(n.eiMet)} en el modelo. La diferencia viene sobre todo de la distancia Tierra‑Luna fija del modelo (384.400 km). Fuentes: ${SRC_SLS}; ${SRC_TL}.`,
+          `Entry interface: ${met(PUBLISHED_MET.ei)} published versus ${met(n.eiMet)} in the model. Splashdown, which is not simulated, comes ${formatDuration(PUBLISHED_MET.splashdown - PUBLISHED_MET.ei)} later: ${formatDuration(PUBLISHED_MET.splashdown)} in total. The Moon moves on its real orbit for April 2026, close to apogee (about ${formatNumber(Math.round(MOON_ORBIT.a * (1 + MOON_ORBIT.e) / 100) * 100)} km from Earth at the flyby, against an average of ${formatNumber(EARTH_MOON_DISTANCE)} km), and the high orbit is sized so the TLI falls on the published time. The remaining difference is within the model’s simplifications: a single orbital plane and a Keplerian Moon. Sources: ${SRC_SLS}; ${SRC_TL}; ${SRC_JPL}.`,
+          `Interfaz de entrada: ${met(PUBLISHED_MET.ei)} publicado contra ${met(n.eiMet)} en el modelo. El amerizaje, que no se simula, llega ${formatDuration(PUBLISHED_MET.splashdown - PUBLISHED_MET.ei)} después: ${formatDuration(PUBLISHED_MET.splashdown)} en total. La Luna recorre su órbita real de abril de 2026, cerca del apogeo (a unos ${formatNumber(Math.round(MOON_ORBIT.a * (1 + MOON_ORBIT.e) / 100) * 100)} km de la Tierra en el sobrevuelo, contra ${formatNumber(EARTH_MOON_DISTANCE)} km de promedio), y la órbita alta está ajustada para que el TLI caiga en el horario publicado. La diferencia que queda entra en las simplificaciones del modelo: un único plano orbital y una Luna kepleriana. Fuentes: ${SRC_SLS}; ${SRC_TL}; ${SRC_JPL}.`,
         ),
       },
     ],
