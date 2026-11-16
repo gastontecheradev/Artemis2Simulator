@@ -13,8 +13,7 @@ export function StartScreen({ onCredits }: { onCredits: () => void }): JSX.Eleme
   return (
     <div className="modal intro">
       <div className="modal-card intro-card">
-        <span className="end-kicker">{t('start.kicker')}</span>
-        <h2>ARTEMIS II</h2>
+        <h2>ARTEMIS II SIMULATOR</h2>
         <p>{t('start.intro')}</p>
         <dl className="end-stats">
           <dt>{t('start.flyby')}</dt>

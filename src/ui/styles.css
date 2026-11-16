@@ -2028,6 +2028,10 @@ button.ann.link.acked {
 .lang-card {
   text-align: center;
 }
+.lang-card h3 {
+  margin-top: 6px;
+  font-size: 14px;
+}
 .lang-buttons,
 .guide-menu {
   display: grid;
