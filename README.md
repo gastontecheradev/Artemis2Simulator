@@ -76,7 +76,7 @@ The 2D map can be shown in the Earth‑Moon rotating frame (default: Earth and M
 
 On Windows, run the tests from PowerShell.
 
-The code has three layers: `src/sim/` (physics and mission, pure TypeScript), `src/render/` (Three.js) and `src/ui/` (React). The technical decisions, the data sources and the open issues are in [process.md](process.md).
+The code has three layers: `src/sim/` (physics and mission, pure TypeScript), `src/render/` (Three.js) and `src/ui/` (React). Data sources and assumptions are cited in comments next to each constant, in `src/sim/constants.ts` and `src/sim/vehicle.ts`.
 
 ## Credits
 
