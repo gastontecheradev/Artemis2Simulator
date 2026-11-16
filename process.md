@@ -4,13 +4,14 @@
 
 - **Hito en curso:** H1–H12 con primera pasada completa, más vuelo propulsado, datos de las guías de NASA para Artemis II, interfaz bilingüe, guías, mapa fijo (marco rotante o inercial) y control de misión.
 - **Funciona** (con cómo se verificó):
-  - Simulación de T‑6 s a E15 con motores, masa y arrastre reales, calibrada contra las órbitas publicadas: 53 tests en verde (`npx vitest run`, desde PowerShell).
-  - `npm run build` compila sin errores de tipos (bundle ~961 kB).
+  - Simulación de T‑6 s a E15 con motores, masa y arrastre reales, calibrada contra las órbitas publicadas: 58 tests en verde (`npx vitest run`, desde PowerShell).
+  - **Cronograma como el publicado** (sesión 18): con la Luna en su órbita real de abril de 2026 (elipse ajustada a JPL Horizons) y la órbita alta ajustada al horario del TLI, salen E8 a 0/13:31 (publicado ~0/13:30), TLI a 1/01:08:41 (1/01:08:42), sobrevuelo a 5/00:47 (5/00:30) y EI a 9/00:53 (9/01:29). Antes, EI caía 10 h 56 min antes. Lo verifica un test.
+  - `npm run build` compila sin errores de tipos (bundle ~963 kB).
   - Capturas en Chrome headless a 1700 × 950: menú de idioma; vista en español en MET 12.500 s (mapa, recuadro, HUD, Houston, panel traducido); vista en inglés en MET 100 s (ascenso: plan tenue, recuadro, HUD, Houston, cohete en 3D); guía de etapas en inglés sobre la vista en MET 12.500 s; cartel verde de fin en inglés (sesión 14).
 - **Sin verificar:** la interacción a mano (clics, teclas, arrastre en 3D, zoom y arrastre del mapa 2D, pasos del tutorial, navegación de los menús de idioma y guías). Solo hay capturas estáticas y tests a nivel de comandos. Tampoco hay captura de las guías de objetivo, presupuesto, energía y nave, ni de los paneles solares vistos de frente (no hay cámara desde adelante).
 - **Publicado:** el código de la sesión 5 ya está en `main` y en GitHub (commit `abc9397`, hecho por Gastón); el deploy de GitHub Actions corre en cada push.
-- **Sin hacer:** texturas y fotos de NASA (ver `ASSETS.md`) y los pendientes de `CLAUDE.md`.
-- **Próximo paso:** recorrer a mano en un navegador el flujo idioma → guías → inicio → tutorial y volar la misión en los dos idiomas; anotar acá lo que falle. Después, las texturas.
+- **Sin hacer:** texturas y fotos de NASA (ver `ASSETS.md`), los pendientes de `CLAUDE.md` y las propuestas del análisis de la Orion Reference Guide (`docs/analisis-orion-reference-guide.md`, sesión 18; ninguna implementada).
+- **Próximo paso:** que Gastón elija cuáles propuestas de `docs/analisis-orion-reference-guide.md` implementar (la 2.1, la velocidad de eyección de la torre, es la más chica). Sigue pendiente recorrer a mano el flujo idioma → guías → inicio → tutorial y volar la misión en los dos idiomas.
 
 ## Decisiones vigentes
 
@@ -21,17 +22,19 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 | Guiado del ascenso | cabeceo 4,145°, tangente 1,050·10⁻³ 1/s, tope de aceleración 35,47 m/s² (3,62 g) |
 | Inserción (E3) | 162,94 km, 7,880 km/s relativos = 8,298 km/s inerciales, ángulo 4,03°; órbita 31 × 2.246 km (publicada 28 × 2.222) |
 | E4 (ICPS, 00:49:52) | 43,4 m/s en ~25 s → perigeo 185,2 km |
-| E5 (ICPS, 01:46:37) | 2.624,5 m/s prograde y −450,1 m/s radial, actitud fija; ~2.663 m/s en 1.108 s → 0 × 74.080 km |
+| Luna | elipse kepleriana ajustada a JPL Horizons: a = 382.778 km, e = 0,0578, apogeo en MET 5,20 d (404.890 km); 404.876 km en el sobrevuelo |
+| E5 (ICPS, 01:46:37) | 2.604,9 m/s prograde y −427,1 m/s radial, actitud fija → 0 × 69.987 km (apogeo ajustado para que el TLI caiga en el MET publicado) |
 | E7 (auxiliares, 04:53:15) | 18,1 m/s en 120 s |
-| E8 (motor principal) | 6,7 m/s en el apogeo, MET 14:24:01 → 185 × 74.080 km |
-| TLI (E9) | 340,9 m/s, ignición MET 001/02:53:38; fase lunar 186,363° |
-| Sobrevuelo (E11) | 6.513,0 km en MET 004/20:38:12 |
-| Entrada (E14) | −5,658° y 10,991 km/s en MET 008/14:32:55 |
+| E8 (motor principal) | 6,9 m/s en el apogeo, MET 13:31:32 → 185 × 69.987 km |
+| TLI (E9) | 367,0 m/s, ignición MET 001/01:08:41; fase lunar 189,034° |
+| Sobrevuelo (E11) | 6.513,0 km en MET 005/00:46:47 |
+| Entrada (E14) | −5,660° y 10,995 km/s en MET 009/00:53:11 |
 
 1. **Todo el vuelo es física, sin tramos guionados.** Lo programado es lo que en el vehículo real también lo está: la secuencia por tiempo y las leyes de guiado.
 2. **La velocidad publicada del ascenso es relativa a la Tierra en rotación;** en órbita las tablas de NASA dan velocidad inercial.
 3. **El guiado del ascenso se ajusta a tres datos publicados** (altitud en MECO, altitud y velocidad en la separación). El resto de las tablas publicadas (`ASCENT_TABLE`, `ORBIT_TABLE`) son control, con tolerancias en los tests.
-4. **Órbitas terrestres publicadas como objetivo** (reemplaza el criterio propio de la sesión 3): E4 deja el perigeo en 100 NM, E5 deja 0 × 40.000 NM medido después de E7, E8 sube el perigeo a 100 NM. Fuente: "Artemis II by the Numbers" de la guía del SLS.
+4. **Órbitas terrestres publicadas como objetivo** (reemplaza el criterio propio de la sesión 3): E4 deja el perigeo en 100 NM, E5 deja el perigeo en 0, E8 sube el perigeo a 100 NM. Fuente: "Artemis II by the Numbers" de la guía del SLS. **El apogeo de E5 (desde la sesión 18)** ya no es 40.000 NM: se ajusta (secante en `calibrate`) para que el TLI encienda en el MET del cronograma (1/01:08:42), y sale ~69.990 km. El cronograma implica ese apogeo: elevación del perigeo ~0/13:30 en el apogeo y TLI media vuelta después, o sea un período de ~23,4 h, no las 25,1 h de 40.000 NM. Los 40.000 NM quedan como control (±7 % en el test).
+31. **Luna en su órbita real de abril de 2026** (sesión 18): `createKeplerEphemeris` (`sim/bodies.ts`) con `MOON_ORBIT` (`sim/constants.ts`), una elipse kepleriana ajustada por mínimos cuadrados a los vectores de JPL Horizons del 01/04 al 12/04/2026 (error < 400 km en distancia en el sobrevuelo). La Luna estaba cerca del apogeo, ~5 % más lejos que los 384.400 km del círculo: esa era la causa de que los tránsitos salieran ~12 h cortos. `moonAngle0Deg` sigue siendo la variable del retorno libre y gira la elipse entera; el MET del apogeo queda fijo. El modelo circular queda solo para los tests de CR3BP (Jacobi deja de conservarse con la elipse). La esfera de influencia sigue calculada con la distancia media. Descartados: un círculo a la distancia del sobrevuelo (no reproduce la Luna ~10 % más lenta cerca del apogeo) y una tabla interpolada de Horizons (no vale fuera de la ventana descargada).
 5. **E5 vuela con actitud inercial fija** (`hold`). Con guiado prograde local el perigeo no baja a cero con el Δv disponible; con la actitud congelada y una componente radial sí.
 6. **Horarios de E1–E7 de la tabla de eventos de la guía del SLS** (ARB 01:46:37, separación 03:22:46, salida 04:53:15) cuando los documentos se contradicen.
 7. **Vehículo con datos de las guías de NASA** ([SLS] y [A2], ver `CLAUDE.md`): curva de empuje publicada de los boosters (interpretada en vacío con corrección a nivel del mar), programa de potencia de los RS‑25, cinco tanques, RCS de la cápsula. Isp efectivo de los boosters derivado de la curva (~262 s).
@@ -62,7 +65,9 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 ## Problemas abiertos
 
 - Interacción sin probar a mano (ver "Estado actual").
-- **Cronograma contra el "Artemis II Overview Timeline"** (NASA, 18/03/2026): el TLI cae a 1/02:53:38 (publicado 1/01:08:42), porque el período de la órbita publicada de 74.080 km de apogeo es de ~25 h y el modelo enciende en su perigeo. Sobrevuelo 4/20:38 (publicado 5/00:30), EI 8/14:33 (publicado 9/01:29): los tránsitos son más cortos, probablemente por la distancia Tierra‑Luna fija. El modelo no supera el récord de Apollo 13 (400.171 km), que el cronograma marca antes del acercamiento.
+- **Cronograma contra el "Artemis II Overview Timeline"** (resuelto casi del todo en la sesión 18): quedan el sobrevuelo 17 min tarde (5/00:47 contra 5/00:30) y EI 36 min temprano (9/00:53 contra 9/01:29). Atribución sin verificar: el plano único y la Luna kepleriana. Ahora sí se supera el récord de Apollo 13 (412.273 km de la Tierra en el sobrevuelo; el real rondaría los 406.800 km, dato de memoria sin verificar).
+- **`TLI_HALF_BURN` (185 s) quedó del TLI de 341 m/s:** con 367 m/s el encendido dura ~337 s, así que queda centrado ~17 s antes del perigeo. Es menor; corregirlo obliga a correr `npm run tune` de nuevo.
+- **Apogeo de la órbita alta:** la guía del SLS da 40.000 NM (74.080 km), pero el cronograma implica ~70.000 km (ver decisión 4). Se usa el cronograma. La Orion Reference Guide de 2022 da otro plan viejo (235 × 68.000 millas, ~42 h).
 - **Primeros dos minutos del ascenso ~10 % rápidos:** Max Q a los 57 s (publicado 71 s), boosters a 51,6 km y 1,37 km/s (publicado 45,2 km y 1,34 km/s). De la eyección del LAS en adelante coincide. Los tests tienen tolerancias anchas para eso.
 - **Contradicciones entre documentos** (se eligió la tabla de eventos de la guía del SLS salvo que se diga otra cosa):
   - ARB: 01:48:48 (3.png), 01:46:37 (tabla del SLS, usada), 0/01:47 (cronograma).
@@ -83,7 +88,8 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - Supuestos sin fuente primaria: ver la lista en `CLAUDE.md`, sección "El vehículo".
 - La demo de operaciones de proximidad (E6) no tiene guía ni medición respecto del ICPS.
 - En 3D la nave se ve oscura cuando el Sol queda del otro lado (luz ambiente baja).
-- **Fase lunar al despegue:** con el Sol de la ventana del 01/04/2026, la elongación de la Luna en el modelo es 169,5°; la real era ~178° (luna llena el 02/04/2026 hacia las 02 UTC, dato de memoria, sin verificar contra una fuente). La diferencia sale de que `moonAngle0Deg` lo fija el retorno libre del modelo, no la fecha.
+- **Fase lunar al despegue:** con el Sol de la ventana del 01/04/2026, la elongación de la Luna en el modelo es 172,2° desde la sesión 18 (antes 169,5°); la real era ~178° (luna llena el 02/04/2026 hacia las 02 UTC, dato de memoria, sin verificar contra una fuente). La diferencia sale de que `moonAngle0Deg` lo fija el retorno libre del modelo, no la fecha.
+- **Contradicciones de la Orion Reference Guide (2022):** masas de TLI que no coinciden entre páginas, propelentes de los motores de la torre, distancias de Artemis I repetidas en Artemis II, "más de 10 días" de duración. Detalle en `docs/analisis-orion-reference-guide.md`; ninguna afecta al modelo.
 - El lockfile solo lo acepta npm ≥ 11.6. El workflow fija `npm@11.6.2`.
 - Vitest falla desde Git Bash por las mayúsculas de la ruta; desde PowerShell funciona (`npx vitest run`; redirigido con `Out-File` sale vacío).
 - El bundle pesa ~957 kB por Three.js; sin code‑splitting.
@@ -97,6 +103,30 @@ Valores calibrados actuales (fuente de verdad: `src/sim/mission/params.json`):
 - **Difiere:** 6 teclas por lado horizontal (la referencia tiene 8) y sin perillas; interruptores SVG planos; la guarda es una tapa translúcida con botón; los controladores manuales son botones, no palancas; el indicador de actitud solo cabecea; la barra de estado superior no existe en la cabina real; no hay dispositivo de cursor.
 
 ## Historial de sesiones
+
+## Sesión 18 — 2026-11-15 — Cronograma como el real y análisis de la Orion Reference Guide
+**Hecho:**
+- `sim/bodies.ts`: `createKeplerEphemeris` (Luna en elipse, con caché del último t) y `moonPeriod` en `Ephemeris`; `sim/state.ts` la usa.
+- `sim/constants.ts`: `MOON_ORBIT` (de JPL Horizons), `PUBLISHED_MET.prb` y fuentes [JPL] y [ORG].
+- `scripts/lib/calibration.ts`: `highOrbit` y secante del apogeo de E5 contra `PUBLISHED_MET.tli`.
+- `render/bodies.ts` y `scene.ts`: la órbita lunar se dibuja desde las efemérides (`setMoonOrbit`).
+- `ui/guides/content.tsx`: E5, E8 y la nota de la guía "Etapas" comparan EI con EI y explican la diferencia.
+- `docs/analisis-orion-reference-guide.md`: análisis del texto de la guía de Orion (2022) con seis propuestas.
+- `npm run tune` corrido.
+
+**Decisiones:** 4 (modificada) y 31. La nota de la guía comparaba el amerizaje publicado con la EI del modelo; ahora compara EI con EI y cita el amerizaje aparte.
+
+**Problemas:**
+- El "adjunto" no llegó en el mensaje; se confirmó con Gastón que era `orion-reference-guide-111022.pdf` del escritorio, extraído con `pypdf` en el scratchpad.
+- El Newton del retorno libre no baja de ~0,05 km de error (ruido de la integración): agota sus 40 iteraciones por pasada, así que el ajuste tarda más, pero converge a < 0,01 km.
+- `npx tsx -e` desde PowerShell pierde las comillas dobles: para medir algo, usar un script temporal en `scripts/`.
+
+**Tests:**
+- 58 en verde. Nuevos: cuatro de la órbita lunar elíptica (distancia contra Horizons, ángulo inicial y baricentro, derivada, velocidad angular en el apogeo), E8 y TLI contra el cronograma, y sobrevuelo y EI a menos de 1 h del cronograma.
+- Cambiados: los apogeos de E5 y E8 pasan a control (±7 % de 74.080 km).
+- Build sin errores. Capturas headless: guía de etapas en español (MET 12.500 s) y mapa en MET 440.000 s, inercial en inglés (elipse lunar) y rotante en español.
+
+**Próximo paso:** el de "Estado actual".
 
 ## Sesión 17 — 2026-11-15 — Mapa 2D con los cuerpos siempre a escala real
 **Hecho:** se quitó el botón ESCALA REAL del mapa (`ui/TrajectoryView.tsx`, clave `vw.scale`), `exaggerate` de `ViewState`/`ViewSettings` y el parámetro `?real` (`ui/store.ts`, `render/scene.ts`); `MAP_EXAGGERATION` y `setBodyScale` eliminados (`render/bodies.ts` fija el tamaño real una vez). El anillo de EI ahora se ve también en el mapa.

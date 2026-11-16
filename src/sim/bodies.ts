@@ -1,4 +1,14 @@
-import { EARTH_MOON_DISTANCE, EARTH_ORBIT_RATE, EARTH_ROTATION_IN_PLANE, GM_EARTH, GM_MOON, LAUNCH_BEFORE_SUNSET, MOON_ANGULAR_RATE } from './constants';
+import {
+  EARTH_MOON_DISTANCE,
+  EARTH_ORBIT_RATE,
+  EARTH_ROTATION_IN_PLANE,
+  GM_EARTH,
+  GM_MOON,
+  LAUNCH_BEFORE_SUNSET,
+  MOON_ANGULAR_RATE,
+  MOON_ORBIT,
+  MOON_SIDEREAL_PERIOD,
+} from './constants';
 import { Vec3, vec3 } from './math/vec3';
 
 export interface BodyState {
@@ -16,8 +26,10 @@ export interface Ephemeris {
   readonly gmMoon: number;
   earth(t: number): BodyState;
   moon(t: number): BodyState;
-  /** Ángulo (rad) del eje Tierra→Luna en t. Define el marco rotante. */
+  /** Ángulo (rad) del eje Tierra→Luna en t, sin cortes en 2π. Define el marco rotante. */
   moonAngle(t: number): number;
+  /** Período de la órbita lunar (s): una vuelta completa de `moon(t)`. Para dibujarla. */
+  readonly moonPeriod: number;
 }
 
 /**
@@ -41,6 +53,69 @@ export function createCircularEphemeris(moonAngle0 = 0): Ephemeris {
     earth: (t) => at(rEarth, t),
     moon: (t) => at(rMoon, t),
     moonAngle: (t) => moonAngle0 + w * t,
+    moonPeriod: MOON_SIDEREAL_PERIOD,
+  };
+}
+
+/**
+ * Efemérides de la misión: la Luna recorre una elipse kepleriana alrededor de la Tierra
+ * (problema de dos cuerpos con GM_T + GM_L) y las dos giran alrededor del baricentro, que
+ * queda quieto en el origen. Los elementos (`MOON_ORBIT`) salen de JPL Horizons para la
+ * fecha de la misión, así la distancia Tierra‑Luna y la velocidad de la Luna son las de
+ * abril de 2026. `moonAngle0` es el ángulo de la Luna en t = 0, como en el modelo
+ * circular: el retorno libre lo ajusta y con él gira la elipse entera.
+ * El problema deja de ser el CR3BP circular: la constante de Jacobi no se conserva.
+ */
+export function createKeplerEphemeris(moonAngle0 = 0, orbit: { a: number; e: number; apogeeMet: number } = MOON_ORBIT): Ephemeris {
+  const gm = GM_EARTH + GM_MOON;
+  const mu = GM_MOON / gm;
+  const { a, e } = orbit;
+  const n = Math.sqrt(gm / (a * a * a));
+  const p = a * (1 - e * e);
+  const h = Math.sqrt(gm / p);
+  // Para la anomalía verdadera sin cortes: ν = E + 2·atan(β·sen E / (1 − β·cos E)).
+  const beta = e / (1 + Math.sqrt(1 - e * e));
+  const meanAt = (t: number): number => Math.PI + n * (t - orbit.apogeeMet);
+  const trueAnomaly = (t: number): number => {
+    const m = meanAt(t);
+    let ecc = m + e * Math.sin(m);
+    for (let i = 0; i < 12; i++) {
+      const d = (ecc - e * Math.sin(ecc) - m) / (1 - e * Math.cos(ecc));
+      ecc -= d;
+      if (Math.abs(d) < 1e-15) break;
+    }
+    return ecc + 2 * Math.atan((beta * Math.sin(ecc)) / (1 - beta * Math.cos(ecc)));
+  };
+  // Dirección del perigeo: deja la Luna en `moonAngle0` en t = 0.
+  const varpi = moonAngle0 - trueAnomaly(0);
+
+  // El integrador pide Tierra y Luna en el mismo t: se guarda el último cálculo.
+  let lastT = NaN;
+  let rel: { r: Vec3; v: Vec3; angle: number } = { r: vec3(), v: vec3(), angle: 0 };
+  const relative = (t: number): { r: Vec3; v: Vec3; angle: number } => {
+    if (t === lastT) return rel;
+    const nu = trueAnomaly(t);
+    const angle = varpi + nu;
+    const r = p / (1 + e * Math.cos(nu));
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    const vr = h * e * Math.sin(nu);
+    const vt = h * (1 + e * Math.cos(nu));
+    rel = { r: vec3(r * c, r * s, 0), v: vec3(vr * c - vt * s, vr * s + vt * c, 0), angle };
+    lastT = t;
+    return rel;
+  };
+  const part = (k: number, t: number): BodyState => {
+    const x = relative(t);
+    return { r: vec3(k * x.r.x, k * x.r.y, 0), v: vec3(k * x.v.x, k * x.v.y, 0) };
+  };
+  return {
+    gmEarth: GM_EARTH,
+    gmMoon: GM_MOON,
+    earth: (t) => part(-mu, t),
+    moon: (t) => part(1 - mu, t),
+    moonAngle: (t) => relative(t).angle,
+    moonPeriod: (2 * Math.PI) / n,
   };
 }
 
@@ -48,7 +123,7 @@ export function createCircularEphemeris(moonAngle0 = 0): Ephemeris {
 export function createEarthOnlyEphemeris(): Ephemeris {
   const earth: BodyState = { r: vec3(), v: vec3() };
   const moon: BodyState = { r: vec3(EARTH_MOON_DISTANCE, 0, 0), v: vec3() };
-  return { gmEarth: GM_EARTH, gmMoon: 0, earth: () => earth, moon: () => moon, moonAngle: () => 0 };
+  return { gmEarth: GM_EARTH, gmMoon: 0, earth: () => earth, moon: () => moon, moonAngle: () => 0, moonPeriod: MOON_SIDEREAL_PERIOD };
 }
 
 /**

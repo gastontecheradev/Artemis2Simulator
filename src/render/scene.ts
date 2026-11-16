@@ -264,6 +264,8 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
   let lastParams: MissionParams | null = null;
   let eventNames: ReadonlyMap<string, string> = new Map();
   let mapCenter: Vec3 = ZERO;
+  /** Efemérides con las que se armó la órbita lunar dibujada. */
+  let orbitEph: ReturnType<typeof ephemerisOf> | null = null;
   /** Rumbo con que se dibuja la nave (marco de dibujo), suavizado entre frames. */
   let heading: Vec3 | null = null;
   let lastT = -Infinity;
@@ -416,7 +418,15 @@ export function createTrajectoryView(container: HTMLElement, dim: ViewDim, deps:
     bodies.eiRing.position.copy(bodies.earth.position);
     bodies.soiRing.position.copy(bodies.moon.position);
     worldToScene(ZERO, s.t, frame, bodies.moonOrbit.position);
-    // En el marco rotante la Luna está quieta: su órbita no aporta nada.
+    // La órbita lunar es una elipse que depende de la fase: se rearma si cambian las efemérides.
+    if (eph !== orbitEph) {
+      const pts: Vec3[] = [];
+      for (let i = 0; i < 360; i++) pts.push(eph.moon((eph.moonPeriod * i) / 360).r);
+      bodies.setMoonOrbit(pts);
+      orbitEph = eph;
+    }
+    bodies.moonOrbit.rotation.z = -frameAngle;
+    // En el marco rotante la Luna casi no se mueve: su órbita no aporta nada.
     bodies.moonOrbit.visible = !rotating;
 
     // --- Trazos ---

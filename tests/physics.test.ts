@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { createCircularEphemeris, createEarthOnlyEphemeris, sunDirection } from '../src/sim/bodies';
+import { createCircularEphemeris, createEarthOnlyEphemeris, createKeplerEphemeris, sunDirection } from '../src/sim/bodies';
 import { MISSION_PARAMS } from '../src/sim/mission/params';
-import { padState } from '../src/sim/state';
+import { ephemerisOf, padState } from '../src/sim/state';
 import { applyBurn } from '../src/sim/burns';
 import { commsStatus, losClearance } from '../src/sim/comms';
 import {
@@ -12,6 +12,7 @@ import {
   GM_MOON,
   INSERTION_ALTITUDE,
   LAUNCH_BEFORE_SUNSET,
+  MOON_ORBIT,
   MOON_SIDEREAL_PERIOD,
   MPH_TO_KMS,
   R_EARTH,
@@ -59,8 +60,46 @@ describe('H2 · cuerpos', () => {
   });
 });
 
+describe('órbita lunar de la misión (elipse ajustada a JPL Horizons)', () => {
+  const eph = createKeplerEphemeris(0.7);
+  const gap = (t: number): number => distance(eph.earth(t).r, eph.moon(t).r);
+  it('la distancia Tierra‑Luna es la de abril de 2026 (Horizons)', () => {
+    // Horizons: 393.002 km al despegue, 404.882 km a MET 5,02 d (sobrevuelo publicado), 396.988 km a MET 9,06 d.
+    expect(Math.abs(gap(0) - 393002)).toBeLessThan(2000);
+    expect(Math.abs(gap(5.0208 * 86400) - 404882)).toBeLessThan(400);
+    expect(Math.abs(gap(9.06 * 86400) - 396988)).toBeLessThan(1000);
+    // Apogeo en el MET ajustado.
+    expect(gap(MOON_ORBIT.apogeeMet)).toBeCloseTo(MOON_ORBIT.a * (1 + MOON_ORBIT.e), 3);
+  });
+  it('la Luna arranca en el ángulo pedido y el baricentro queda en el origen', () => {
+    const m = eph.moon(0).r;
+    expect(Math.atan2(m.y, m.x)).toBeCloseTo(0.7, 12);
+    for (const t of [0, 3e5, 8e5]) {
+      const bary = add(scale(eph.earth(t).r, GM_EARTH), scale(eph.moon(t).r, GM_MOON));
+      expect(length(bary) / GM_EARTH).toBeLessThan(1e-9);
+    }
+  });
+  it('la velocidad es la derivada de la posición y el ángulo no salta', () => {
+    for (const t of [1000, 4.5e5, 1.5e6]) {
+      const dt = 1;
+      const m0 = eph.moon(t);
+      const m1 = eph.moon(t + dt);
+      expect((m1.r.x - m0.r.x) / dt).toBeCloseTo(m0.v.x, 5);
+      expect((m1.r.y - m0.r.y) / dt).toBeCloseTo(m0.v.y, 5);
+    }
+    expect(eph.moonAngle(eph.moonPeriod) - eph.moonAngle(0)).toBeCloseTo(2 * Math.PI, 9);
+  });
+  it('cerca del apogeo la Luna va más lenta que en la órbita circular media', () => {
+    const t = MOON_ORBIT.apogeeMet;
+    const w = (eph.moonAngle(t + 60) - eph.moonAngle(t - 60)) / 120;
+    // Horizons: 0,899 veces la velocidad angular media en el sobrevuelo.
+    expect(w / ((2 * Math.PI) / MOON_SIDEREAL_PERIOD)).toBeGreaterThan(0.88);
+    expect(w / ((2 * Math.PI) / MOON_SIDEREAL_PERIOD)).toBeLessThan(0.91);
+  });
+});
+
 describe('Sol', () => {
-  const eph = createCircularEphemeris((MISSION_PARAMS.moonAngle0Deg * Math.PI) / 180);
+  const eph = ephemerisOf({ params: MISSION_PARAMS });
   const elevation = (t: number): number => {
     const up = sub(padState(t, eph).r, eph.earth(t).r);
     return (Math.asin(dot(normalize(up), sunDirection(t))) * 180) / Math.PI;

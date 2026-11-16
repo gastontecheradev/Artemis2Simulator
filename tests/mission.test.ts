@@ -23,6 +23,7 @@ import {
   ORBIT_TABLE,
   POST_ARB_ORBIT,
   POST_PRM_ORBIT,
+  PUBLISHED_MET,
   R_EARTH,
   TLI_HALF_BURN,
 } from '../src/sim/constants';
@@ -190,7 +191,7 @@ describe('H6 · fase en órbita terrestre', () => {
     expect(s.autoBurns.E5.status).toBe('done');
   });
 
-  it('las órbitas publicadas: inserción 28 × 2.222, tras E4 185 × 2.222, tras E5 0 × 74.080 y tras E8 185 × 74.080 km', () => {
+  it('las órbitas publicadas: inserción 28 × 2.222, tras E4 185 × 2.222, tras E5 perigeo 0 y tras E8 perigeo 185 km (apogeo de control: 74.080 km)', () => {
     const ins = elements(fly(P, 700));
     expect(Math.abs(ins.rp - R_EARTH - INSERTION_ORBIT.perigee)).toBeLessThan(15);
     expect(Math.abs(ins.ra - R_EARTH - INSERTION_ORBIT.apogee)).toBeLessThan(60);
@@ -202,11 +203,12 @@ describe('H6 · fase en órbita terrestre', () => {
     expect(Math.abs(elements(arb).rp - R_EARTH - POST_ARB_ORBIT.perigee)).toBeLessThan(1);
     // Al ICPS le queda margen: el encendido no terminó por agotamiento.
     expect(arb.propulsion.prop[TANK.ICPS]).toBeGreaterThan(500);
+    // El apogeo lo fija el horario del TLI del cronograma (~70.100 km); los 40.000 NM de la guía del SLS son control.
     const afterE7 = elements(fly(P, MET_E7_DEPARTURE + E7_BURN_DURATION + 60));
-    expect(afterE7.ra - R_EARTH).toBeCloseTo(POST_ARB_ORBIT.apogee, -1);
+    expect(Math.abs(afterE7.ra - R_EARTH - POST_ARB_ORBIT.apogee) / POST_ARB_ORBIT.apogee).toBeLessThan(0.07);
     const heo = elements(fly(P, P.burns.E8.met + 600));
     expect(heo.rp - R_EARTH).toBeCloseTo(HEO_ORBIT.perigee, 1);
-    expect(heo.ra - R_EARTH).toBeCloseTo(HEO_ORBIT.apogee, -1);
+    expect(Math.abs(heo.ra - R_EARTH - HEO_ORBIT.apogee) / HEO_ORBIT.apogee).toBeLessThan(0.07);
   });
 
   it('las duraciones: E4 ~30 s, E5 ~20 min y E7 2 min, como publica NASA', () => {
@@ -229,7 +231,10 @@ describe('H6 · fase en órbita terrestre', () => {
     expect(s.outcome).toBeNull();
     expect(s.phase).toBe('ORBITA_ALTA');
     const high = apsides.find((a) => a.type === 'apoapsis' && a.t > MET_E5_APOGEE_RAISE + 3000)!;
-    expect(high.radius - R_EARTH).toBeGreaterThan(70000);
+    expect(high.radius - R_EARTH).toBeGreaterThan(65000);
+    // Cronograma [TL]: elevación del perigeo en el apogeo a ~0/13:30 y TLI a 1/01:08:42.
+    expect(Math.abs(high.t - PUBLISHED_MET.prb)).toBeLessThan(15 * 60);
+    expect(Math.abs(P.burns.E9.met - PUBLISHED_MET.tli)).toBeLessThan(5);
     const next = fly(withBurn(P, 'E9', { prograde: 0 }), P.burns.E9.met + 1200);
     const peri = next.record.apsides.find((a) => a.type === 'periapsis' && a.t > high.t)!;
     expect(Math.abs(peri.t - (P.burns.E9.met + TLI_HALF_BURN))).toBeLessThan(5);
@@ -254,6 +259,11 @@ describe('H7 · retorno libre', () => {
     for (const id of ['E1', 'E2', 'E3', 'E4', 'E5', 'E6', 'E7', 'E8', 'E9', 'E10', 'E11', 'E12', 'E13', 'E14']) {
       expect(s.markers.some((m) => m.eventId === id)).toBe(true);
     }
+  });
+
+  it('sigue el cronograma publicado: sobrevuelo y entrada a menos de 1 h (Luna a la distancia real de abril de 2026)', () => {
+    expect(Math.abs(s.record.perilune!.t - PUBLISHED_MET.flyby)).toBeLessThan(3600);
+    expect(Math.abs(s.record.ei!.t - PUBLISHED_MET.ei)).toBeLessThan(3600);
   });
 
   it('coincide con los valores nominales guardados en params.json', () => {

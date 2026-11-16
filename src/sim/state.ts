@@ -1,5 +1,5 @@
 import { airVelocity } from './atmosphere';
-import { Ephemeris, createCircularEphemeris } from './bodies';
+import { Ephemeris, createKeplerEphemeris } from './bodies';
 import { DeltaV, ZERO_DV } from './burns';
 import { CommsStatus, commsStatus } from './comms';
 import { EARTH_ROTATION_IN_PLANE, R_EARTH } from './constants';
@@ -262,7 +262,7 @@ export function ephemerisOf(state: { readonly params: MissionParams }): Ephemeri
   let eph = ephCache.get(deg);
   if (!eph) {
     if (ephCache.size > 64) ephCache.clear();
-    eph = createCircularEphemeris((deg * Math.PI) / 180);
+    eph = createKeplerEphemeris((deg * Math.PI) / 180);
     ephCache.set(deg, eph);
   }
   return eph;
